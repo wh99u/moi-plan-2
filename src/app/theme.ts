@@ -4,7 +4,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
 export type Theme = 'light' | 'dark';
 
 const KEY = 'app_theme';
-const BAR: Record<Theme, string> = { dark: '#0c0608', light: '#f6f1f0' };
+const BAR: Record<Theme, string> = { dark: '#02040a', light: '#ecf3fc' };
 const mq = matchMedia('(prefers-color-scheme: dark)');
 
 function read(): ThemePref {
