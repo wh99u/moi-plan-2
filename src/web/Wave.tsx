@@ -93,7 +93,7 @@ void main() {
   float side = d > 0. ? exp(-d / (.115 + .055 * vLobe)) : exp(d / .034);
   float spill = side * (.5 + .16 * vLobe);
   float v = (1. - (1. - ribbon) * (1. - spill)) * (1. + uGlow * .25);
-  v *= 1. - uDim * .34;
+  v *= 1. - uDim * .46;
 
   float left = pow(clamp(1. - uv.x / aspect, 0., 1.), 3.);
   float top = pow(clamp(1. - uv.y, 0., 1.), 2.);

@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CapMark } from '../app/brand/CapMark';
 import { closeSheet, toggleSheet, useSheet } from '../app/sheet';
-import { EASE } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
+import { Mark } from './Mark';
 import { CIRCLE_R, FULL_H, HEAD, barPath, itemX, navFrame } from './navShape';
 import { Recede } from './Recede';
 import { TABS, href, tabIndex, type Route } from './route';
@@ -15,7 +14,7 @@ const SWITCH_MS = 860;
 const FIRST_DELAY = 620;
 
 const glyph = (i: number, open: boolean, size: number) =>
-  i === 0 ? <CapMark size={size + 6} mono /> : <Icon name={i === MORE && open ? 'close' : ITEMS[i].icon} size={size} stroke={1.9} />;
+  i === 0 ? <Mark size={size + 2} /> : <Icon name={i === MORE && open ? 'close' : ITEMS[i].icon} size={size} stroke={1.9} />;
 
 /**
  * Tab bar from the reference video on frosted glass. The active item is a circle raised out of a
@@ -39,7 +38,6 @@ export function Nav({ route }: { route: Route }) {
 
   const anim = useRef({ from: null as number | null, to: active, t: 0.3, width: 0, raf: 0 });
   const [inCircle, setInCircle] = useState(active);
-  const [rest, setRest] = useState(active);
 
   const draw = useCallback(() => {
     const s = anim.current;
@@ -76,7 +74,6 @@ export function Nav({ route }: { route: Route }) {
       if (calm) {
         s.t = 1;
         draw();
-        setRest(s.to);
         return;
       }
       const t0 = s.t;
@@ -85,7 +82,6 @@ export function Nav({ route }: { route: Route }) {
         s.t = Math.min(1, t0 + Math.max(0, now - at) / SWITCH_MS);
         draw();
         if (s.t < 1) s.raf = requestAnimationFrame(step);
-        else setRest(s.to);
       };
       s.raf = requestAnimationFrame(step);
     },
@@ -191,22 +187,6 @@ export function Nav({ route }: { route: Route }) {
               </a>
             );
           })}
-        </div>
-
-        <div className="lnav-labels" aria-hidden="true">
-          <AnimatePresence initial={false}>
-            <motion.span
-              key={rest}
-              className="lnav-label"
-              style={{ gridColumn: rest + 1 }}
-              initial={{ opacity: 0, y: 5, filter: 'blur(5px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -3, filter: 'blur(4px)', transition: { duration: 0.16 } }}
-              transition={{ duration: 0.45, ease: EASE }}
-            >
-              {ITEMS[rest].label}
-            </motion.span>
-          </AnimatePresence>
         </div>
       </nav>
     </Recede>

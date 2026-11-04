@@ -9,6 +9,7 @@ import { Sheet } from '../app/ui/Sheet';
 import { actions } from '../lib/appStore';
 import { addDays, dayKey } from '../lib/dates';
 import { Icon } from '../ui/Icon';
+import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
 import { pulseWave } from './Wave';
 
@@ -25,6 +26,7 @@ export function Sheets() {
       <Sheet open={open === 'profile'} onClose={closeSheet} title="Профиль">
         <ProfileForm />
       </Sheet>
+      <MoneySheets />
     </>
   );
 }

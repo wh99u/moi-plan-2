@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'vitest';
 import { parseFiscalQr, parseReceiptText, storeHint } from './receipt';
 
+describe('store names', () => {
+  test('finds a store whose name is a whole Russian word, and not inside another word', () => {
+    expect(parseReceiptText('ЛЕНТА\nХлеб 45.50').store).toBe('Лента');
+    expect(parseReceiptText('Метро\nХлеб 45.50').store).toBe('Metro');
+    expect(parseReceiptText('Изолента 45.50').store).toBeUndefined();
+  });
+});
+
 describe('fiscal QR', () => {
   test('reads total and date', () => {
     expect(parseFiscalQr('t=20261028T1531&s=246.76&fn=7284440500123456&i=12345&fp=1234567890&n=1')).toEqual({ total: 246.76, date: '2026-10-28' });

@@ -1,7 +1,8 @@
-export type BankCode = 'alfa' | 'sber' | 'vtb' | 'tbank' | 'ozon';
+export type BankCode = 'alfa' | 'sber' | 'vtb' | 'tbank' | 'ozon' | 'wb';
 
-export const BANK_CODES: BankCode[] = ['tbank', 'sber', 'alfa', 'vtb', 'ozon'];
+export const BANK_CODES: BankCode[] = ['tbank', 'sber', 'alfa', 'vtb', 'ozon', 'wb'];
 export const BANK_NAMES: Record<BankCode, string> = {
+  wb: 'ВБ Банк',
   alfa: 'Альфа-Банк',
   sber: 'Сбербанк',
   vtb: 'ВТБ',

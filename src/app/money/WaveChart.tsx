@@ -26,8 +26,33 @@ const yOf = (n: number) => TOP + (1 - n) * (H - TOP - BOTTOM);
 
 const SPRING = { type: 'spring', stiffness: 520, damping: 40 } as const;
 
+/** The chart's colours, on canvas and so out of reach of the stylesheet. */
+export interface ChartPalette {
+  /** Under the line: the colour it melts from, its mid and its bright end. */
+  fill: [string, string, string];
+  /** The line, left to right. */
+  stroke: [string, string, string];
+  halo: string;
+  headGlow: string;
+  head: string;
+  /** The thin line from a chosen point to the axis. */
+  pick: string;
+  soft: string;
+}
+
+const BRAND_RED: ChartPalette = {
+  fill: ['rgba(214, 34, 63, 0)', 'rgba(214, 34, 63, 0.14)', 'rgba(255, 77, 102, 0.42)'],
+  stroke: ['rgba(255, 77, 102, 0.55)', '#ff5a72', '#ffd2d9'],
+  halo: 'rgba(255, 90, 114, 0.22)',
+  headGlow: 'rgba(255, 150, 165, 0.45)',
+  head: '#fff',
+  pick: 'rgba(255, 255, 255, 0.55)',
+  soft: 'rgba(255, 77, 102, 0.2)',
+};
+
 interface Props {
   points: ChartPoint[];
+  palette?: ChartPalette;
   /** Seconds before the line starts to draw itself. */
   delay: number;
   format: (value: number) => string;
@@ -38,7 +63,7 @@ interface Props {
  * One glowing line that never stands still: it rolls gently and two softer waves roll under it in
  * other directions. Canvas keeps this cheap on a phone, and it rests while off screen.
  */
-export function WaveChart({ points, delay, format, onPick }: Props) {
+export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
@@ -53,8 +78,15 @@ export function WaveChart({ points, delay, format, onPick }: Props) {
     w: 0,
     picked: null as number | null,
     count: 0,
+    palette,
     wake: () => {},
   });
+
+  // A new theme repaints at once, even where the chart otherwise stands still.
+  useEffect(() => {
+    live.current.palette = palette;
+    live.current.wake();
+  }, [palette]);
 
   useLayoutEffect(() => {
     const el = box.current;
@@ -135,9 +167,10 @@ export function WaveChart({ points, delay, format, onPick }: Props) {
 
       // Two waves underneath, rolling their own ways; brighter on the right, as the line is.
       const soft = (i: number) => yOf(l.soft[i]);
+      const pal = l.palette;
       const rise = ctx.createLinearGradient(PAD_LEFT, H, width, TOP);
-      rise.addColorStop(0, 'rgba(214, 34, 63, 0)');
-      rise.addColorStop(1, 'rgba(255, 77, 102, 0.2)');
+      rise.addColorStop(0, pal.fill[0]);
+      rise.addColorStop(1, pal.soft);
       ctx.fillStyle = rise;
       trace((i) => Math.min(H, soft(i) + 30 + wave(xAt(i), 170, 0.9, 7)));
       close();
@@ -148,9 +181,9 @@ export function WaveChart({ points, delay, format, onPick }: Props) {
 
       const lineY = (i: number) => base(i) + wave(xAt(i), 95, 1.6, 2.2 + swell) + wave(xAt(i), 41, -1.1, 0.7);
       const fill = ctx.createLinearGradient(PAD_LEFT, H, width, TOP);
-      fill.addColorStop(0, 'rgba(214, 34, 63, 0)');
-      fill.addColorStop(0.55, 'rgba(214, 34, 63, 0.14)');
-      fill.addColorStop(1, 'rgba(255, 77, 102, 0.42)');
+      fill.addColorStop(0, pal.fill[0]);
+      fill.addColorStop(0.55, pal.fill[1]);
+      fill.addColorStop(1, pal.fill[2]);
       trace(lineY);
       close();
       ctx.fillStyle = fill;
@@ -169,9 +202,9 @@ export function WaveChart({ points, delay, format, onPick }: Props) {
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       const stroke = ctx.createLinearGradient(PAD_LEFT, 0, width - PAD_RIGHT, 0);
-      stroke.addColorStop(0, 'rgba(255, 77, 102, 0.55)');
-      stroke.addColorStop(0.6, '#ff5a72');
-      stroke.addColorStop(1, '#ffd2d9');
+      stroke.addColorStop(0, pal.stroke[0]);
+      stroke.addColorStop(0.6, pal.stroke[1]);
+      stroke.addColorStop(1, pal.stroke[2]);
       ctx.strokeStyle = stroke;
       for (const [lw, alpha] of [
         [9, 0.09],
@@ -193,21 +226,21 @@ export function WaveChart({ points, delay, format, onPick }: Props) {
       const hy = lineY(at);
       if (l.picked !== null) {
         const fall = ctx.createLinearGradient(0, hy, 0, H);
-        fall.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+        fall.addColorStop(0, pal.pick);
         fall.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = fall;
         ctx.fillRect(hx - 0.5, hy, 1, H - hy);
       }
       const breath = 0.5 + 0.5 * Math.sin(time * 2.4);
-      ctx.fillStyle = 'rgba(255, 90, 114, 0.22)';
+      ctx.fillStyle = pal.halo;
       ctx.beginPath();
       ctx.arc(hx, hy, 9 + breath * 4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 150, 165, 0.45)';
+      ctx.fillStyle = pal.headGlow;
       ctx.beginPath();
       ctx.arc(hx, hy, 6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = pal.head;
       ctx.beginPath();
       ctx.arc(hx, hy, 3, 0, Math.PI * 2);
       ctx.fill();
