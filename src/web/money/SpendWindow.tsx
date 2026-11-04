@@ -4,11 +4,10 @@ import { convert, formatMoney, useCurrency, type Cur, type UsdRate } from '../..
 import { exactMoney } from '../../app/money/logic';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
-import { fmtDay } from '../../lib/dates';
 import { visible } from '../../lib/records';
 import type { Spend } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
-import { cardLabel } from './data';
+import { cardLabel, fullDate } from './data';
 import { Logo } from './Logo';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
@@ -44,7 +43,7 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
               </motion.span>
               <div className="p-win-title">
                 <h2>{title}</h2>
-                <p>{[fmtDay(spend.date, true), card].filter(Boolean).join(', ')}</p>
+                <p>{[fullDate(spend.date), card].filter(Boolean).join(', ')}</p>
               </div>
               <motion.button type="button" className="round-btn" aria-label="Закрыть" onClick={onClose} whileTap={{ scale: 0.86 }}>
                 <Icon name="close" size={18} />

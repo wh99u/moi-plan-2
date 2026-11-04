@@ -4,41 +4,29 @@ import { createPortal } from 'react-dom';
 import { Amt } from '../../app/money/Amt';
 import { setNotice, useNotice } from '../../app/money/auto';
 import { formatMoney, loadRate, setCurrency, useCurrency, type Cur } from '../../app/money/currency';
-import { pickReceipt } from '../../app/money/scan';
 import { WaveChart, type ChartPalette } from '../../app/money/WaveChart';
 import { openSheet } from '../../app/sheet';
-import { useTheme } from '../../app/theme';
 import { Segmented } from '../../app/ui/Segmented';
-import { EASE } from '../../app/ui/text';
+import { EASE, MorphText } from '../../app/ui/text';
 import { actions, appStore, useStore } from '../../lib/appStore';
 import { visible } from '../../lib/records';
 import type { Spend } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
-import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTotals, missingCards, type Span } from './data';
+import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, missingCards, type Span } from './data';
 import { Logo } from './Logo';
 import { SpendWindow } from './SpendWindow';
 
-const PALETTE: Record<'dark' | 'light', ChartPalette> = {
-  dark: {
-    fill: ['rgba(60, 130, 230, 0)', 'rgba(70, 145, 240, 0.16)', 'rgba(130, 195, 255, 0.46)'],
-    stroke: ['rgba(120, 185, 255, 0.5)', '#8cc8ff', '#ffffff'],
-    halo: 'rgba(130, 195, 255, 0.24)',
-    headGlow: 'rgba(190, 225, 255, 0.5)',
-    head: '#fff',
-    pick: 'rgba(255, 255, 255, 0.55)',
-    soft: 'rgba(90, 165, 255, 0.2)',
-  },
-  light: {
-    fill: ['rgba(20, 97, 244, 0)', 'rgba(20, 97, 244, 0.12)', 'rgba(26, 155, 255, 0.4)'],
-    stroke: ['rgba(20, 97, 244, 0.45)', '#1461f4', '#0d9bf5'],
-    halo: 'rgba(20, 110, 245, 0.2)',
-    headGlow: 'rgba(20, 110, 245, 0.4)',
-    head: '#0d4fe0',
-    pick: 'rgba(10, 50, 140, 0.45)',
-    soft: 'rgba(26, 130, 255, 0.18)',
-  },
+/** The panel is dark blue in both themes, so the chart keeps one set of colours. */
+const PALETTE: ChartPalette = {
+  fill: ['rgba(120, 190, 255, 0)', 'rgba(130, 195, 255, 0.2)', 'rgba(190, 225, 255, 0.5)'],
+  stroke: ['rgba(190, 225, 255, 0.6)', '#cfe6ff', '#ffffff'],
+  halo: 'rgba(190, 225, 255, 0.26)',
+  headGlow: 'rgba(220, 238, 255, 0.55)',
+  head: '#fff',
+  pick: 'rgba(255, 255, 255, 0.6)',
+  soft: 'rgba(170, 215, 255, 0.3)',
 };
 
 /** How many purchases appear at first, and how many more each tap brings. */
@@ -79,7 +67,6 @@ export function Budget() {
 }
 
 function TopPanel() {
-  const { theme } = useTheme();
   const { cur, rate } = useCurrency();
   const banks = visible(useStore((s) => s.shared.banks));
   const incomes = visible(useStore((s) => s.shared.incomes));
@@ -106,7 +93,7 @@ function TopPanel() {
   };
 
   return (
-    <Recede from={1.9} panel className={`glass b-top${smear ? ' is-smearing' : ''}`}>
+    <Recede from={1.9} panel className={`b-top${smear ? ' is-smearing' : ''}`}>
       <div className="b-head">
         <button type="button" className="b-total" aria-expanded={cardsOpen} onClick={() => setCardsOpen(!cardsOpen)}>
           <span className="b-label">
@@ -158,21 +145,43 @@ function TopPanel() {
 
       <div className="b-income">
         <div>
-          <p className="b-label">Доход за {span === 'days' ? '30 дней' : '12 месяцев'}</p>
-          <p className="b-income-sum">{formatMoney(sum, cur, rate)}</p>
+          <p className="b-label">
+            <MorphText text={incomeTitle(span, now)} delay={0.1} />
+          </p>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.p
+              key={span}
+              className="b-income-sum"
+              initial={{ opacity: 0, y: 12, filter: 'blur(8px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
+              transition={{ duration: 0.32, ease: EASE }}
+            >
+              {formatMoney(sum, cur, rate)}
+            </motion.p>
+          </AnimatePresence>
         </div>
-        {change !== null && (
-          <span className={`b-change${change < 0 ? ' is-down' : ''}`}>
-            <motion.span style={{ display: 'grid' }} animate={{ rotate: change < 0 ? 90 : -90 }}>
-              <Icon name="arrowRight" size={13} stroke={2.4} />
+        <AnimatePresence mode="wait" initial={false}>
+          {change !== null && (
+            <motion.span
+              key={`${span}${change}`}
+              className={`b-change${change < 0 ? ' is-down' : ''}`}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.28, ease: EASE }}
+            >
+              <span style={{ display: 'grid', rotate: change < 0 ? '90deg' : '-90deg' }}>
+                <Icon name="arrowRight" size={13} stroke={2.4} />
+              </span>
+              {Math.abs(change)}%
             </motion.span>
-            {Math.abs(change)}%
-          </span>
-        )}
+          )}
+        </AnimatePresence>
       </div>
 
-      <WaveChart points={points} palette={PALETTE[theme]} delay={0.35} format={(v) => formatMoney(v, cur, rate)} />
-      {!sum && <p className="b-chart-empty">Доходов за это время нет. Добавь первый кнопкой ниже</p>}
+      <WaveChart points={points} palette={PALETTE} delay={0.35} format={(v) => formatMoney(v, cur, rate)} />
+      {!sum && <p className="b-chart-empty">Доходов за это время нет</p>}
 
       <div className="b-span">
         <Segmented
@@ -190,20 +199,15 @@ function TopPanel() {
 }
 
 function Tiles() {
-  const scan = () => {
-    // The picker has to open right inside the tap, or the browser blocks it.
-    void pickReceipt().then((file) => file && openSheet('tx', { tx: 'out', file }));
-  };
   const tiles = [
-    { label: 'Скан чека', icon: 'scan', go: scan, main: true },
-    { label: 'Покупка', icon: 'plus', go: () => openSheet('tx', { tx: 'out' }), main: false },
-    { label: 'Доход', icon: 'trend', go: () => openSheet('tx', { tx: 'in' }), main: false },
-  ];
+    { label: 'Покупка', icon: 'plus', tx: 'out', wide: true },
+    { label: 'Доход', icon: 'trend', tx: 'in', wide: false },
+  ] as const;
   return (
     <div className="b-tiles">
       {tiles.map((t, i) => (
-        <Recede key={t.label} from={1.6} delay={0.06 + i * 0.05} panel className={`b-tile-wrap${t.main ? ' is-main' : ''}`}>
-          <motion.button type="button" className={`b-tile${t.main ? ' is-main' : ' glass'}`} onClick={t.go} whileHover={{ y: -3 }} whileTap={{ scale: 0.93 }}>
+        <Recede key={t.label} from={1.6} delay={0.06 + i * 0.05} panel className={`b-tile-wrap${t.wide ? ' is-wide' : ''}`}>
+          <motion.button type="button" className="b-tile glass" onClick={() => openSheet('tx', { tx: t.tx })} whileHover={{ y: -3 }} whileTap={{ scale: 0.93 }}>
             <span className="b-tile-icon">
               <Icon name={t.icon} size={21} stroke={2} />
             </span>

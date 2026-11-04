@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { scanReceipt, type ScanStage } from '../../app/money/scan';
+import { pickReceipt, scanReceipt, type ScanStage } from '../../app/money/scan';
 import { closeSheet, useSheet, useSheetData } from '../../app/sheet';
 import { Sheet } from '../../app/ui/Sheet';
 import { EASE } from '../../app/ui/text';
@@ -10,7 +10,7 @@ import { visible } from '../../lib/records';
 import type { SpendItem } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { pulseWave } from '../Wave';
-import { cardViews, parseAmount, type CardView } from './data';
+import { cardViews, fullDate, parseAmount, type CardView } from './data';
 import { Logo } from './Logo';
 
 export function MoneySheets() {
@@ -18,8 +18,8 @@ export function MoneySheets() {
   const data = useSheetData();
   return (
     <>
-      <Sheet open={open === 'tx' && data.tx === 'out'} onClose={closeSheet} title={data.file ? 'Чек' : 'Новая покупка'}>
-        <PurchaseForm file={data.file} />
+      <Sheet open={open === 'tx' && data.tx === 'out'} onClose={closeSheet} title="Новая покупка">
+        <PurchaseForm />
       </Sheet>
       <Sheet open={open === 'tx' && data.tx === 'in'} onClose={closeSheet} title="Новый доход">
         <IncomeForm />
@@ -58,6 +58,27 @@ function CardPick({ cards, value, onChange }: { cards: CardView[]; value?: strin
   );
 }
 
+/**
+ * A day in words, with the browser's own picker over it. The native field looks different on every
+ * device, and in Russian it writes a stray dot after the year.
+ */
+function DateField({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+  return (
+    <label className="date-field">
+      <span>{fullDate(value)}</span>
+      <Icon name="calendar" size={18} />
+      <input
+        type="date"
+        value={value}
+        aria-label="Дата"
+        // An emptied field has no day to keep.
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        onClick={(e) => e.currentTarget.showPicker?.()}
+      />
+    </label>
+  );
+}
+
 /** A receipt line while it is being checked; the key keeps it apart from its neighbours when one is removed. */
 type Line = SpendItem & { key: number };
 let lineKey = 0;
@@ -87,30 +108,31 @@ const STAGES: Record<ScanStage, string> = {
   done: 'Готово',
 };
 
-function PurchaseForm({ file }: { file?: File }) {
+function PurchaseForm() {
+  const [file, setFile] = useState<File | null>(null);
   const cards = useCards();
   const [bankId, setBankId] = useDefaultCard(cards);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => dayKey(new Date()));
   const [items, setItems] = useState<Line[]>([]);
-  const [scan, setScan] = useState<{ stage: ScanStage; share: number } | null>(file ? { stage: 'prepare', share: 0 } : null);
+  const [scan, setScan] = useState<{ stage: ScanStage; share: number } | null>(null);
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const amountTouched = useRef(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (file) return;
     // After the sheet has sprung up, so the keyboard does not fight the animation.
     const t = setTimeout(() => input.current?.focus(), 380);
     return () => clearTimeout(t);
-  }, [file]);
+  }, []);
 
   useEffect(() => {
     if (!file) return;
     const url = URL.createObjectURL(file);
     setPhoto(url);
+    setScan({ stage: 'prepare', share: 0 });
     let gone = false;
     scanReceipt(file, (stage, share) => !gone && setScan({ stage, share }))
       .then((r) => {
@@ -167,14 +189,26 @@ function PurchaseForm({ file }: { file?: File }) {
 
   return (
     <form className="form" onSubmit={submit}>
-      {note && <p className="form-note">{note}</p>}
+      {note ? (
+        <p className="form-note">{note}</p>
+      ) : (
+        <button
+          type="button"
+          className="scan-link"
+          // The picker has to open right inside the tap, or the browser blocks it.
+          onClick={() => void pickReceipt().then((f) => f && setFile(f))}
+        >
+          <Icon name="scan" size={18} />
+          Заполнить по фото чека
+        </button>
+      )}
       <div className="field-logo">
         <Logo title={title || '?'} size={36} />
         <input ref={input} className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Где: Пятёрочка, Spotify, plati.ru" aria-label="Название" maxLength={80} />
       </div>
       <div className="form-two">
         <input className="field" value={amount} onChange={(e) => { amountTouched.current = true; setAmount(e.target.value); }} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
-        <input className="field field--date" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Дата" />
+        <DateField value={date} onChange={setDate} />
       </div>
       <CardPick cards={cards} value={bankId} onChange={setBankId} />
 
@@ -227,7 +261,7 @@ function IncomeForm() {
     <form className="form" onSubmit={submit}>
       <div className="form-two">
         <input ref={input} className="field" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
-        <input className="field field--date" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Дата" />
+        <DateField value={date} onChange={setDate} />
       </div>
       <input className="field" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Откуда: зарплата, подработка" aria-label="Откуда" maxLength={80} />
       <CardPick cards={cards} value={bankId} onChange={setBankId} />

@@ -60,8 +60,8 @@ interface Props {
 }
 
 /**
- * One glowing line that never stands still: it rolls gently and two softer waves roll under it in
- * other directions. Canvas keeps this cheap on a phone, and it rests while off screen.
+ * One glowing line that holds still, and two softer waves that roll inside the area under it in
+ * opposite directions. Canvas keeps this cheap on a phone, and it rests while off screen.
  */
 export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -137,7 +137,7 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
     let last = 0;
     let inView = true;
 
-    const draw = (time: number, reveal: number, swell: number) => {
+    const draw = (time: number, reveal: number) => {
       const width = l.w;
       if (!width) return;
       const dpr = c.width / width;
@@ -172,14 +172,20 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
       rise.addColorStop(0, pal.fill[0]);
       rise.addColorStop(1, pal.soft);
       ctx.fillStyle = rise;
+      // They stay under the line: the area below it is all they can draw on.
+      ctx.save();
+      trace(base);
+      close();
+      ctx.clip();
       trace((i) => Math.min(H, soft(i) + 30 + wave(xAt(i), 170, 0.9, 7)));
       close();
       ctx.fill();
       trace((i) => Math.min(H, soft(i) + 14 + wave(xAt(i), 115, -1.2, 5.5)));
       close();
       ctx.fill();
+      ctx.restore();
 
-      const lineY = (i: number) => base(i) + wave(xAt(i), 95, 1.6, 2.2 + swell) + wave(xAt(i), 41, -1.1, 0.7);
+      const lineY = base;
       const fill = ctx.createLinearGradient(PAD_LEFT, H, width, TOP);
       fill.addColorStop(0, pal.fill[0]);
       fill.addColorStop(0.55, pal.fill[1]);
@@ -265,15 +271,14 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
       const since = (now - first) / 1000 - delay;
       const p = Math.max(0, Math.min(1, since / 1.25));
       const reveal = 1 - (1 - p) ** 3;
-      const swell = 11 * Math.exp(-Math.max(0, since) / 0.7);
-      draw(now / 1000, reveal, swell);
+      draw(now / 1000, reveal);
       if (inView && !document.hidden) raf = requestAnimationFrame(tick);
     };
 
     const paintStill = () => {
       l.cur.set(l.target);
       l.soft.set(l.softTarget);
-      draw(0, 1, 0);
+      draw(0, 1);
     };
     const wake = () => {
       if (still) paintStill();
