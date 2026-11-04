@@ -4,13 +4,12 @@ import { CapMark } from '../app/brand/CapMark';
 import { closeSheet, toggleSheet, useSheet } from '../app/sheet';
 import { EASE } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
-import { CIRCLE_R, FULL_H, HEAD, barPath, navFrame } from './navShape';
+import { CIRCLE_R, FULL_H, HEAD, barPath, itemX, navFrame } from './navShape';
 import { Recede } from './Recede';
 import { TABS, href, tabIndex, type Route } from './route';
 
 const ITEMS = [...TABS.map((t) => ({ key: t.id, label: t.label, icon: t.icon })), { key: 'more', label: 'Ещё', icon: 'grid' }];
 const MORE = ITEMS.length - 1;
-const PAD = 8;
 const SWITCH_MS = 860;
 /** The circle first grows out of the bar as the opening pull-back is landing. */
 const FIRST_DELAY = 620;
@@ -45,7 +44,7 @@ export function Nav({ route }: { route: Route }) {
   const draw = useCallback(() => {
     const s = anim.current;
     if (!s.width) return;
-    const center = (i: number) => PAD + ((s.width - PAD * 2) / ITEMS.length) * (i + 0.5);
+    const center = (i: number) => itemX(s.width, i, ITEMS.length);
     const f = navFrame(s.t, s.from === null ? null : center(s.from), center(s.to));
     const d = barPath(s.width, f);
 
@@ -122,7 +121,7 @@ export function Nav({ route }: { route: Route }) {
   }, [active, run]);
 
   return (
-    <Recede from={1.7} delay={0.08} className="lnav-wrap">
+    <Recede from={1.7} delay={0.08} solid className="lnav-wrap">
       <nav ref={root} className="lnav" aria-label="Разделы">
         <div ref={glass} className="lnav-glass" />
         <svg ref={svg} className="lnav-svg" preserveAspectRatio="none" aria-hidden="true">

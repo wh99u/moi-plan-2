@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HEAD, barPath, navFrame, topEdge } from './navShape';
+import { HEAD, barPath, itemX, navFrame, topEdge } from './navShape';
 
 const W = 400;
 
@@ -41,7 +41,34 @@ describe('topEdge', () => {
   });
 
   it('dips under the circle', () => {
-    expect(topEdge(200, W, navFrame(1, null, 200))).toBeCloseTo(HEAD + 30);
+    expect(topEdge(200, W, navFrame(1, null, 200))).toBeCloseTo(HEAD + 26);
+  });
+
+  it('has the same notch on both sides, at the ends too', () => {
+    const x = itemX(W, 0, 5);
+    const f = navFrame(1, null, x);
+    for (const dx of [10, 20, 30, 40]) {
+      expect(topEdge(x - dx, W, f)).toBeCloseTo(topEdge(x + dx, W, f), 5);
+    }
+  });
+
+  it('never jumps along the edge, at any item on any screen', () => {
+    for (const width of [300, 355, 440]) {
+      for (let i = 0; i < 5; i++) {
+        const f = navFrame(1, null, itemX(width, i, 5));
+        // Corners are round by design, so only the part beyond them is held to the strict limit.
+        for (let x = 26; x < width - 26; x++) {
+          expect(Math.abs(topEdge(x + 1, width, f) - topEdge(x, width, f))).toBeLessThan(1.5);
+        }
+      }
+    }
+  });
+});
+
+describe('itemX', () => {
+  it('leaves the same space at the ends as between items', () => {
+    const xs = [0, 1, 2, 3, 4].map((i) => itemX(360, i, 5));
+    expect(xs).toEqual([60, 120, 180, 240, 300]);
   });
 });
 

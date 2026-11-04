@@ -8,7 +8,7 @@ import { toggleTheme, useTheme } from '../app/theme';
 import { Icon } from '../ui/Icon';
 import { Home } from './Home';
 import { Nav } from './Nav';
-import { PULL_EASE, Recede, entering } from './Recede';
+import { Recede } from './Recede';
 import { useRoute } from './route';
 import { Sheets } from './Sheets';
 import { Soon } from './Soon';
@@ -30,16 +30,9 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <Wave route={route} />
       <AnimatePresence mode="wait">
-        <motion.main
-          key={route}
-          className="page"
-          initial={entering() ? false : { opacity: 0, scale: 1.16 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.24, ease: 'easeIn' } }}
-          transition={{ scale: { duration: 1, ease: PULL_EASE }, opacity: { duration: 0.4 } }}
-        >
+        <main key={route} className="page">
           {route === 'home' ? <Home /> : <Soon route={route} />}
-        </motion.main>
+        </main>
       </AnimatePresence>
       <TopBar />
       <Nav route={route} />
@@ -58,7 +51,7 @@ function TopBar() {
         <CapMark size={34} mono />
         <span>Мой план</span>
       </Recede>
-      <Recede from={2} delay={0.16} className="top-actions">
+      <Recede from={2} delay={0.16} solid className="top-actions">
         <motion.button
           type="button"
           className="theme-pill"

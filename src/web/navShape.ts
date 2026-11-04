@@ -4,17 +4,20 @@ export const BAR_H = 64;
 /** Room above the bar for the raised circle and the hill it grows out of. */
 export const HEAD = 42;
 export const FULL_H = HEAD + BAR_H;
-export const CIRCLE_R = 25;
+export const CIRCLE_R = 24;
 
 const RADIUS = 26;
-const NOTCH_DEPTH = 30;
-const NOTCH_HALF = 54;
+const NOTCH_DEPTH = 26;
+const NOTCH_HALF = 46;
 const HILL_HEIGHT = 34;
-const HILL_HALF = 46;
+const HILL_HALF = 44;
 /** Circle centre at rest, a little above the bar's top edge. */
-const REST_Y = HEAD - 8;
+const REST_Y = HEAD - 10;
 const SINK_Y = HEAD + 20;
-const STEP = 2;
+const STEP = 1;
+
+/** Items sit a sixth of the width apart, with the same space from the ends as between them. */
+export const itemX = (width: number, i: number, count: number) => (width * (i + 1)) / (count + 1);
 
 export interface Bump {
   x: number;
@@ -70,26 +73,29 @@ export function navFrame(t: number, fromX: number | null, toX: number): NavFrame
   };
 }
 
-/** A round-shouldered bump: 1 at the centre, 0 from `half` on. */
+/** A soft bump: 1 at the centre, 0 from `half` on, leaving and arriving perfectly flat, so it has no visible start or tip. */
 const bump = (dx: number, half: number) => {
   const u = Math.abs(dx) / half;
-  return u < 1 ? (Math.cos(Math.PI * u) + 1) / 2 : 0;
+  return u < 1 ? 1 - u * u * u * (u * (u * 6 - 15) + 10) : 0;
 };
 
 /** Height of the bar's top edge at x. */
 export function topEdge(x: number, width: number, frame: Pick<NavFrame, 'notches' | 'hill'>) {
   const fromSide = Math.min(x, width - x);
   const corner = fromSide < RADIUS ? RADIUS - Math.sqrt(RADIUS * RADIUS - (RADIUS - fromSide) ** 2) : 0;
+  // Narrow screens get a narrower notch, so at the end items it still clears the rounded corner.
+  const half = Math.min(NOTCH_HALF, width / 6 - 12);
   let dip = 0;
-  for (const n of frame.notches) dip += NOTCH_DEPTH * n.size * bump(x - n.x, NOTCH_HALF);
-  return HEAD + Math.max(corner, dip) - HILL_HEIGHT * frame.hill.size * bump(x - frame.hill.x, HILL_HALF);
+  for (const n of frame.notches) dip += NOTCH_DEPTH * n.size * bump(x - n.x, half);
+  // Added, not the larger of the two: where they meet the edge stays smooth instead of forming a spike.
+  return HEAD + corner + dip - HILL_HEIGHT * frame.hill.size * bump(x - frame.hill.x, HILL_HALF);
 }
 
 /** The bar's outline as an SVG path; also used as its glass's clip-path. */
 export function barPath(width: number, frame: Pick<NavFrame, 'notches' | 'hill'>) {
-  let d = `M0 ${topEdge(0, width, frame).toFixed(1)}`;
-  for (let x = STEP; x < width; x += STEP) d += `L${x} ${topEdge(x, width, frame).toFixed(1)}`;
-  d += `L${width} ${topEdge(width, width, frame).toFixed(1)}`;
+  let d = `M0 ${topEdge(0, width, frame).toFixed(2)}`;
+  for (let x = STEP; x < width; x += STEP) d += `L${x} ${topEdge(x, width, frame).toFixed(2)}`;
+  d += `L${width} ${topEdge(width, width, frame).toFixed(2)}`;
   d += `V${FULL_H - RADIUS}A${RADIUS} ${RADIUS} 0 0 1 ${width - RADIUS} ${FULL_H}H${RADIUS}A${RADIUS} ${RADIUS} 0 0 1 0 ${FULL_H - RADIUS}Z`;
   return d;
 }

@@ -2,22 +2,41 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../app/theme';
 import { tabIndex, type Route } from './route';
 
-const VERT = `attribute vec2 a; void main(){ gl_Position = vec4(a, 0., 1.); }`;
+/**
+ * Irregular but unbroken: sines bent by other sines, about -0.85 to 0.85. Hash-based noise is not
+ * safe here: on some GPUs its cells disagree by a rounding error at the border, and the line tears.
+ */
+const NOISE = `
+float noise(vec2 p) {
+  p *= 3.;
+  float a = sin(p.x + p.y + 1.4 * sin(.61 * p.x + .43 * p.y));
+  float b = sin(1.37 * p.x - .83 * p.y + 1.9 + 1.1 * sin(.47 * p.x - .71 * p.y + 2.1));
+  return (a + b) * .42;
+}`;
 
-const FRAG = `
+/**
+ * The line depends on height alone, so it is worked out per row of a mesh and only interpolated
+ * across the screen. That leaves the fragment shader little to do, which phones are grateful for.
+ */
+const VERT = `
 precision highp float;
+attribute vec2 a;
 uniform vec2 uRes;
-uniform float uT, uZoom, uIn, uTheme, uBase, uAmp, uBulge, uSweep, uSweepAt, uDim, uGlow, uRib;
+uniform float uT, uZoom, uBase, uAmp, uBulge, uSweep, uSweepAt, uThick;
 uniform vec3 uPtr;
+varying float vCenter, vSlope, vWidth, vOffset, vWidth2, vLobe, vFocus, vY;
+${NOISE}
 
-// Where the line runs at height y, in screen heights from its base.
+// Where the ribbon runs at height y, in screen heights from its base.
 float line(float y) {
-  float t = uT;
-  float w = y + .07 * sin(y * 2.3 + t * .11 + 1.7) + .04 * sin(y * 4.1 - t * .09);
-  float c = .085 * sin(w * 2.6 + t * .16 + .6)
-          + .050 * sin(w * 4.7 - t * .21 + 2.2)
-          + .024 * sin(w * 8.3 + t * .27 + 4.1 + 1.4 * sin(t * .07))
-          + .012 * sin(w * 13.1 - t * .33 + .4);
+  float t = uT * .7;
+  float w = y + .06 * noise(vec2(y * 2.1, t * .2));
+  float c = .100 * noise(vec2(w * 1.5, t * .15 + 3.))
+          + .050 * noise(vec2(w * 3.1 + 7., t * .25))
+          + .012 * noise(vec2(w * 4.8 + 2., t * .34));
+  // A fold now and then: a rounded absolute value leaves soft creases in the edge.
+  float n = noise(vec2(w * 2.2 + 4., t * .2));
+  c += .045 * (sqrt(n * n + .012) - .35);
   c *= uAmp;
   float b = y - .46;
   c += uBulge * exp(-b * b * 14.);
@@ -27,7 +46,31 @@ float line(float y) {
   return c;
 }
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  gl_Position = vec4(a, 0., 1.);
+  float base = uBase * uRes.x / uRes.y;
+  float y = (.5 - a.y * .5 - .46) / uZoom + .46;
+  float t = uT * .7;
+  float e = .004;
+  vY = y;
+  // The pull-back is centred on the line itself, otherwise it flies in from the side.
+  vFocus = base + line(.46);
+  vCenter = base + line(y);
+  vSlope = (line(y + e) - line(y - e)) / (2. * e);
+  vWidth = uThick * max(.03, .066 * (1. + .5 * noise(vec2(y * 2.2, t * .22 + 11.)) + .16 * noise(vec2(y * 4.6, t * .3 + 5.))));
+  vWidth2 = vWidth * (.62 + .2 * noise(vec2(y * 3.1 + 8., t * .3)));
+  vOffset = uThick * (.03 + .055 * noise(vec2(y * 2.2 + 20., t * .31)));
+  vLobe = noise(vec2(y * 3.5 + 13., t * .32));
+}`;
+
+const FRAG = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uT, uZoom, uIn, uTheme, uDim, uGlow, uRib;
+varying float vCenter, vSlope, vWidth, vOffset, vWidth2, vLobe, vFocus, vY;
+${NOISE}
+
+float grain(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
 void main() {
   float aspect = uRes.x / uRes.y;
@@ -36,30 +79,30 @@ void main() {
 
   // Fluted glass in front of the light: thin vertical ribs that bend it a little.
   float rib = fract(uv.x * uRib);
-  // The pull-back is centred on the line itself, otherwise it flies in from the side.
-  vec2 focus = vec2(uBase * aspect + line(.46), .46);
-  vec2 p = (uv - focus) / uZoom + focus;
-  p.x += (rib - .5) * .0016;
+  float x = (uv.x - vFocus) / uZoom + vFocus + (rib - .5) * .0016;
+  float d = (x - vCenter) / sqrt(1. + vSlope * vSlope);
 
-  float e = .004;
-  float slope = (line(p.y + e) - line(p.y - e)) / (2. * e);
-  float d = (p.x - uBase * aspect - line(p.y)) / sqrt(1. + slope * slope);
+  // Two strands that drift over each other, with streaks running along them like folds of silk.
+  float one = d / vWidth;
+  float two = (d - vOffset) / vWidth2;
+  float folds = noise(vec2(d * 9. + vLobe * 1.5, vY * 3. + uT * .24));
+  float fine = noise(vec2(d * 19. - 1., vY * 4.6 - uT * .18 + 4.));
+  float ribbon = max(exp(-one * one), .82 * exp(-two * two)) * (.9 + .17 * folds + .04 * fine);
 
-  float width = .042 * (1. + .26 * sin(p.y * 3.3 + uT * .19) + .16 * sin(p.y * 7. - uT * .13));
-  float core = exp(-d * d / (width * width));
-  float side = d > 0. ? exp(-d / .125) : exp(d / .05);
-  float breath = .97 + .03 * sin(uT * .4);
-  float v = (1. - (1. - core) * (1. - .62 * side)) * breath * (1. + uGlow * .25);
+  // The light spills to the right in slow uneven lobes and stops sharply on the left.
+  float side = d > 0. ? exp(-d / (.115 + .055 * vLobe)) : exp(d / .034);
+  float spill = side * (.5 + .16 * vLobe);
+  float v = (1. - (1. - ribbon) * (1. - spill)) * (1. + uGlow * .25);
   v *= 1. - uDim * .34;
 
   float left = pow(clamp(1. - uv.x / aspect, 0., 1.), 3.);
   float top = pow(clamp(1. - uv.y, 0., 1.), 2.);
 
-  vec3 dark = vec3(.006, .012, .026) + vec3(.012, .05, .105) * left * (.45 + .55 * top);
-  dark = mix(dark, vec3(.025, .115, .27), smoothstep(.0, .24, v));
-  dark = mix(dark, vec3(.12, .40, .80), smoothstep(.2, .5, v));
-  dark = mix(dark, vec3(.62, .84, 1.), smoothstep(.44, .72, v));
-  dark = mix(dark, vec3(1.), smoothstep(.72, .95, v));
+  vec3 dark = vec3(.004, .009, .016) + vec3(.016, .055, .10) * left * (.45 + .55 * top);
+  dark = mix(dark, vec3(.02, .075, .15), smoothstep(.0, .24, v));
+  dark = mix(dark, vec3(.16, .36, .60), smoothstep(.2, .5, v));
+  dark = mix(dark, vec3(.66, .82, .96), smoothstep(.44, .72, v));
+  dark = mix(dark, vec3(.975, .988, 1.), smoothstep(.76, .96, v));
   dark *= 1. + .02 * sin(rib * 6.2832) * (1. - v);
 
   vec3 light = vec3(.925, .953, .99) + vec3(-.05, -.025, 0.) * left * (.5 + .5 * top);
@@ -70,10 +113,10 @@ void main() {
   light *= 1. + .008 * sin(rib * 6.2832) * (1. - v);
 
   vec3 col = mix(dark, light, uTheme);
-  vec3 bg = mix(vec3(.006, .012, .026), vec3(.925, .953, .99), uTheme);
+  vec3 bg = mix(vec3(.004, .009, .016), vec3(.925, .953, .99), uTheme);
   col = mix(bg, col, uIn);
   // A hair of grain, otherwise the long dark gradients break into bands.
-  col += (hash(gl_FragCoord.xy + fract(uT)) - .5) / 170.;
+  col += (grain(gl_FragCoord.xy + fract(uT)) - .5) / 170.;
   gl_FragColor = vec4(col, 1.);
 }`;
 
@@ -85,6 +128,8 @@ const PHONE_X = [0.66, 0.34, 0.82, 0.2, 0.5];
 /** Length of the opening pull-back, seconds, and how close to the line it starts. */
 const ENTRY = 2.2;
 const ENTRY_ZOOM = 6;
+/** Rows of the mesh the line is computed on. */
+const ROWS = 140;
 
 let glow = 0;
 /** A short brightening of the line, for moments worth marking. */
@@ -99,7 +144,7 @@ function shader(gl: WebGLRenderingContext, type: number, src: string) {
   return s;
 }
 
-/** The living line behind everything: one fragment shader, no images, no libraries. */
+/** The living ribbon behind everything: two shaders on a strip mesh, no images, no libraries. */
 export function Wave({ route }: { route: Route }) {
   const { theme } = useTheme();
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -124,15 +169,20 @@ export function Wave({ route }: { route: Route }) {
       return;
     }
     gl.useProgram(program);
+    const mesh = new Float32Array((ROWS + 1) * 4);
+    for (let i = 0; i <= ROWS; i++) {
+      const y = (i / ROWS) * 2 - 1;
+      mesh.set([-1, y, 1, y], i * 4);
+    }
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     const u = (n: string) => gl.getUniformLocation(program, n);
     const at = {
       res: u('uRes'), t: u('uT'), zoom: u('uZoom'), in: u('uIn'), theme: u('uTheme'), base: u('uBase'), amp: u('uAmp'), bulge: u('uBulge'),
-      sweep: u('uSweep'), sweepAt: u('uSweepAt'), dim: u('uDim'), glow: u('uGlow'), rib: u('uRib'), ptr: u('uPtr'),
+      sweep: u('uSweep'), sweepAt: u('uSweepAt'), thick: u('uThick'), dim: u('uDim'), glow: u('uGlow'), rib: u('uRib'), ptr: u('uPtr'),
     };
 
     const portrait = matchMedia(PORTRAIT);
@@ -183,19 +233,20 @@ export function Wave({ route }: { route: Route }) {
       const still = calm.matches;
       const pull = still ? 1 : 1 - Math.pow(2, (-9 * age) / ENTRY);
       gl.uniform2f(at.res, el.width, el.height);
-      gl.uniform1f(at.t, (still ? 40 : 40 + age));
+      gl.uniform1f(at.t, still ? 40 : 40 + age);
       gl.uniform1f(at.zoom, 1 + (ENTRY_ZOOM - 1) * (1 - pull));
       gl.uniform1f(at.in, Math.min(1, age / 0.3));
       gl.uniform1f(at.theme, live.current.theme === 'light' ? 1 : 0);
       gl.uniform1f(at.base, base);
-      gl.uniform1f(at.amp, tall ? 0.55 : 1);
-      gl.uniform1f(at.bulge, tall ? 0.05 : 0.1);
-      gl.uniform1f(at.sweep, tall ? 0.95 : 0.26);
+      gl.uniform1f(at.amp, tall ? 0.6 : 1);
+      gl.uniform1f(at.bulge, tall ? 0.05 : 0.12);
+      gl.uniform1f(at.sweep, tall ? 0.95 : 0.3);
       gl.uniform1f(at.sweepAt, tall ? 0.04 : 0.62);
+      gl.uniform1f(at.thick, tall ? 0.8 : 1);
       gl.uniform1f(at.dim, dim);
       gl.uniform1f(at.glow, glow);
       gl.uniform3f(at.ptr, ptr.x, ptr.y, ptr.k);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, (ROWS + 1) * 2);
     };
     raf = requestAnimationFrame(frame);
 

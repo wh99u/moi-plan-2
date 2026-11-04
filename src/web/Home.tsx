@@ -56,6 +56,7 @@ export function Home() {
     <div className="home">
       <Recede
         from={2.6}
+        panel
         className="glass hero-card"
         style={{ rotateX, rotateY, transformPerspective: 1100 }}
         onPointerMove={onMove}
@@ -144,16 +145,10 @@ function Greeting() {
     <h1 className="hi">
       <MorphText text={first ? `${hello},` : hello} delay={0.3} />
       {first && (
-        <motion.button
-          type="button"
-          className="hi-name"
-          onClick={() => openSheet('profile')}
-          initial={{ opacity: 0, y: '0.4em', filter: 'blur(12px)' }}
-          animate={{ opacity: 1, y: '0em', filter: 'blur(0px)', transitionEnd: { filter: 'none' } }}
-          transition={{ delay: 0.72, duration: 1, ease: EASE }}
-        >
-          {first}
-        </motion.button>
+        <button type="button" className="hi-name" onClick={() => openSheet('profile')}>
+          {/* The name writes itself in right after the last letter of the greeting. */}
+          <MorphText text={first} delay={0.3 + (hello.length + 1) * 0.028} />
+        </button>
       )}
     </h1>
   );
