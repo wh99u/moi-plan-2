@@ -43,6 +43,8 @@ export interface Car {
   icon?: boolean;
   /** Already put aside for it. */
   saved?: number;
+  /** Put aside per month, when set by hand; otherwise worked out from income and spending. */
+  pace?: number;
   url?: string;
   updatedAt: number;
 }
@@ -61,6 +63,10 @@ export interface Buy extends Rec {
   category?: string;
   /** One line about it, shown on its page: «Газированный напиток в банке 0,33 л». */
   note?: string;
+  /** What it is needed for. */
+  why?: string;
+  /** Brought up to the main screen at this moment; the newest four stay there. */
+  pinned?: number;
   /** Where it is sold: «Wildberries», «Amazon». */
   shop?: string;
   /** Buy it by this day, `YYYY-MM-DD`. */

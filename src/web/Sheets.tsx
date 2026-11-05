@@ -11,6 +11,7 @@ import { Icon } from '../ui/Icon';
 import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
 import { Seg } from './Seg';
+import { ShopSheets } from './shop/sheets';
 import { pulseWave } from './Wave';
 
 export function Sheets() {
@@ -27,6 +28,7 @@ export function Sheets() {
         <ProfileForm />
       </Sheet>
       <MoneySheets />
+      <ShopSheets />
     </>
   );
 }

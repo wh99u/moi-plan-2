@@ -1481,6 +1481,631 @@ a {
   background: var(--accent);
 }
 
+/* ─────────── Purchases: the dream ─────────── */
+
+.shop {
+  scroll-snap-type: y proximity;
+}
+.date-field-empty {
+  color: var(--ink-3);
+}
+.form-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.dream {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 620px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: calc(64px + var(--safe-t)) var(--edge) var(--nav-space);
+  scroll-snap-align: start;
+  overflow: hidden;
+}
+.dream--empty {
+  justify-content: center;
+}
+.dream-ask {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 340px;
+  text-align: center;
+}
+.dream-ask-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--accent-hi);
+}
+[data-theme='light'] .dream-ask-icon {
+  color: var(--accent);
+}
+.dream-ask h1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.dream-ask p {
+  color: var(--ink-2);
+}
+.dream-ask .primary-btn {
+  width: 100%;
+  margin-top: 16px;
+}
+/* The light behind the picture. */
+.dream-glow {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: 30%;
+  height: 46%;
+  background: radial-gradient(50% 50% at 42% 56%, rgba(46, 116, 236, 0.5), transparent 100%);
+  pointer-events: none;
+}
+[data-theme='light'] .dream-glow {
+  background: radial-gradient(50% 50% at 42% 56%, rgba(46, 116, 236, 0.28), transparent 100%);
+}
+.dream-head {
+  position: relative;
+  width: 100%;
+}
+.dream-title {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
+  text-align: center;
+  border-radius: 16px;
+}
+.dream-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.dream-name::first-letter {
+  text-transform: uppercase;
+}
+.dream-price {
+  font-size: clamp(34px, 10.5vw, 46px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-feature-settings: 'tnum' 1;
+}
+.gauges {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 16px;
+}
+.gauge {
+  display: grid;
+  justify-items: center;
+  border-radius: 20px;
+  text-align: center;
+}
+.gauge-dial {
+  position: relative;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  width: clamp(92px, 12.5dvh, 116px);
+  aspect-ratio: 1;
+}
+.gauge-dial svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+.gauge-track,
+.gauge-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.gauge-track {
+  stroke: var(--fill-2);
+}
+.gauge-fill {
+  stroke: var(--accent-hi);
+}
+[data-theme='light'] .gauge-fill {
+  stroke: var(--accent);
+}
+.gauge-value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum' 1;
+}
+.gauge-unit {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.gauge strong {
+  margin-top: -8px;
+  font-weight: 600;
+}
+.gauge-hint {
+  max-width: 160px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+/* As on the reference: the picture comes in from the edge of the screen and runs off it. */
+.dream-pic {
+  position: relative;
+  flex: 1;
+  align-self: stretch;
+  min-height: 170px;
+  margin: 8px calc(var(--edge) * -1) 0;
+  overflow: visible;
+}
+.dream-pic img {
+  position: absolute;
+  left: -24%;
+  top: 50%;
+  width: 128%;
+  height: 112%;
+  object-fit: contain;
+  object-position: center;
+  translate: 0 -50%;
+}
+.dream-pic img.is-cut {
+  filter: drop-shadow(0 26px 30px rgba(0, 8, 40, 0.6));
+}
+.dream-pic-empty {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 24px;
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.dream-tiles {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+}
+.dream-tile {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 4px;
+  width: 100%;
+  min-height: 124px;
+  padding: 16px;
+  border-radius: 24px;
+  text-align: left;
+}
+.dream-tile.glass {
+  box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-top);
+}
+.dream-tile-label {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.dream-tile strong {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-feature-settings: 'tnum' 1;
+}
+.dream-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 4px 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.dream-bar span {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  background: var(--accent);
+}
+.dream-tile-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-hi);
+}
+[data-theme='light'] .dream-tile-hint {
+  color: var(--accent);
+}
+.dream-tile-note {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+.pic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.pic-grid button {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--fill);
+}
+.pic-grid img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pic-grid span {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(2, 8, 24, 0.6);
+  color: #fff;
+  font-size: 11px;
+}
+.pic-spin {
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--fill-2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+}
+
+/* ─────────── Purchases: the list ─────────── */
+
+.buys {
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: calc(64px + var(--safe-t)) var(--edge) var(--nav-space);
+  scroll-snap-align: start;
+}
+.buys-head h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+.add-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 52px;
+  margin-top: 16px;
+  padding: 0 6px 0 20px;
+  border-radius: 26px;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  transition: box-shadow 0.25s;
+}
+.add-bar:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.add-bar input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: 15px;
+}
+.add-bar input::placeholder {
+  color: var(--ink-3);
+}
+.add-bar button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--fill-2);
+}
+.buy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.buy-cell {
+  position: relative;
+}
+/* As on the reference: words on top, the product below them, cut off by the bottom of the tile. */
+.buy-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  aspect-ratio: 1 / 1.16;
+  padding: 16px 12px 0;
+  overflow: hidden;
+  text-align: center;
+}
+.buy-tile.glass {
+  box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-top);
+}
+.buy-tile-cat {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-2);
+}
+.buy-tile-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+.buy-tile-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-hi);
+  font-feature-settings: 'tnum' 1;
+}
+[data-theme='light'] .buy-tile-price {
+  color: var(--accent);
+}
+.buy-tile-pic {
+  position: relative;
+  flex: 1;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  margin-top: 8px;
+  color: var(--ink-3);
+}
+.buy-tile-pic img {
+  position: absolute;
+  left: 8%;
+  top: 0;
+  width: 84%;
+  height: 130%;
+  object-fit: contain;
+  object-position: top;
+  filter: drop-shadow(0 10px 16px rgba(0, 8, 40, 0.45));
+}
+.buy-pin {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--control);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: var(--ink-2);
+  transition: background 0.25s, color 0.25s;
+}
+.buy-pin.is-on {
+  background: var(--cta-bg);
+  color: var(--cta-ink);
+}
+.is-loading {
+  animation: buy-wait 1.4s ease-in-out infinite;
+}
+@keyframes buy-wait {
+  50% {
+    opacity: 0.55;
+  }
+}
+.buys-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/* ─────────── Purchases: the big window ─────────── */
+
+.buy-place {
+  overflow: hidden auto;
+  align-items: flex-start;
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+.buy-holder {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 56px auto 0;
+}
+.buy-win {
+  width: 100%;
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-top), var(--glass-shadow);
+  overflow: hidden;
+}
+.buy-in {
+  position: relative;
+  display: grid;
+  /* Not plain 1fr: the scrolling row of categories would stretch the column past the window. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: var(--pad);
+  color: var(--ink);
+  font-family: var(--font);
+}
+.buy-close {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  top: 16px;
+}
+.buy-stage {
+  display: grid;
+  place-items: center;
+  height: 200px;
+  margin: 8px 0 0;
+  overflow: hidden;
+  border-radius: 24px;
+}
+.buy-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 22px rgba(0, 8, 40, 0.45));
+}
+.buy-stage-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.buy-price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.buy-price-row span {
+  font-size: 0.7em;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.buy-price {
+  border: 0;
+  outline: 0;
+  background: none;
+  text-align: center;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-feature-settings: 'tnum' 1;
+}
+.buy-name {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+.buy-price::placeholder,
+.buy-name::placeholder {
+  color: var(--ink-3);
+}
+.buy-text {
+  height: auto;
+  padding: 16px 20px;
+  border-radius: 24px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  resize: none;
+}
+.buy-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.scan-link.is-on {
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* A block standing at an angle above the window, half over its edge. */
+.badge3d {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: -48px;
+  margin-left: -42px;
+  perspective: 620px;
+  pointer-events: none;
+}
+.badge3d-turn {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: badge-sway 5.5s ease-in-out infinite alternate;
+}
+@keyframes badge-sway {
+  from {
+    transform: rotateY(-34deg) rotateX(14deg) rotateZ(-5deg);
+  }
+  to {
+    transform: rotateY(-14deg) rotateX(20deg) rotateZ(4deg);
+  }
+}
+.badge3d-side,
+.badge3d-face {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 26%;
+}
+.badge3d-side {
+  filter: brightness(0.72);
+}
+.badge3d-face .logo {
+  border-radius: 0;
+  box-shadow: none;
+}
+.badge3d-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), transparent 44%);
+}
+
 /* ─────────── Liquid tab bar ─────────── */
 
 .lnav-wrap {
@@ -1824,6 +2449,8 @@ a {
   .chip-colon,
   .reminder-text,
   .scan-line,
+  .badge3d-turn,
+  .is-loading,
   .is-smearing .b-amt,
   .is-smearing .b-income-sum {
     animation: none;

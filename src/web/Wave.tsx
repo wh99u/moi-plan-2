@@ -140,7 +140,7 @@ const DESKTOP_X = [0.44, 0.27, 0.66, 0.16, 0.8];
 const PHONE_X = [0.66, 0.34, 0.82, 0.2, 0.5];
 
 function lieOf(route: Route, tall: boolean): Lie {
-  if (route === 'money') return tall ? CORNER_TALL : CORNER_WIDE;
+  if (route === 'money' || route === 'shop') return tall ? CORNER_TALL : CORNER_WIDE;
   return { ...(tall ? TALL : WIDE), x: (tall ? PHONE_X : DESKTOP_X)[tabIndex(route)] };
 }
 

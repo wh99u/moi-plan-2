@@ -60,12 +60,22 @@ function CardPick({ cards, value, onChange }: { cards: CardView[]; value?: strin
 }
 
 /** Built-in categories and the owner's own in one row; a new one is typed once and stays for next time. */
-function CatPick({ value, onChange }: { value: string; onChange: (cat: string) => void }) {
+export function CatPick({ value, onChange }: { value: string; onChange: (cat: string) => void }) {
   const custom = useStore((s) => s.personal.settings.spendCats);
   const spends = visible(useStore((s) => s.shared.spends));
-  const cats = allCats(custom, spends.map((s) => s.cat));
+  // The current value too: a marketplace's own category is not in anyone's list yet.
+  const cats = allCats(custom, [value, ...spends.map((s) => s.cat)]);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
+  const row = useRef<HTMLDivElement>(null);
+
+  // A category far along the row would otherwise look as if none were chosen.
+  useEffect(() => {
+    const chosen = row.current?.querySelector<HTMLElement>('[aria-checked="true"]');
+    if (row.current && chosen) row.current.scrollLeft = chosen.offsetLeft - row.current.offsetLeft - 24;
+    // Only on opening: the row must not jump under the finger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const add = () => {
     const name = draft.trim();
@@ -78,7 +88,7 @@ function CatPick({ value, onChange }: { value: string; onChange: (cat: string) =
   };
 
   return (
-    <div className="cat-pick" role="radiogroup" aria-label="Категория">
+    <div ref={row} className="cat-pick" role="radiogroup" aria-label="Категория">
       {cats.map((c) => (
         // A second tap takes the category off: it is not required.
         <button key={c} type="button" role="radio" aria-checked={value === c} className="cat-chip" onClick={() => onChange(value === c ? '' : c)}>
@@ -118,10 +128,10 @@ function CatPick({ value, onChange }: { value: string; onChange: (cat: string) =
  * A day in words, with the browser's own picker over it. The native field looks different on every
  * device, and in Russian it writes a stray dot after the year.
  */
-function DateField({ value, onChange }: { value: string; onChange: (key: string) => void }) {
+export function DateField({ value, onChange, placeholder }: { value: string; onChange: (key: string) => void; placeholder?: string }) {
   return (
     <label className="date-field">
-      <span>{fullDate(value)}</span>
+      <span className={value ? undefined : 'date-field-empty'}>{value ? fullDate(value) : placeholder}</span>
       <Icon name="calendar" size={18} />
       <input
         type="date"

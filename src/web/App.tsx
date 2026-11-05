@@ -11,6 +11,7 @@ import { Budget } from './money/Budget';
 import { Nav } from './Nav';
 import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
+import { Shop } from './shop/Shop';
 import { Sheets } from './Sheets';
 import { Soon } from './Soon';
 import { Wave } from './Wave';
@@ -59,7 +60,7 @@ export function App() {
       <Wave route={route} />
       <AnimatePresence mode="wait">
         <main key={route} className="page">
-          {route === 'home' ? <Home /> : route === 'money' ? <Budget /> : <Soon route={route} />}
+          {route === 'home' ? <Home /> : route === 'money' ? <Budget /> : route === 'shop' ? <Shop /> : <Soon route={route} />}
         </main>
       </AnimatePresence>
       <TopBar route={route} />
@@ -75,8 +76,8 @@ function TopBar({ route }: { route: Route }) {
   const dark = theme === 'dark';
   return (
     <div className="topbar">
-      {/* The budget scrolls under this bar, and plain text over a list would be unreadable. */}
-      <Recede from={3.6} delay={0.04} className={`brand${route === 'money' ? ' is-away' : ''}`}>
+      {/* These sections scroll under this bar, and plain text over a list would be unreadable. */}
+      <Recede from={3.6} delay={0.04} className={`brand${route === 'money' || route === 'shop' ? ' is-away' : ''}`}>
         <Mark size={28} />
         <span>Мой план</span>
       </Recede>
