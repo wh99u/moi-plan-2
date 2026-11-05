@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Buy, Car, Income, Spend } from '../../lib/types';
-import { dreamPlan, hasDream, monthlyPace, splitBuys } from './logic';
+import { dreamPlan, hasDream, isBlankBuy, monthlyPace, splitBuys, usablePhoto } from './logic';
 
 const NOW = new Date(2026, 10, 5, 12);
 const car = (o: Partial<Car>) => ({ name: 'Porsche 911', price: 1_000_000, date: '', color: '', updatedAt: 0, ...o }) as Car;
@@ -81,14 +81,35 @@ describe('splitBuys', () => {
       buy('new', { pinned: 2 }),
       buy('free'),
     ]);
-    expect(main.map((b) => b.id)).toEqual(['new', 'old', 'soon', 'late']);
-    expect(rest.map((b) => b.id)).toEqual(['free']);
+    expect(main.map((b) => b.id)).toEqual(['new', 'old', 'soon']);
+    expect(rest.map((b) => b.id)).toEqual(['late', 'free']);
   });
 
-  it('keeps only the newest four up, the others go below', () => {
-    const list = [1, 2, 3, 4, 5].map((n) => buy(`p${n}`, { pinned: n }));
+  it('keeps only the newest three up, the others go below', () => {
+    const list = [1, 2, 3, 4].map((n) => buy(`p${n}`, { pinned: n }));
     const { main, rest } = splitBuys(list);
-    expect(main.map((b) => b.id)).toEqual(['p5', 'p4', 'p3', 'p2']);
+    expect(main.map((b) => b.id)).toEqual(['p4', 'p3', 'p2']);
     expect(rest.map((b) => b.id)).toEqual(['p1']);
+  });
+});
+
+describe('usablePhoto', () => {
+  it('wants a whole photo, not a cut-out', () => {
+    expect(usablePhoto(car({ imgId: 'a' }))).toBe(true);
+    expect(usablePhoto(car({ imgId: 'a', cut: true }))).toBe(false);
+    expect(usablePhoto(car({}))).toBe(false);
+  });
+});
+
+describe('isBlankBuy', () => {
+  it('is a purchase nothing was written into', () => {
+    expect(isBlankBuy(buy('a', { title: ' ', price: 0 }))).toBe(true);
+  });
+
+  it('keeps anything with a name, a link, a price or a note', () => {
+    expect(isBlankBuy(buy('a', { title: 'Пылесос', price: 0 }))).toBe(false);
+    expect(isBlankBuy(buy('a', { title: '', price: 100 }))).toBe(false);
+    expect(isBlankBuy(buy('a', { title: '', price: 0, url: 'https://x.ru' }))).toBe(false);
+    expect(isBlankBuy(buy('a', { title: '', price: 0, note: 'синий' }))).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { addDays, dayKey, daysBetween, parseDay } from '../../lib/dates';
 import type { Buy, Car, Income, Spend } from '../../lib/types';
 
 /** How many purchases fit on the main screen of the section. */
-export const MAIN_COUNT = 4;
+export const MAIN_COUNT = 3;
 const PACE_DAYS = 90;
 const DAYS_IN_MONTH = 30.44;
 
@@ -54,6 +54,12 @@ export function dreamPlan(car: Car, autoPace: number | null, today: Date): Dream
 export const hasDream = (car: Car) => car.price > 0 || !!car.imgId;
 
 export const activeBuys = (buys: Buy[]) => buys.filter((b) => !b.boughtAt);
+
+/** The dream has a photo that can fill the screen: a cut-out from the earlier design cannot. */
+export const usablePhoto = (car: Car) => !!car.imgId && !car.cut;
+
+/** Opened with the plus and left as it was: nothing to keep. */
+export const isBlankBuy = (b: Buy) => !b.title.trim() && !b.url && !b.imgId && !b.price && !b.note && !b.why && !b.due;
 
 /**
  * The main screen and the rest: what was brought up by hand, newest first; any free places go to

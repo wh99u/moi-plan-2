@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { dreamQuery, mixFound, type Found } from './dreamSearch';
-
-const found = (id: string) => ({ id }) as Found;
+import { dreamQuery, fitsQuery } from './dreamSearch';
 
 describe('dreamQuery', () => {
   it('knows the names people dream of, without a translator', async () => {
@@ -21,12 +19,18 @@ describe('dreamQuery', () => {
   });
 });
 
-describe('mixFound', () => {
-  it('takes turns from both sources', () => {
-    expect(mixFound([found('a1'), found('a2')], [found('b1')]).map((f) => f.id)).toEqual(['a1', 'b1', 'a2']);
+describe('fitsQuery', () => {
+  it('counts the words of the query in the name', () => {
+    expect(fitsQuery('Robot Vacuum Cleaner', 'vacuum cleaner')).toBe(2);
+    expect(fitsQuery('Old vacuum', 'vacuum cleaner')).toBe(1);
+    expect(fitsQuery('Worn Sneaker', 'sneakers')).toBe(1);
   });
 
-  it('stops at the limit', () => {
-    expect(mixFound([found('a1'), found('a2')], [found('b1'), found('b2')], 3)).toHaveLength(3);
+  it('turns down what merely came up in the search', () => {
+    expect(fitsQuery('Golden table', 'vacuum cleaner')).toBe(0);
+  });
+
+  it('turns down sets of many things', () => {
+    expect(fitsQuery('Vacuum cleaner props pack', 'vacuum cleaner')).toBe(0);
   });
 });

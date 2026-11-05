@@ -21,7 +21,7 @@ const DICT: [RegExp, string][] = [
   [/^кроссов/, 'sneakers'], [/^кед/, 'sneakers'], [/^ботин/, 'boots'], [/^сапог/, 'boots'], [/^туфл/, 'shoes'], [/^обув/, 'shoes'],
   [/^куртк/, 'jacket'], [/^пухов/, 'puffer jacket'], [/^пальт/, 'coat'], [/^футбол/, 't-shirt'], [/^худи|^толстов/, 'hoodie'], [/^джинс/, 'jeans'], [/^брюк|^штан/, 'pants'], [/^шапк/, 'beanie'], [/^кепк/, 'cap'], [/^рюкзак/, 'backpack'], [/^сумк/, 'bag'], [/^час/, 'watch'], [/^очк/, 'glasses'],
   [/^телефон|^смартфон/, 'smartphone'], [/^наушн/, 'headphones'], [/^монитор/, 'monitor'], [/^ноутбук/, 'laptop'], [/^компьютер/, 'computer'], [/^клавиат/, 'keyboard'], [/^мыш/, 'mouse'], [/^планшет/, 'tablet'], [/^колонк/, 'speaker'], [/^телевиз/, 'tv'], [/^приставк|^консол/, 'game console'], [/^джойстик|^геймпад/, 'gamepad'], [/^камер|^фотоаппарат/, 'camera'], [/^зарядк/, 'charger'], [/^чехол/, 'phone case'],
-  [/^пылесос/, 'vacuum cleaner'], [/^чайник/, 'kettle'], [/^кофемаш/, 'coffee machine'], [/^микроволн/, 'microwave'], [/^утюг/, 'iron'], [/^фен/, 'hair dryer'], [/^лампа|^светильн/, 'lamp'], [/^стол/, 'table'], [/^стул/, 'chair'], [/^кресл/, 'armchair'], [/^диван/, 'sofa'], [/^кроват/, 'bed'], [/^шкаф/, 'wardrobe'], [/^полк/, 'shelf'], [/^подушк/, 'pillow'], [/^кружк/, 'mug'], [/^тарелк/, 'plate'], [/^сковород/, 'frying pan'], [/^кастрюл/, 'pot'],
+  [/^пылесос/, 'vacuum cleaner'], [/^чайник/, 'electric kettle'], [/^кофемаш/, 'coffee machine'], [/^микроволн/, 'microwave'], [/^утюг/, 'iron'], [/^фен/, 'hair dryer'], [/^лампа|^светильн/, 'lamp'], [/^стол/, 'table'], [/^стул/, 'chair'], [/^кресл/, 'armchair'], [/^диван/, 'sofa'], [/^кроват/, 'bed'], [/^шкаф/, 'wardrobe'], [/^полк/, 'shelf'], [/^подушк/, 'pillow'], [/^кружк/, 'mug'], [/^тарелк/, 'plate'], [/^сковород/, 'frying pan'], [/^кастрюл/, 'pot'],
   [/^велосипед/, 'bicycle'], [/^самокат/, 'scooter'], [/^мяч/, 'ball'], [/^гантел/, 'dumbbell'], [/^коврик/, 'mat'], [/^машин|^автомоб/, 'car'], [/^шин/, 'tire'], [/^игрушк/, 'toy'], [/^книг/, 'book'], [/^кольц/, 'ring'], [/^цеп/, 'chain'], [/^браслет/, 'bracelet'],
 ];
 
@@ -35,11 +35,19 @@ export function translateByDict(text: string): string {
     .join(' ');
 }
 
+const knownByDict = (text: string) =>
+  text
+    .toLowerCase()
+    .split(/\s+/)
+    .every((w) => !/[а-яё]/.test(w) || DICT.some(([re]) => re.test(w)));
+
 const TRANSLATE = 'https://api.mymemory.translated.net/get';
 
 export async function toEnglish(text: string, signal?: AbortSignal): Promise<string> {
   const q = cleanQuery(text);
   if (!/[а-яё]/i.test(q)) return q;
+  // Every word is one the dictionary knows: surer than a translator, and no waiting.
+  if (knownByDict(q)) return translateByDict(q);
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), 3000);
   const abort = () => stop.abort();

@@ -45,6 +45,13 @@ export interface Car {
   saved?: number;
   /** Put aside per month, when set by hand; otherwise worked out from income and spending. */
   pace?: number;
+  /** Why the owner wants it, in their own words. */
+  why?: string;
+  /** The picture is the owner's own, an upload or a link, so nothing replaces it. */
+  ownPic?: boolean;
+  /** Who took the found photo and where it comes from, as its licence asks to say. */
+  credit?: string;
+  creditUrl?: string;
   url?: string;
   updatedAt: number;
 }
@@ -65,8 +72,10 @@ export interface Buy extends Rec {
   note?: string;
   /** What it is needed for. */
   why?: string;
-  /** Brought up to the main screen at this moment; the newest four stay there. */
+  /** Brought up to the main screen at this moment; the newest three stay there. */
   pinned?: number;
+  /** The name the picture was found by, when it was found by name: a new name finds a new one. */
+  autoPic?: string;
   /** Where it is sold: «Wildberries», «Amazon». */
   shop?: string;
   /** Buy it by this day, `YYYY-MM-DD`. */

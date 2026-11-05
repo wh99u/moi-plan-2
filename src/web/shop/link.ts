@@ -95,6 +95,16 @@ const WALL = /проверяем браузер|нет соединения|acce
 /** CORS-friendly copy of a picture from any site. */
 export const proxied = (img: string, w = 900) => `https://wsrv.nl/?url=${encodeURIComponent(img)}&w=${w}&output=png`;
 
+/** A big picture for the whole screen, whatever its source; tall enough for a phone held upright. */
+export const fullScreen = (img: string) => `https://wsrv.nl/?url=${encodeURIComponent(img)}&h=1800&we&output=webp&q=82`;
+
+/** The preview picture of a page, as microlink reads it. */
+export async function pageImage(url: string, signal?: AbortSignal): Promise<string | undefined> {
+  const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal });
+  const json = (await res.json()) as { status: string; data?: { image?: { url?: string } | null } };
+  return json.status === 'success' ? (json.data?.image?.url ?? undefined) : undefined;
+}
+
 const wbPath = (nm: number) => `vol${Math.floor(nm / 1e5)}/part${Math.floor(nm / 1e3)}/${nm}`;
 const WB_HOSTS = 48;
 

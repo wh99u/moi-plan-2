@@ -1,7 +1,7 @@
-import { toEnglish } from './words';
+import { fallbacks, toEnglish } from './words';
 
 /*
- * Pictures for a dream by its name. Google answers automated visitors with a captcha, so two open
+ * Pictures for a dream or a purchase by its name. Google answers automated visitors with a captcha, so two open
  * sources are used instead, both readable from a browser: Sketchfab's renders of 3D models, on a
  * plain studio background that cuts out cleanly, and photographs from Wikimedia Commons.
  */
@@ -41,8 +41,9 @@ interface SketchfabImage {
   width: number;
 }
 
+/** By relevance, not likes, and only with realistic materials: the most liked are art pieces, not goods. */
 async function fromSketchfab(q: string, signal?: AbortSignal): Promise<Found[]> {
-  const res = await fetch(`https://api.sketchfab.com/v3/search?type=models&q=${encodeURIComponent(q)}&count=12&sort_by=-likeCount`, { signal });
+  const res = await fetch(`https://api.sketchfab.com/v3/search?type=models&q=${encodeURIComponent(q)}&count=12&pbr_type=metalness`, { signal });
   if (!res.ok) return [];
   const json = (await res.json()) as { results?: { uid: string; name: string; thumbnails?: { images?: SketchfabImage[] } }[] };
   return (json.results ?? []).flatMap((m) => {
@@ -64,18 +65,73 @@ async function fromCommons(q: string, signal?: AbortSignal): Promise<Found[]> {
   });
 }
 
-/** Takes turns from both sources, so neither fills the whole choice. */
-export function mixFound(a: Found[], b: Found[], limit = 12): Found[] {
-  const out: Found[] = [];
-  for (let i = 0; out.length < limit && (i < a.length || i < b.length); i++) {
-    if (a[i]) out.push(a[i]);
-    if (b[i] && out.length < limit) out.push(b[i]);
-  }
-  return out;
+export interface Photo {
+  /** Wikimedia's own copy, 1920 wide: sharp on a phone, and readable from a browser. The image proxy gets no answer from it. */
+  url: string;
+  credit: string;
+  creditUrl: string;
 }
 
+/** Close-ups of parts: true to the name, but no picture of a dream. */
+const NOT_THE_WHOLE = /\b(engine|motor|gearbox|interior|cockpit|dashboard|logo|badge|wheel|seat|diagram|map|chart)\b/i;
+const MIN_WIDE = 2000;
+
+const plainText = (html = '') => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+async function commonsPhotos(q: string, filter: string, signal?: AbortSignal): Promise<Photo[]> {
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=20&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap ${filter}`)}&prop=imageinfo&iiprop=url|size|extmetadata&iiextmetadatafilter=Artist|LicenseShortName&iiurlwidth=1920`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) return [];
+  const json = (await res.json()) as {
+    query?: { pages?: Record<string, { index?: number; title: string; imageinfo?: { thumburl?: string; descriptionurl: string; width: number; extmetadata?: { Artist?: { value: string }; LicenseShortName?: { value: string } } }[] }> };
+  };
+  return Object.values(json.query?.pages ?? {})
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .flatMap((p) => {
+      const info = p.imageinfo?.[0];
+      if (!info?.thumburl || info.width < MIN_WIDE || NOT_THE_WHOLE.test(p.title)) return [];
+      const who = plainText(info.extmetadata?.Artist?.value);
+      const licence = plainText(info.extmetadata?.LicenseShortName?.value);
+      return [{ url: info.thumburl, credit: `Фото: ${[who, licence].filter(Boolean).join(', ')}`, creditUrl: info.descriptionurl }];
+    });
+}
+
+/** Large clear photographs for the whole screen: those Wikimedia's reviewers passed as quality images first. */
+export async function findPhotos(name: string, signal?: AbortSignal): Promise<Photo[]> {
+  const q = await dreamQuery(name, signal);
+  const [best, rest] = await Promise.all([commonsPhotos(q, 'hastemplate:"Quality image"', signal).catch(() => []), commonsPhotos(q, `filew:>${MIN_WIDE}`, signal).catch(() => [])]);
+  const seen = new Set<string>();
+  return [...best, ...rest].filter((p) => !seen.has(p.url) && !!seen.add(p.url));
+}
+
+/** Scenes and sets of many things: no good as a picture of one. */
+const NOT_ONE_THING = /\b(packs?|sets?|collection|kit|bundle|props?|scene|room|assets?|level|environment|interior)\b/i;
+
+/** How many words of the query the model's name holds; 0 means it is something else that merely turned up. */
+export function fitsQuery(title: string, query: string): number {
+  if (NOT_ONE_THING.test(title)) return 0;
+  const name = title.toLowerCase();
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && name.includes(w.replace(/s$/, ''))).length;
+}
+
+/**
+ * Pictures of a thing by its name, best first: 3D renders whose name really matches, since they
+ * stand on a plain studio background and cut out cleanly, then photographs as a last resort.
+ */
 export async function findPictures(name: string, signal?: AbortSignal): Promise<Found[]> {
   const q = await dreamQuery(name, signal);
-  const [models, photos] = await Promise.all([fromSketchfab(q, signal).catch(() => []), fromCommons(q, signal).catch(() => [])]);
-  return mixFound(models, photos);
+  let models: Found[] = [];
+  for (const query of [...new Set([q, ...fallbacks(q)])].slice(0, 3)) {
+    const fit = (await fromSketchfab(query, signal).catch(() => [] as Found[]))
+      .map((m) => ({ m, score: fitsQuery(m.title, query) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+    models = fit.map((x) => x.m);
+    if (models.length) break;
+  }
+  const photos = await fromCommons(q, signal).catch(() => [] as Found[]);
+  return [...models, ...photos];
 }
