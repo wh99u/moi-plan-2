@@ -2508,8 +2508,6 @@ a {
 }
 .tl {
   margin-top: 16px;
-  padding-top: 12px;
-  box-shadow: inset 0 1px 0 var(--glass-line);
   touch-action: pan-y;
 }
 /* Long goals over the days they cross. */
@@ -2576,6 +2574,17 @@ a {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
 }
+/* The days stay in sight all the way down the hours. */
+.tl-heads {
+  position: sticky;
+  z-index: 3;
+  top: calc(60px + var(--safe-t));
+  padding-top: 4px;
+  border-radius: 14px;
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
 /* Three days in the window; the ribbon behind it holds three more on each side. */
 .tl-view {
   min-width: 0;
@@ -2584,10 +2593,82 @@ a {
 }
 .tl-track {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  width: 300%;
+  grid-template-columns: repeat(21, minmax(0, 1fr));
+  width: calc(2100% / var(--span, 3));
   height: 100%;
-  margin-left: -100%;
+  margin-left: calc(-700% / var(--span, 3));
+}
+.tl-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tl-top h2 {
+  min-width: 0;
+  font-size: clamp(24px, 7vw, 30px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  text-transform: capitalize;
+}
+.tl-zoom {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  border-radius: 18px;
+  background: var(--fill);
+  font-size: 13px;
+  font-weight: 600;
+  font-feature-settings: 'tnum' 1;
+}
+.tl-zoom span {
+  min-width: 56px;
+  text-align: center;
+}
+.tl-zoom button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-2);
+}
+.tl-zoom button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+/* Narrow columns: the same things, tighter. */
+.tl.is-dense .tl-date {
+  flex-direction: column;
+  gap: 2px;
+}
+.tl.is-dense .tl-date span {
+  font-size: 10px;
+}
+.tl.is-dense .tl-date strong {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+.tl.is-dense .tl-block {
+  padding: 2px 1px 2px 3px;
+  font-size: 10px;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.tl.is-dense .tl-chip {
+  padding: 3px 4px;
+  font-size: 10px;
+}
+.tl.is-dense .tl-ghost {
+  padding: 2px 1px 2px 3px;
+  font-size: 10px;
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 .tl-head {
   display: grid;
@@ -3204,6 +3285,133 @@ a {
   border-radius: 50%;
   color: var(--ink-2);
 }
+/* The button of a new purchase, over the window. */
+.buy-add {
+  position: fixed;
+  z-index: 46;
+  left: 50%;
+  bottom: calc(112px + var(--safe-b));
+  width: var(--nav-w);
+  margin: 0 0 0 calc(var(--nav-w) / -2);
+  pointer-events: auto;
+}
+.buy-place.is-new {
+  padding-bottom: calc(var(--nav-space) + 64px);
+}
+/* The weather on the home screen. */
+.wx {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.wx strong {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  font-feature-settings: 'tnum' 1;
+}
+.wx-icon {
+  flex: none;
+  overflow: visible;
+  stroke: var(--ink);
+}
+.wx-sun-disc,
+.wx-rays {
+  stroke: #ffb938;
+}
+.wx-sun-disc {
+  fill: #ffb938;
+}
+.wx-rays {
+  transform-origin: 12px 12px;
+  animation: wx-turn 18s linear infinite;
+}
+.wx-sun--small {
+  transform: translate(-3px, -4px) scale(0.72);
+  transform-origin: 12px 12px;
+}
+.wx-moon {
+  stroke: #ffd98a;
+  fill: #ffd98a;
+}
+.wx-moon--small {
+  transform: translate(-3px, -4px) scale(0.68);
+  transform-origin: 12px 12px;
+}
+.wx-cloud {
+  fill: var(--sheet);
+  stroke: var(--ink);
+  animation: wx-drift 6s ease-in-out infinite;
+}
+.wx-drops path {
+  stroke: #5aa7ff;
+  animation: wx-fall 1.2s linear infinite;
+}
+.wx-drops path:nth-child(2) {
+  animation-delay: 0.4s;
+}
+.wx-drops path:nth-child(3) {
+  animation-delay: 0.8s;
+}
+.wx-flakes circle {
+  fill: #8ec6ff;
+  stroke: none;
+  animation: wx-fall 2.4s linear infinite;
+}
+.wx-flakes circle:nth-child(2) {
+  animation-delay: 0.8s;
+}
+.wx-flakes circle:nth-child(3) {
+  animation-delay: 1.6s;
+}
+.wx-bolt {
+  stroke: #ffb938;
+  animation: wx-flash 3.2s linear infinite;
+}
+.wx-fog > path:not(.wx-cloud) {
+  stroke: var(--ink-2);
+  animation: wx-drift 5s ease-in-out infinite;
+}
+@keyframes wx-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes wx-drift {
+  50% {
+    transform: translateX(1.2px);
+  }
+}
+@keyframes wx-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+@keyframes wx-flash {
+  0%,
+  88%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.2;
+  }
+  96% {
+    opacity: 0.8;
+  }
+}
 /* Long goals. */
 .goals {
   margin-top: 16px;
@@ -3745,7 +3953,13 @@ a {
   .tl-ghost,
   .tl-now::before,
   .goal-cells i,
-  .focus-ring-done {
+  .focus-ring-done,
+  .wx-rays,
+  .wx-cloud,
+  .wx-drops path,
+  .wx-flakes circle,
+  .wx-bolt,
+  .wx-fog > path {
     animation: none;
   }
   .reminder-text {

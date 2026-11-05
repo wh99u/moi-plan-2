@@ -4,12 +4,15 @@ import { EASE } from '../../app/ui/text';
 import { actions } from '../../lib/appStore';
 import type { Buy } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
-import { parseAmount } from '../money/data';
+import { AmountInput } from '../AmountInput';
+import { parseAmount, typedAmount } from '../money/data';
 import { CatPick, DateField } from '../money/sheets';
 import { Badge3D } from './Badge3D';
 import { useImage } from './Dream';
 import { autoPicture, linkInto, setBuyPicture, useImporting, wantsPicture } from './importer';
 import { firstUrl } from './link';
+import { isBlankBuy } from './logic';
+import { pulseWave } from '../Wave';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -38,7 +41,7 @@ export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textar
 export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; morph: string; isNew?: boolean; onClose: () => void }) {
   const url = useImage(buy.imgId);
   const importing = useImporting(buy.id);
-  const [price, setPrice] = useState(buy.price ? String(buy.price) : '');
+  const [price, setPrice] = useState(buy.price ? typedAmount(String(buy.price)) : '');
   const [sure, setSure] = useState(false);
   const [cutting, setCutting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -57,6 +60,12 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
     }
   };
   const set = (patch: Partial<Buy>) => actions.updateBuy(buy.id, patch);
+  const blank = isBlankBuy(buy);
+  const add = () => {
+    if (blank) return;
+    pulseWave();
+    onClose();
+  };
 
   // The picture comes by itself once the name is written.
   useEffect(() => {
@@ -73,7 +82,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
 
   // The price can arrive from the link while the window is open.
   useEffect(() => {
-    if (buy.price) setPrice((p) => (p ? p : String(buy.price)));
+    if (buy.price) setPrice((p) => (p ? p : typedAmount(String(buy.price))));
   }, [buy.price]);
 
   useEffect(() => {
@@ -96,7 +105,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
     <>
       <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
       {/* This layer scrolls a long window, so it takes the tap on the empty space around it from the scrim below. */}
-      <div className="p-win-place buy-place" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`p-win-place buy-place${isNew ? ' is-new' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="buy-holder">
           <Badge3D shop={buy.shop} />
           <motion.div layoutId={morph} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={buy.title || 'Покупка'} transition={MORPH}>
@@ -156,16 +165,15 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               )}
 
               <motion.label className="buy-price-row" {...part(1)}>
-                <input
+                <AmountInput
                   className="buy-price"
                   style={{ width: `${Math.max(price.length, 4) + 0.5}ch` }}
                   value={price}
-                  inputMode="decimal"
                   placeholder="Цена"
                   aria-label="Цена в рублях"
-                  onChange={(e) => {
-                    setPrice(e.target.value);
-                    set({ price: parseAmount(e.target.value) });
+                  onValue={(v) => {
+                    setPrice(v);
+                    set({ price: parseAmount(v) });
                   }}
                 />
                 <span>₽</span>
@@ -174,13 +182,14 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 ref={nameField}
                 className="buy-name"
                 value={buy.title}
-                placeholder="Название или ссылка"
-                aria-label="Название или ссылка на товар"
+                placeholder="Название"
+                aria-label="Название"
                 maxLength={400}
+                enterKeyHint={isNew ? 'done' : undefined}
                 {...part(2)}
-                onChange={(e) => {
-                  if (/https?:\/\//i.test(e.target.value)) linkInto(buy.id, e.target.value);
-                  else set({ title: e.target.value });
+                onChange={(e) => set({ title: e.target.value })}
+                onKeyDown={(e) => {
+                  if (isNew && e.key === 'Enter') add();
                 }}
               />
 
@@ -225,6 +234,12 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
           </motion.div>
         </div>
       </div>
+      {/* Over the window, not at its far end: the fields below can take a long scroll to get past. */}
+      {isNew && (
+        <motion.button type="button" className="primary-btn buy-add" disabled={blank} initial={{ opacity: 0, y: 28 }} animate={{ opacity: blank ? 0.4 : 1, y: 0 }} exit={{ opacity: 0, y: 28, transition: { duration: 0.22 } }} transition={{ delay: 0.15, duration: 0.45, ease: EASE }} whileTap={{ scale: 0.96 }} onClick={add}>
+          Добавить
+        </motion.button>
+      )}
     </>
   );
 }

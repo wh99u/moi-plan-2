@@ -4,10 +4,15 @@ import type { BudgetMonth, Car, Category, Shift, Spend } from './types';
 
 const sum = <T>(list: T[], f: (x: T) => number) => list.reduce((t, x) => t + f(x), 0);
 
-/** `5 000 ₽` with no-break spaces so amounts never wrap. */
-export function rub(n: number) {
+/** `10.000`: thousands split by dots, in every sum on the site. */
+export function grouped(n: number) {
   const v = Math.round(n) || 0;
-  return `${v.toLocaleString('ru-RU').replace(/\s/g, ' ')} ₽`;
+  return `${v < 0 ? '-' : ''}${String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+/** `5.000 ₽`, the space no-break so amounts never wrap. */
+export function rub(n: number) {
+  return `${grouped(n)} ₽`;
 }
 
 /** Compact amount for tight cells: 1500 → «1.5к». */

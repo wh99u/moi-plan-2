@@ -1,5 +1,5 @@
 import { addDays, addMonths, dayKey, daysBetween, parseDay } from '../../lib/dates';
-import { rub } from '../../lib/money';
+import { grouped, rub } from '../../lib/money';
 import { visible } from '../../lib/records';
 import type { BudgetMonth, Income, Spend, Sub } from '../../lib/types';
 
@@ -37,13 +37,14 @@ export function dueLabel(d: number) {
   return `через ${days(d)}`;
 }
 
-/** Whole roubles: «5 000 ₽». */
+/** Whole roubles: «5.000 ₽». */
 export const money = rub;
 
 /** With kopecks when there are any, for the lines of a receipt: «89,99 ₽». */
 export function exactMoney(n: number) {
   if (Number.isInteger(Math.round(n * 100) / 100)) return rub(n);
-  return `${n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/\s/g, '\u00a0')}\u00a0₽`;
+  const [whole, part] = Math.abs(n).toFixed(2).split('.');
+  return `${n < 0 ? '-' : ''}${grouped(Number(whole))},${part}\u00a0₽`;
 }
 
 /** One line of the feed: money that came in or went out. */

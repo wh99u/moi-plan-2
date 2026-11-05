@@ -25,6 +25,8 @@ export function Badge3D({ shop, size = 84 }: { shop?: string; size?: number }) {
       initial={{ opacity: 0, y: 34, scale: 0.5, rotateY: -80 }}
       animate={{ opacity: 1, y: 0, scale: 1, rotateY: 0 }}
       transition={{ delay: 0.16, type: 'spring', stiffness: 170, damping: 15 }}
+      // Goes as the window shrinks back into its card: same moment, same length.
+      exit={{ opacity: 0, y: 40, scale: 0.4, rotateY: 70, transition: { duration: 0.3, ease: [0.4, 0, 0.6, 1] } }}
       aria-hidden="true"
     >
       <div className="badge3d-turn">

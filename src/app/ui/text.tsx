@@ -1,5 +1,6 @@
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { Fragment, useEffect } from 'react';
+import { grouped } from '../../lib/money';
 
 export const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -75,10 +76,10 @@ export function RollingText({ text, className = '' }: { text: string; className?
   );
 }
 
-/** Counts from the previous value to the new one; `group` adds thousands spaces: 35 652. */
+/** Counts from the previous value to the new one; `group` splits the thousands: 35.652. */
 export function CountUp({ value, delay = 0, group = false }: { value: number; delay?: number; group?: boolean }) {
   const mv = useMotionValue(0);
-  const shown = useTransform(mv, (v) => (group ? Math.round(v).toLocaleString('ru-RU').replace(/\s/g, ' ') : Math.round(v).toString()));
+  const shown = useTransform(mv, (v) => (group ? grouped(v) : Math.round(v).toString()));
   useEffect(() => {
     const c = animate(mv, value, { duration: 1.1, delay, ease: EASE });
     return () => c.stop();

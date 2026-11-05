@@ -3,10 +3,10 @@ import { budgetSummary, dreamProgress, kf, monthAccruals, rub } from './money';
 import type { BudgetMonth, Car, Shift, Spend } from './types';
 
 describe('formatting', () => {
-  test('rub groups with no-break spaces', () => {
-    expect(rub(5000)).toBe('5 000 ₽');
+  test('rub groups with dots and keeps a no-break space', () => {
+    expect(rub(5000)).toBe('5.000 ₽');
     expect(rub(0)).toBe('0 ₽');
-    expect(rub(-1200.6)).toBe('-1 201 ₽');
+    expect(rub(-1200.6)).toBe('-1.201 ₽');
   });
   test('kf compacts thousands', () => {
     expect(kf(1500)).toBe('1.5к');

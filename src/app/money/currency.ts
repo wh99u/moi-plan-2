@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { grouped } from '../../lib/money';
 import { money } from './logic';
 
 export type Cur = 'RUB' | 'USD';
@@ -29,7 +30,7 @@ export const convert = (rub: number, cur: Cur, rate: UsdRate | null) => (cur ===
 
 /** Whole roubles or whole dollars, no kopecks and no cents. */
 export function formatMoney(rub: number, cur: Cur, rate: UsdRate | null) {
-  const text = cur !== 'USD' || !rate ? money(rub) : `${Math.round(rub / rate.value).toLocaleString('ru-RU').replace(/\s/g, '\u00a0')}\u00a0$`;
+  const text = cur !== 'USD' || !rate ? money(rub) : `${grouped(rub / rate.value)}\u00a0$`;
   return text.replace('-', '\u2212');
 }
 

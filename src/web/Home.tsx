@@ -8,6 +8,7 @@ import { Recede } from './Recede';
 import { nextReminderTurn } from './reminders';
 import { Today, useNow, useToday } from './Today';
 import { pulseWave } from './Wave';
+import { WeatherLine } from './Weather';
 
 const TILT = { stiffness: 120, damping: 18, mass: 0.6 };
 
@@ -90,6 +91,7 @@ function Hello({ onOpen }: { onOpen: () => void }) {
     <div className="hello">
       <Recede from={2.2} delay={0.02} className="hello-part">
         <NowChip />
+        <WeatherLine />
       </Recede>
       <Recede from={1.9} delay={0.06} className="hello-part">
         <Greeting />

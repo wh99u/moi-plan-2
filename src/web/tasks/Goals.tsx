@@ -67,7 +67,7 @@ export function Goals({ goals, tasks, now, opened, onOpen }: { goals: Goal[]; ta
   const active = activeGoals(goals);
   const reached = goals.filter((g) => g.doneAt);
 
-  if (!goals.length) return <p className="tasks-empty">Цель на недели или месяцы. Напиши внизу: «выучить английский за 3 месяца»</p>;
+  if (!goals.length) return <p className="tasks-empty">Долгосрочные цели на недели или месяцы</p>;
 
   return (
     <div className="goals">

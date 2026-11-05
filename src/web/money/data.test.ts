@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Bank, Income, Spend } from '../../lib/types';
-import { byDay, cardViews, dayTitle, fullDate, incomeSeries, incomeTitle, incomeTotals, missingCards, parseAmount } from './data';
+import { byDay, cardViews, dayTitle, fullDate, incomeSeries, incomeTitle, incomeTotals, missingCards, parseAmount, typedAmount } from './data';
 
 const NOW = new Date(2026, 10, 5, 12);
 const income = (date: string, amount: number) => ({ date, amount }) as Income;
@@ -94,5 +94,40 @@ describe('parseAmount', () => {
     expect(parseAmount('1 234,5')).toBe(1234.5);
     expect(parseAmount('')).toBe(0);
     expect(parseAmount('abc')).toBe(0);
+  });
+});
+
+describe('sums as they are written', () => {
+  it.each([
+    ['10.000', 10000],
+    ['1.234.567', 1234567],
+    ['1.234,5', 1234.5],
+    ['12.5', 12.5],
+    ['12,50', 12.5],
+    ['-1.000', -1000],
+    ['−1.000', -1000],
+  ])('%s reads as %f', (text, n) => {
+    expect(parseAmount(text)).toBe(n);
+  });
+
+  it.each([
+    ['10000', '', '10.000'],
+    ['1.2345', '1.234', '12.345'],
+    ['1.23', '1.234', '123'],
+    ['100', '10', '100'],
+    ['007', '', '7'],
+    ['10.', '10', '10,'],
+    ['10,5', '10,', '10,5'],
+    ['10,567', '10,56', '10,56'],
+    ['1234.5', '', '1.234,5'],
+    ['-5000', '', '-5.000'],
+    ['abc', '', ''],
+    ['', '1', ''],
+  ])('%s after %s shows as %s', (raw, prev, shown) => {
+    expect(typedAmount(raw, prev)).toBe(shown);
+  });
+
+  it('reads back what it shows', () => {
+    for (const n of [5, 999, 1000, 10000, 1234567]) expect(parseAmount(typedAmount(String(n)))).toBe(n);
   });
 });

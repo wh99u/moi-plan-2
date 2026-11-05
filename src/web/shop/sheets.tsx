@@ -7,7 +7,8 @@ import { actions, useStore } from '../../lib/appStore';
 import { addDays, dayKey } from '../../lib/dates';
 import { visible } from '../../lib/records';
 import { Icon } from '../../ui/Icon';
-import { fullDate, parseAmount } from '../money/data';
+import { AmountInput } from '../AmountInput';
+import { fullDate, parseAmount, typedAmount } from '../money/data';
 import { plural } from '../reminders';
 import { DateField } from '../money/sheets';
 import { pulseWave } from '../Wave';
@@ -39,7 +40,7 @@ export function ShopSheets() {
   );
 }
 
-const text = (n?: number) => (n ? String(n) : '');
+const text = (n?: number) => (n ? typedAmount(String(n)) : '');
 
 function DreamForm() {
   const car = useStore((s) => s.shared.car);
@@ -66,11 +67,11 @@ function DreamForm() {
     <form className="form" onSubmit={submit}>
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Что это: порш 911, переезд, отдых" aria-label="Название мечты" maxLength={60} />
       <div className="form-two">
-        <input className="field" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Цена, ₽" aria-label="Цена в рублях" inputMode="decimal" />
-        <input className="field" value={saved} onChange={(e) => setSaved(e.target.value)} placeholder="Уже есть, ₽" aria-label="Уже накоплено, в рублях" inputMode="decimal" />
+        <AmountInput className="field" value={price} onValue={setPrice} placeholder="Цена, ₽" aria-label="Цена в рублях" />
+        <AmountInput className="field" value={saved} onValue={setSaved} placeholder="Уже есть, ₽" aria-label="Уже накоплено, в рублях" />
       </div>
       <div className="form-two">
-        <input className="field" value={pace} onChange={(e) => setPace(e.target.value)} placeholder="В месяц, ₽" aria-label="Сколько откладывать в месяц, в рублях" inputMode="decimal" />
+        <AmountInput className="field" value={pace} onValue={setPace} placeholder="В месяц, ₽" aria-label="Сколько откладывать в месяц, в рублях" />
         <DateField value={date} placeholder="К какой дате" onChange={setDate} />
       </div>
       <p className="form-hint">Если не указать, сколько откладывать в месяц, посчитаю по доходам и покупкам за три месяца</p>
@@ -102,7 +103,7 @@ function SaveForm() {
 
   return (
     <form className="form" onSubmit={submit}>
-      <input ref={input} className="field" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
+      <AmountInput inputRef={input} className="field" value={amount} onValue={setAmount} placeholder="Сумма, ₽" aria-label="Сумма в рублях" />
       <p className="form-hint">С минусом, если пришлось взять обратно. Деньги с карт это не списывает</p>
       <motion.button type="submit" className="primary-btn" disabled={!value} whileTap={{ scale: 0.96 }}>
         Отложить

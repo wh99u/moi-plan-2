@@ -104,4 +104,24 @@ export function byDay(spends: Spend[]) {
 }
 
 /** «1 234,5» → 1234.5; empty or junk → 0. */
-export const parseAmount = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.')) || 0;
+/** A sum as shown or typed. A comma is always kopecks and dots split thousands, except a lone «12.5» from a keyboard with no comma. */
+export function parseAmount(s: string): number {
+  const t = s.replace(/\s/g, '').replace('−', '-');
+  const plain = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^-?\d+\.\d{1,2}$/.test(t) ? t : t.replace(/\./g, '');
+  return Number(plain) || 0;
+}
+
+/**
+ * What a sum field shows after a keystroke, «10.000»: only the dots of the site's own grouping can
+ * be in it, so any others are dropped and put back where they belong. `prev` is what it held before.
+ */
+export function typedAmount(raw: string, prev = ''): string {
+  let t = raw.replace(/\s/g, '').replace('−', '-');
+  // A dot typed at the very end starts the kopecks; a whole value arriving at once may hold them after a dot.
+  if (t === `${prev}.`) t = `${prev},`;
+  else if (!prev && /^-?\d+\.\d{1,2}$/.test(t)) t = t.replace('.', ',');
+  const [whole = '', ...rest] = t.replace(/[^\d,]/g, '').split(',');
+  const digits = whole.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const head = `${t.startsWith('-') ? '-' : ''}${digits}`;
+  return t.includes(',') ? `${head},${rest.join('').slice(0, 2)}` : head;
+}

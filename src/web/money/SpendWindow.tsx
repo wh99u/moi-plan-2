@@ -15,7 +15,7 @@ const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as cons
 
 /** Receipt lines keep their kopecks or cents, unlike the whole amounts everywhere else. */
 const lineMoney = (rub: number, cur: Cur, rate: UsdRate | null) =>
-  cur === 'USD' && rate ? `${convert(rub, cur, rate).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $` : exactMoney(rub);
+  cur === 'USD' && rate ? exactMoney(convert(rub, cur, rate)).replace('₽', '$') : exactMoney(rub);
 
 /** A purchase's row grows into this window: logo and all, then the receipt's lines fall in one by one. */
 export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => void }) {

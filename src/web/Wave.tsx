@@ -136,11 +136,16 @@ const TALL: Lie = { x: 0.66, amp: 0.6, bulge: 0.05, sweep: 0.95, sweepAt: 0.04, 
 const CORNER_WIDE: Lie = { x: 1.03, amp: 0.55, bulge: 0, sweep: 0.8, sweepAt: 0.42, thick: 0.9 };
 const CORNER_TALL: Lie = { x: 1.12, amp: 0.3, bulge: 0, sweep: 0.42, sweepAt: 0.5, thick: 0.75 };
 
+/** On the purchases it comes in from the left edge and runs down towards the bottom, the opposite corner. */
+const LEFT_WIDE: Lie = { x: -0.03, amp: 0.55, bulge: 0, sweep: -0.8, sweepAt: 0.42, thick: 0.9 };
+const LEFT_TALL: Lie = { x: -0.14, amp: 0.3, bulge: 0, sweep: -0.46, sweepAt: 0.42, thick: 0.75 };
+
 const DESKTOP_X = [0.44, 0.27, 0.66, 0.16, 0.8];
 const PHONE_X = [0.66, 0.34, 0.82, 0.2, 0.5];
 
 function lieOf(route: Route, tall: boolean): Lie {
-  if (route === 'money' || route === 'shop') return tall ? CORNER_TALL : CORNER_WIDE;
+  if (route === 'money') return tall ? CORNER_TALL : CORNER_WIDE;
+  if (route === 'shop') return tall ? LEFT_TALL : LEFT_WIDE;
   return { ...(tall ? TALL : WIDE), x: (tall ? PHONE_X : DESKTOP_X)[tabIndex(route)] };
 }
 

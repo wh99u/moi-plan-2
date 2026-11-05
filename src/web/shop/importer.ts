@@ -194,12 +194,13 @@ async function fill(id: string, url: string) {
   void autoPicture(id);
 }
 
-/** A link written into the name of a purchase already open: the name makes way for what the shop calls it. */
+/** A link pasted into a purchase already open. */
 export function linkInto(id: string, text: string) {
   const url = firstUrl(text);
   if (!url) return;
   const shop = shopOf(url);
-  actions.updateBuy(id, { title: shop, url, shop });
+  // A name already written stays; otherwise the shop's stands in until its own name arrives.
+  actions.updateBuy(id, { title: current(id)?.title.trim() ? current(id)!.title : shop, url, shop });
   void fill(id, url);
 }
 

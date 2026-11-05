@@ -130,7 +130,7 @@ describe('income today', () => {
 
 describe('amounts', () => {
   test('no kopecks in general, exact on a receipt', () => {
-    expect(money(1248.4)).toBe('1\u00a0248\u00a0₽');
+    expect(money(1248.4)).toBe('1.248\u00a0₽');
     expect(exactMoney(89.99)).toBe('89,99\u00a0₽');
     expect(exactMoney(489)).toBe('489\u00a0₽');
   });

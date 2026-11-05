@@ -11,7 +11,8 @@ import type { SpendItem } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { pulseWave } from '../Wave';
 import { allCats, catIcon, existingCat } from './categories';
-import { cardViews, fullDate, parseAmount, type CardView } from './data';
+import { AmountInput } from '../AmountInput';
+import { cardViews, fullDate, parseAmount, typedAmount, type CardView } from './data';
 import { Logo } from './Logo';
 import { brandOf, suggestTitles, type Suggestion } from './logos';
 
@@ -151,16 +152,15 @@ let lineKey = 0;
 
 /** Holds the text as typed, so «45,» can stay on the way to «45,5». */
 function PriceInput({ price, label, onChange }: { price: number; label: string; onChange: (n: number) => void }) {
-  const [text, setText] = useState(String(price));
+  const [text, setText] = useState(() => typedAmount(String(price)));
   return (
-    <input
+    <AmountInput
       className="edit-price"
       value={text}
       aria-label={label}
-      inputMode="decimal"
-      onChange={(e) => {
-        setText(e.target.value);
-        onChange(parseAmount(e.target.value));
+      onValue={(v) => {
+        setText(v);
+        onChange(parseAmount(v));
       }}
     />
   );
@@ -232,7 +232,7 @@ function PurchaseForm() {
         if (r.catName && !catTouched.current) setCat(r.catName);
         if (r.date) setDate(r.date);
         setItems(r.items.map((x) => ({ ...x, key: lineKey++ })));
-        if (r.total) setAmount(String(r.total));
+        if (r.total) setAmount(typedAmount(String(r.total)));
         setHint(r.items.length || r.total ? 'Проверь позиции: распознавание иногда ошибается' : 'На фото не нашлось позиций. Заполни вручную или сними чек ровнее и ближе');
       })
       .catch(() => {
@@ -250,7 +250,7 @@ function PurchaseForm() {
   // Until the amount is typed by hand it follows the lines of the receipt.
   const changeItems = (next: Line[]) => {
     setItems(next);
-    if (!amountTouched.current) setAmount(String(Math.round(next.reduce((t, x) => t + x.price, 0) * 100) / 100));
+    if (!amountTouched.current) setAmount(typedAmount(String(Math.round(next.reduce((t, x) => t + x.price, 0) * 100) / 100)));
   };
 
   const value = parseAmount(amount);
@@ -334,7 +334,7 @@ function PurchaseForm() {
         )}
       </AnimatePresence>
       <div className="form-two">
-        <input className="field" value={amount} onChange={(e) => { amountTouched.current = true; setAmount(e.target.value); }} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
+        <AmountInput className="field" value={amount} onValue={(v) => { amountTouched.current = true; setAmount(v); }} placeholder="Сумма, ₽" aria-label="Сумма в рублях" />
         <DateField value={date} onChange={setDate} />
       </div>
       <CatPick
@@ -406,7 +406,7 @@ function IncomeForm() {
   return (
     <form className="form" onSubmit={submit}>
       <div className="form-two">
-        <input ref={input} className="field" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
+        <AmountInput inputRef={input} className="field" value={amount} onValue={setAmount} placeholder="Сумма, ₽" aria-label="Сумма в рублях" />
         <DateField value={date} onChange={setDate} />
       </div>
       <input className="field" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Откуда: зарплата, подработка" aria-label="Откуда" maxLength={80} />
@@ -421,7 +421,7 @@ function IncomeForm() {
 function BalanceForm({ id }: { id?: string }) {
   const banks = visible(useStore((s) => s.shared.banks));
   const card = cardViews(banks).find((c) => c.id === id);
-  const [amount, setAmount] = useState(() => (card ? String(Math.round(card.sum * 100) / 100) : ''));
+  const [amount, setAmount] = useState(() => (card ? typedAmount(String(Math.round(card.sum * 100) / 100)) : ''));
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -442,7 +442,7 @@ function BalanceForm({ id }: { id?: string }) {
     <form className="form" onSubmit={submit}>
       <div className="field-logo">
         <Logo title={card.label} domain={card.domain} size={36} />
-        <input ref={input} className="field" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Сумма, ₽" aria-label={`Сумма на карте ${card.label}, в рублях`} inputMode="decimal" />
+        <AmountInput inputRef={input} className="field" value={amount} onValue={setAmount} placeholder="Сумма, ₽" aria-label={`Сумма на карте ${card.label}, в рублях`} />
       </div>
       <motion.button type="submit" className="primary-btn" whileTap={{ scale: 0.96 }}>
         Сохранить

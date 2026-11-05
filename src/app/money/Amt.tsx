@@ -1,5 +1,6 @@
 import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { useEffect, useRef } from 'react';
+import { grouped } from '../../lib/money';
 import { EASE } from '../ui/text';
 import { convert, useCurrency } from './currency';
 
@@ -14,7 +15,7 @@ export function Amt({ rub, hidden = false, delay = 0 }: { rub: number; hidden?: 
   const dollars = cur === 'USD' && !!rate;
   const value = Math.round(convert(rub, cur, rate));
   const mv = useMotionValue(0);
-  const shown = useTransform(mv, (v) => Math.round(v).toLocaleString('ru-RU').replace(/\s/g, ' ').replace('-', '−'));
+  const shown = useTransform(mv, (v) => grouped(v).replace('-', '−'));
   const wasDollars = useRef(dollars);
   const wait = useRef(delay);
 

@@ -17,7 +17,7 @@ describe('ingesting a bank message', () => {
     const { actions, appStore, ingestBankMessage } = await load();
     const bank = actions.addBank('tbank', 100);
     const r = ingestBankMessage('Пополнение, счет RUB. 15 000 ₽. Иван И. Доступно 42 350 ₽', T);
-    expect(r).toMatchObject({ ok: true, text: '+15 000 ₽' });
+    expect(r).toMatchObject({ ok: true, text: '+15.000 ₽' });
     const s = appStore.get().shared;
     expect(s.banks[0]).toMatchObject({ id: bank.id, sum: 42350 });
     expect(s.incomes[0]).toMatchObject({ amount: 15000, source: 'shortcut', note: 'Иван И' });
