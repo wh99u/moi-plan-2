@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { EASE } from '../app/ui/text';
 import { describeWeather, fetchWeather, isFresh, lastWeather, temperature, type Weather as Now, type WeatherKind } from './weatherData';
@@ -78,10 +78,29 @@ export function WeatherLine() {
   if (!now) return null;
   const { kind, words } = describeWeather(now.code, now.isDay);
   return (
-    <motion.p className="wx" title="Погода в Санкт-Петербурге" initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ delay: 0.25, duration: 0.6, ease: EASE }}>
-      <Picture kind={kind} />
-      <strong>{temperature(now.temp)}</strong>
-      <span>{words}</span>
-    </motion.p>
+    <p className="wx" title="Погода в Санкт-Петербурге">
+      <motion.span className="wx-pic" initial={{ opacity: 0, scale: 0.3, rotate: -60 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ delay: 0.3, type: 'spring', stiffness: 260, damping: 16 }}>
+        <Picture kind={kind} />
+      </motion.span>
+      <Degrees value={now.temp} />
+      <motion.span initial={{ opacity: 0, x: -10, filter: 'blur(6px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} transition={{ delay: 0.55, duration: 0.6, ease: EASE }}>
+        {words}
+      </motion.span>
+    </p>
+  );
+}
+
+/** The degrees count up to what they are. */
+function Degrees({ value }: { value: number }) {
+  const shown = useMotionValue(0);
+  const text = useTransform(shown, temperature);
+  useEffect(() => {
+    const c = animate(shown, value, { delay: 0.4, duration: 0.9, ease: EASE });
+    return () => c.stop();
+  }, [shown, value]);
+  return (
+    <motion.strong initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.4 }}>
+      {text}
+    </motion.strong>
   );
 }

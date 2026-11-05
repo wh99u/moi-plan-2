@@ -41,9 +41,9 @@ export const dateFromWords = (day: number, month: string | number, today: string
 
 /**
  * A line as it is typed, «Купить хлеб завтра в 15 !! #дом», taken apart. What was understood is
- * removed from the title; null when no title is left.
+ * removed from the title; null when no title is left. With `day` given, a time alone belongs to that day.
  */
-export function parseQuick(line: string, now: Date): (Quick & { title: string }) | null {
+export function parseQuick(line: string, now: Date, day?: string): (Quick & { title: string }) | null {
   const today = dayKey(now);
   let text = ` ${line} `;
   const take = (re: RegExp, then: (m: RegExpMatchArray) => void) => {
@@ -106,8 +106,8 @@ export function parseQuick(line: string, now: Date): (Quick & { title: string })
     take(word('вечером'), () => (out.time = clock(19)));
 
   // A time alone means the next time it comes round.
-  if (out.time && !out.due && toMinutes(out.time) <= now.getHours() * 60 + now.getMinutes()) out.due = after(1);
-  if (out.time && !out.due) out.due = today;
+  if (!day && out.time && !out.due && toMinutes(out.time) <= now.getHours() * 60 + now.getMinutes()) out.due = after(1);
+  if (!day && out.time && !out.due) out.due = today;
 
   const title = text.replace(/\s+/g, ' ').trim();
   if (!title) return null;

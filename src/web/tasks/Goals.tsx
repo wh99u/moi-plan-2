@@ -8,9 +8,8 @@ import { Icon } from '../../ui/Icon';
 import { DateField } from '../money/sheets';
 import { GrowText } from '../shop/BuyWindow';
 import { pulseWave } from '../Wave';
-import { activeGoals, goalMarks, goalState, leftWords, parseGoal, type GoalState, type Pace } from './goalLogic';
+import { activeGoals, goalMarks, goalState, leftWords, type GoalState, type Pace } from './goalLogic';
 import { DEFAULT_MINUTES, parseQuick } from './logic';
-import { Mic } from './Speech';
 import { completeTask } from './TaskWindow';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
@@ -117,44 +116,6 @@ export function Goals({ goals, tasks, now, opened, onOpen }: { goals: Goal[]; ta
         </section>
       )}
     </div>
-  );
-}
-
-/** A goal in one line: the term is read out of it and shown above, as with tasks. */
-export function GoalAdd() {
-  const [text, setText] = useState('');
-  const now = new Date();
-  const parsed = parseGoal(text, now);
-  const chip = parsed && `${parsed.guessed ? 'На месяц, ' : ''}до ${fmtDay(parsed.end, true).replace(/ \d{4}.*$/, '')}`;
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!parsed) return;
-    actions.addGoal({ title: parsed.title, start: dayKey(now), end: parsed.end });
-    pulseWave();
-    setText('');
-  };
-
-  return (
-    <form className="quick" onSubmit={submit}>
-      <AnimatePresence>
-        {chip && (
-          <motion.div className="quick-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }}>
-            <span>{chip}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <div className="quick-bar">
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Новая цель…" aria-label="Новая цель" enterKeyHint="done" maxLength={200} />
-        {text.trim() ? (
-          <motion.button type="submit" className="quick-go" aria-label="Добавить цель" disabled={!parsed} initial={{ scale: 0.6 }} animate={{ scale: 1 }} whileTap={{ scale: 0.85 }}>
-            <Icon name="check" size={18} stroke={2.4} />
-          </motion.button>
-        ) : (
-          <Mic onText={setText} />
-        )}
-      </div>
-    </form>
   );
 }
 

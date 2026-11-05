@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'motion/react';
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { firstName, greeting, useProfile } from '../app/profile';
 import { openSheet } from '../app/sheet';
 import { EASE, MorphText, RollingText } from '../app/ui/text';
@@ -19,8 +19,18 @@ const swap = {
   exit: { opacity: 0, scale: 0.96, filter: 'blur(8px)', transition: { duration: 0.24, ease: 'easeIn' } },
 } as const;
 
+/** Each part of the card comes up after the one above it, every time the home screen opens. */
+const arrive = (i: number) => ({
+  initial: { opacity: 0, y: 22, filter: 'blur(8px)' },
+  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
+  transition: { delay: 0.12 + i * 0.09, duration: 0.7, ease: EASE },
+});
+
 export function Home() {
   const [view, setView] = useState<'hello' | 'today'>('hello');
+
+  // The line behind flares as the screen opens.
+  useEffect(() => pulseWave(), []);
 
   // The glass leans towards the mouse and catches a light where it points.
   const card = useRef<HTMLDivElement>(null);
@@ -56,6 +66,7 @@ export function Home() {
 
   return (
     <div className="home">
+      <div className="hero-float">
       <Recede
         from={5}
         panel
@@ -67,7 +78,7 @@ export function Home() {
         <div ref={card} className="hero-light">
           <motion.div className="hero-size" animate={height === null ? undefined : { height }} initial={false} transition={{ type: 'spring', stiffness: 170, damping: 24, mass: 0.9 }}>
             <div ref={inner} className="hero-inner">
-              <AnimatePresence mode="wait" initial={false}>
+              <AnimatePresence mode="wait">
                 {view === 'hello' ? (
                   <motion.div key="hello" {...swap}>
                     <Hello onOpen={() => setView('today')} />
@@ -82,6 +93,7 @@ export function Home() {
           </motion.div>
         </div>
       </Recede>
+      </div>
     </div>
   );
 }
@@ -90,11 +102,17 @@ function Hello({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="hello">
       <Recede from={2.2} delay={0.02} className="hello-part">
-        <NowChip />
-        <WeatherLine />
+        <motion.div {...arrive(0)}>
+          <NowChip />
+        </motion.div>
+        <motion.div {...arrive(1)}>
+          <WeatherLine />
+        </motion.div>
       </Recede>
       <Recede from={1.9} delay={0.06} className="hello-part">
-        <Greeting />
+        <motion.div {...arrive(2)}>
+          <Greeting />
+        </motion.div>
       </Recede>
       <Recede from={1.7} delay={0.12} className="hello-part">
         <motion.button
@@ -104,6 +122,9 @@ function Hello({ onOpen }: { onOpen: () => void }) {
             pulseWave();
             onOpen();
           }}
+          initial={{ opacity: 0, y: 26, scale: 0.86 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ delay: 0.38, type: 'spring', stiffness: 240, damping: 18 }}
           whileHover={{ scale: 1.025 }}
           whileTap={{ scale: 0.96 }}
         >
@@ -115,7 +136,9 @@ function Hello({ onOpen }: { onOpen: () => void }) {
         </motion.button>
       </Recede>
       <Recede from={1.45} delay={0.18} className="hello-part">
-        <Reminder />
+        <motion.div {...arrive(4)}>
+          <Reminder />
+        </motion.div>
       </Recede>
     </div>
   );

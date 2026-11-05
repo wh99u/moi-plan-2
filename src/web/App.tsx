@@ -4,6 +4,7 @@ import { takeBankLink } from '../app/money/auto';
 import { useProfile } from '../app/profile';
 import { closeSheet, openSheet } from '../app/sheet';
 import { toggleTheme, useTheme } from '../app/theme';
+import { EASE } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
 import { Home } from './Home';
 import { Mark } from './Mark';
@@ -81,10 +82,14 @@ function TopBar({ route }: { route: Route }) {
     <div className="topbar">
       {/* These sections scroll under this bar, and plain text over a list would be unreadable. */}
       <Recede from={3.6} delay={0.04} className={`brand${route === 'money' || route === 'shop' || route === 'tasks' ? ' is-away' : ''}`}>
-        <Mark size={28} />
-        <span>Мой план</span>
+        {/* Back on the home screen the corners greet it too. */}
+        <motion.div key={route === 'home' ? 'home' : 'away'} className="top-in" initial={route === 'home' ? { opacity: 0, x: -18 } : false} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1, duration: 0.6, ease: EASE }}>
+          <Mark size={28} />
+          <span>Мой план</span>
+        </motion.div>
       </Recede>
       <Recede from={3.6} delay={0.06} solid className="top-actions">
+        <motion.div key={route === 'home' ? 'home' : 'away'} className="top-in" initial={route === 'home' ? { opacity: 0, y: -14 } : false} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, duration: 0.6, ease: EASE }}>
         <motion.button
           type="button"
           className="theme-pill"
@@ -110,6 +115,7 @@ function TopBar({ route }: { route: Route }) {
         <motion.button type="button" className="round-btn avatar" aria-label="Профиль" onClick={() => openSheet('profile')} whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.88 }}>
           {picture ? <img src={picture} alt="" referrerPolicy="no-referrer" /> : name ? <span>{name[0].toUpperCase()}</span> : <Icon name="user" size={18} />}
         </motion.button>
+        </motion.div>
       </Recede>
     </div>
   );

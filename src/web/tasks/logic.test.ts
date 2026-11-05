@@ -164,3 +164,12 @@ describe('shifts', () => {
     expect(hoursText(11.5)).toBe('11,5');
   });
 });
+
+it('a time alone goes to the day it was written on', () => {
+  const now = new Date(2026, 10, 5, 12);
+  const line = parseQuick('врач в 15', now, '2026-11-20');
+  expect(line).toMatchObject({ title: 'Врач', time: '15:00' });
+  expect(line?.due).toBeUndefined();
+  expect(parseQuick('врач завтра в 15', now, '2026-11-20')).toMatchObject({ due: '2026-11-06', time: '15:00' });
+  expect(parseQuick('врач в 15', now)).toMatchObject({ due: '2026-11-05' });
+});

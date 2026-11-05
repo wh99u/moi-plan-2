@@ -34,6 +34,31 @@ export function completeTask(task: Task) {
   actions.toggleTask(task.id);
 }
 
+/** Looks like the date beside it: words over the device's own picker, which writes «AM» in some languages. */
+function TimeField({ value, onChange }: { value: string; onChange: (time: string) => void }) {
+  return (
+    <label className="date-field">
+      <span className={value ? undefined : 'date-field-empty'}>{value || 'Время'}</span>
+      {value ? (
+        <button
+          type="button"
+          className="time-clear"
+          aria-label="Убрать время"
+          onClick={(e) => {
+            e.preventDefault();
+            onChange('');
+          }}
+        >
+          <Icon name="close" size={15} />
+        </button>
+      ) : (
+        <Icon name="clock" size={18} />
+      )}
+      <input type="time" value={value} aria-label="Время" onChange={(e) => onChange(e.target.value)} onClick={(e) => e.currentTarget.showPicker?.()} />
+    </label>
+  );
+}
+
 const PRIORITIES: { id: Priority; label: string }[] = [
   { id: 3, label: 'Высокий' },
   { id: 2, label: 'Средний' },
@@ -102,9 +127,9 @@ export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morp
 
               <GrowText value={task.desc} placeholder="Описание" aria-label="Описание" {...part(1)} onChange={(e) => set({ desc: e.target.value })} />
 
-              <motion.div className="form-two" {...part(2)}>
+              <motion.div className="task-when" {...part(2)}>
                 <DateField value={task.due} placeholder="Дата" onChange={(due) => set({ due })} />
-                <input className="field task-time" type="time" value={task.time ?? ''} aria-label="Время" onChange={(e) => set({ time: e.target.value || undefined, minutes: e.target.value ? (task.minutes ?? DEFAULT_MINUTES) : undefined })} />
+                <TimeField value={task.time ?? ''} onChange={(time) => set({ time: time || undefined, minutes: time ? (task.minutes ?? DEFAULT_MINUTES) : undefined })} />
               </motion.div>
 
               {task.time && (

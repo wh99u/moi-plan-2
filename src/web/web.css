@@ -268,6 +268,22 @@ a {
   justify-content: flex-end;
   padding-right: clamp(var(--edge), 10vw, 200px);
 }
+/* The card hangs in the air, rising and falling very slowly. */
+.hero-float {
+  width: 100%;
+  max-width: 452px;
+  animation: hero-float 7s ease-in-out 2.5s infinite alternate;
+}
+@keyframes hero-float {
+  to {
+    transform: translateY(-7px);
+  }
+}
+.top-in {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+}
 .hero-card {
   position: relative;
   width: 100%;
@@ -446,6 +462,17 @@ a {
 .cta-arrow {
   display: grid;
   transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cta-nudge 2.6s ease-in-out 1.2s infinite;
+}
+@keyframes cta-nudge {
+  0%,
+  60%,
+  100% {
+    translate: 0 0;
+  }
+  75% {
+    translate: 5px 0;
+  }
 }
 .cta:hover .cta-arrow {
   transform: translateX(5px);
@@ -1205,7 +1232,7 @@ a {
 
 .form-two {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 .date-field {
@@ -1226,6 +1253,11 @@ a {
 .date-field svg {
   flex: none;
   color: var(--ink-2);
+}
+.date-field > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .date-field:focus-within {
   box-shadow: inset 0 0 0 1.5px var(--accent);
@@ -2336,6 +2368,22 @@ a {
   margin: 0 auto;
   padding: calc(64px + var(--safe-t)) var(--edge) calc(var(--nav-space) + 72px);
 }
+/* By the hours nothing scrolls but the hours themselves. */
+.budget.tasks.is-hours {
+  overflow: hidden;
+}
+.is-hours .tasks-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-bottom: 0;
+}
+.tasks-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .tasks-seg .seg-opt {
   height: 36px;
   font-size: 14px;
@@ -2558,9 +2606,11 @@ a {
 /* The three days on show: one strip that travels when another day is chosen. */
 .cal-strip {
   position: absolute;
+  width: calc(100% / 7);
   height: 38px;
   border-radius: 12px;
   background: var(--fill-2);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 .cal-week span {
   animation: cal-fade 0.5s ease backwards;
@@ -2603,6 +2653,10 @@ a {
   }
 }
 .tl {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin-top: 16px;
   touch-action: pan-y;
 }
@@ -2670,16 +2724,26 @@ a {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
 }
-/* The days stay in sight all the way down the hours. */
 .tl-heads {
-  position: sticky;
-  z-index: 3;
-  top: calc(60px + var(--safe-t));
-  padding-top: 4px;
-  border-radius: 14px;
-  background: var(--sheet);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  flex: none;
+  box-shadow: 0 1px 0 var(--glass-line);
+}
+.tl-top,
+.tl-goals {
+  flex: none;
+}
+.tl-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  padding: 10px 0 var(--nav-space);
+  scrollbar-width: none;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.tl-scroll::-webkit-scrollbar {
+  display: none;
 }
 /* Three days in the window; the ribbon behind it holds three more on each side. */
 .tl-view {
@@ -3057,14 +3121,26 @@ a {
 .mbox .tline-title {
   font-size: 14px;
 }
-.quick {
+/* Adding to the list or to the goals: a plus in the corner, above the tabs. */
+.fab-plus {
   position: fixed;
   z-index: 20;
-  left: 50%;
+  right: var(--edge);
   bottom: calc(112px + var(--safe-b));
-  width: var(--nav-w);
-  margin-left: calc(var(--nav-w) / -2);
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2d6df6;
+  box-shadow: 0 10px 28px rgba(45, 109, 246, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  color: #fff;
   pointer-events: auto;
+}
+.quick-bar--sheet {
+  background: var(--fill);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .quick-chips {
   display: flex;
@@ -3158,14 +3234,27 @@ a {
 .task-win.is-done .task-win-head .check svg {
   color: #fff;
 }
-.field.task-time {
-  min-width: 0;
-  padding: 0 12px 0 20px;
-  font-size: 15px;
-  color-scheme: dark;
+/* The date has more to say than the time, so it gets the wider half. */
+.task-when {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  gap: 8px;
 }
-[data-theme='light'] .field.task-time {
-  color-scheme: light;
+.task-when .date-field {
+  padding: 0 14px 0 18px;
+}
+/* Above the unseen picker that lies over the whole field. */
+.time-clear {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: -4px;
+  border-radius: 50%;
+  background: var(--fill-2);
 }
 .task-win-row,
 .task-subs {
@@ -3387,6 +3476,85 @@ a {
   border-radius: 50%;
   color: var(--ink-2);
 }
+/* One day, over the matrix. */
+.day-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+  /* Down past the tabs, so nothing of the matrix would show even if it stayed. */
+  min-height: 420px;
+  margin: 8px calc(var(--edge) * -1) 0;
+  padding: 10px var(--edge) 24px;
+  border-radius: 28px 28px 0 0;
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-top), 0 -12px 32px rgba(0, 0, 0, 0.25);
+}
+.day-panel-grip {
+  justify-self: center;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.day-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.day-panel-head h2 {
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.day-panel-head h2::first-letter {
+  text-transform: uppercase;
+}
+.day-shifts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.day-shift {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 16px 6px 12px;
+  border-radius: 16px;
+  background: var(--fill);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.day-shift svg {
+  flex: none;
+  color: #f5b301;
+}
+.day-shift small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 400;
+  font-feature-settings: 'tnum' 1;
+}
+.day-shift--add {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  color: var(--ink-2);
+}
+.day-shift--add svg {
+  color: inherit;
+}
+.day-tasks {
+  display: grid;
+  gap: 2px;
+}
 /* The button of a new purchase, over the window. */
 .buy-add {
   position: fixed;
@@ -3416,19 +3584,28 @@ a {
   color: var(--ink);
   font-feature-settings: 'tnum' 1;
 }
+.wx-pic {
+  flex: none;
+  display: grid;
+}
+/* All one colour: white, or dark where white would not show. */
 .wx-icon {
+  --wx: #fff;
+  --wx-cloud: #0a1424;
   flex: none;
   overflow: visible;
-  stroke: var(--ink);
+  stroke: var(--wx);
 }
-.wx-sun-disc,
-.wx-rays {
-  stroke: #ffb938;
+[data-theme='light'] .wx-icon {
+  --wx: var(--ink);
+  --wx-cloud: #eef3fb;
 }
 .wx-sun-disc {
-  fill: #ffb938;
+  fill: var(--wx);
+  stroke: var(--wx);
 }
 .wx-rays {
+  stroke: var(--wx);
   transform-origin: 12px 12px;
   animation: wx-turn 18s linear infinite;
 }
@@ -3437,20 +3614,20 @@ a {
   transform-origin: 12px 12px;
 }
 .wx-moon {
-  stroke: #ffd98a;
-  fill: #ffd98a;
+  stroke: var(--wx);
+  fill: var(--wx);
 }
 .wx-moon--small {
   transform: translate(-3px, -4px) scale(0.68);
   transform-origin: 12px 12px;
 }
 .wx-cloud {
-  fill: var(--sheet);
-  stroke: var(--ink);
+  fill: var(--wx-cloud);
+  stroke: var(--wx);
   animation: wx-drift 6s ease-in-out infinite;
 }
 .wx-drops path {
-  stroke: #5aa7ff;
+  stroke: var(--wx);
   animation: wx-fall 1.2s linear infinite;
 }
 .wx-drops path:nth-child(2) {
@@ -3460,7 +3637,7 @@ a {
   animation-delay: 0.8s;
 }
 .wx-flakes circle {
-  fill: #8ec6ff;
+  fill: var(--wx);
   stroke: none;
   animation: wx-fall 2.4s linear infinite;
 }
@@ -3471,11 +3648,11 @@ a {
   animation-delay: 1.6s;
 }
 .wx-bolt {
-  stroke: #ffb938;
+  stroke: var(--wx);
   animation: wx-flash 3.2s linear infinite;
 }
 .wx-fog > path:not(.wx-cloud) {
-  stroke: var(--ink-2);
+  stroke: var(--wx);
   animation: wx-drift 5s ease-in-out infinite;
 }
 @keyframes wx-turn {
@@ -4057,6 +4234,8 @@ a {
   .tl-now::before,
   .goal-cells i,
   .focus-ring-done,
+  .hero-float,
+  .cta-arrow,
   .wx-rays,
   .wx-cloud,
   .wx-drops path,

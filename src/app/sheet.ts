@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type SheetKind = 'more' | 'task' | 'profile' | 'tx' | 'txView' | 'balance' | 'auto' | 'cat' | 'planIncome' | 'dream' | 'dreamInfo' | 'dreamPic' | 'dreamSave' | 'shopShare' | 'shift';
+export type SheetKind = 'more' | 'task' | 'profile' | 'tx' | 'txView' | 'balance' | 'auto' | 'cat' | 'planIncome' | 'dream' | 'dreamInfo' | 'dreamPic' | 'dreamSave' | 'shopShare' | 'shift' | 'newTask' | 'newGoal';
 
 /** What a sheet is about: the record it edits or shows. */
 export interface SheetData {
@@ -11,6 +11,8 @@ export interface SheetData {
   ym?: string;
   /** The day a new record goes to. */
   date?: string;
+  /** The hour a new task goes to, `HH:MM`. */
+  time?: string;
   /** A receipt photo already picked, to read as soon as the form opens. */
   file?: File;
 }

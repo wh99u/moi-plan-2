@@ -12,6 +12,7 @@ import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
 import { Seg } from './Seg';
 import { ShopSheets } from './shop/sheets';
+import { AddSheets } from './tasks/AddSheets';
 import { ShiftSheet } from './tasks/ShiftSheet';
 import { pulseWave } from './Wave';
 
@@ -31,6 +32,7 @@ export function Sheets() {
       <MoneySheets />
       <ShopSheets />
       <ShiftSheet />
+      <AddSheets />
     </>
   );
 }

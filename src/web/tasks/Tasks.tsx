@@ -1,10 +1,10 @@
 import { animate, AnimatePresence, motion, useMotionValue, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { openSheet } from '../../app/sheet';
+import { openSheet, useSheet, useSheetData } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
-import { addDays, addMonths, dayKey, daysBetween, fmtDay, monthIn, monthName, parseDay, ymKey } from '../../lib/dates';
+import { addDays, addMonths, dayKey, daysBetween, fmtDay, fmtWeekday, monthIn, monthName, parseDay, ymKey } from '../../lib/dates';
 import { rub } from '../../lib/money';
 import { visible } from '../../lib/records';
 import type { Goal, Shift, Task } from '../../lib/types';
@@ -15,10 +15,9 @@ import { Seg } from '../Seg';
 import { useNow } from '../Today';
 import { pulseWave } from '../Wave';
 import { openFocus } from './focusTimer';
-import { GoalAdd, GoalWindow, Goals, type OpenedGoal } from './Goals';
+import { GoalWindow, Goals, type OpenedGoal } from './Goals';
 import { activeGoals, leftWords } from './goalLogic';
 import { DEFAULT_MINUTES, hoursText, layoutDay, monthCells, monthShifts, parseQuick, quadrantOf, shiftName, smartGroups, toMinutes, type Quadrant } from './logic';
-import { Mic } from './Speech';
 import { completeTask, TaskWindow } from './TaskWindow';
 
 type View = 'month' | 'hours' | 'list' | 'goals';
@@ -26,11 +25,6 @@ interface Opened {
   id: string;
   morph: string;
 }
-interface Draft {
-  due: string;
-  time?: string;
-}
-
 const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const FIRST_HOUR = 7;
 const HOUR = 44;
@@ -76,13 +70,13 @@ export function Tasks() {
   const shifts = visible(useStore((s) => s.personal.shifts));
   const goals = visible(useStore((s) => s.personal.goals));
   const now = useNow(60_000);
-  const today = dayKey(now);
   const [view, setView] = useState<View>('month');
-  const [start, setStart] = useState(today);
+  const [start, setStart] = useState(() => dayKey(now));
   const [span, setSpan] = useState(savedSpan);
   const [opened, setOpened] = useState<Opened | null>(null);
   const [goalOpen, setGoalOpen] = useState<OpenedGoal | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  // The day open in the panel under the month.
+  const [day, setDay] = useState<string | null>(null);
   const open = tasks.find((t) => t.id === opened?.id);
   const goal = goals.find((g) => g.id === goalOpen?.id);
   const scroller = useRef<HTMLDivElement>(null);
@@ -101,7 +95,7 @@ export function Tasks() {
 
   return (
     <>
-      <div ref={scroller} className="budget tasks">
+      <div ref={scroller} className={`budget tasks${view === 'hours' ? ' is-hours' : ''}`}>
         <div className="tasks-col">
           <Recede from={2.4} className="tasks-seg">
             <Seg
@@ -123,7 +117,7 @@ export function Tasks() {
               if (scroller.current) scroller.current.scrollTop = 0;
             }}
           >
-            <motion.div key={view} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: EASE }}>
+            <motion.div key={view} className={view === 'hours' ? 'tasks-fill' : undefined} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: EASE }}>
               {view === 'month' && (
                 <>
                   <Month
@@ -132,26 +126,65 @@ export function Tasks() {
                     shifts={shifts}
                     now={now}
                     start={start}
-                    span={span}
+                    selected={day}
                     opacity={monthOpacity}
                     scale={monthScale}
                     onStart={setStart}
                     onPick={(key) => {
                       setStart(key);
-                      setView('hours');
+                      setDay(day === key ? null : key);
                     }}
                   />
-                  <Matrix tasks={tasks} now={now} opened={opened} onOpen={openTask} />
+                  {/* The day comes up over the matrix and goes back down to show it again. */}
+                  <AnimatePresence mode="wait" initial={false}>
+                    {day ? (
+                      <DayPanel
+                        key="day"
+                        day={day}
+                        tasks={tasks}
+                        shifts={shifts}
+                        now={now}
+                        opened={opened}
+                        onOpen={openTask}
+                        onClose={() => setDay(null)}
+                        onHours={() => {
+                          setDay(null);
+                          setView('hours');
+                        }}
+                      />
+                    ) : (
+                      <motion.div key="matrix" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ duration: 0.35, ease: EASE }}>
+                        <Matrix tasks={tasks} now={now} opened={opened} onOpen={openTask} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </>
               )}
-              {view === 'hours' && <Timeline tasks={tasks} goals={goals} shifts={shifts} now={now} start={start} span={span} opened={opened} goalOpen={goalOpen} draft={draft} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onGoal={setGoalOpen} onSlot={setDraft} />}
+              {view === 'hours' && <Timeline tasks={tasks} goals={goals} shifts={shifts} now={now} start={start} span={span} opened={opened} goalOpen={goalOpen} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onGoal={setGoalOpen} />}
               {view === 'list' && <List tasks={tasks} now={now} opened={opened} onOpen={openTask} />}
               {view === 'goals' && <Goals goals={goals} tasks={tasks} now={now} opened={goalOpen} onOpen={setGoalOpen} />}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
-      {view === 'goals' ? <GoalAdd /> : <QuickAdd fallback={view === 'hours' ? start : today} draft={draft} onDraftUsed={() => setDraft(null)} />}
+      <AnimatePresence>
+        {(view === 'list' || view === 'goals') && (
+          <motion.button
+            key="plus"
+            type="button"
+            className="fab-plus"
+            aria-label={view === 'goals' ? 'Новая цель' : 'Новая задача'}
+            initial={{ scale: 0, rotate: -90 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, rotate: 90 }}
+            transition={POP}
+            whileTap={{ scale: 0.85 }}
+            onClick={() => openSheet(view === 'goals' ? 'newGoal' : 'newTask')}
+          >
+            <Icon name="plus" size={26} stroke={2} />
+          </motion.button>
+        )}
+      </AnimatePresence>
       {createPortal(
         <>
           <AnimatePresence>
@@ -193,11 +226,10 @@ export function Tasks() {
 
 /* ─────────── The month ─────────── */
 
-function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart, onPick }: { tasks: Task[]; goals: Goal[]; shifts: Shift[]; now: Date; start: string; span: number; opacity: MotionValue<number>; scale: MotionValue<number>; onStart: (key: string) => void; onPick: (key: string) => void }) {
+function Month({ tasks, goals, shifts, now, start, selected, opacity, scale, onStart, onPick }: { tasks: Task[]; goals: Goal[]; shifts: Shift[]; now: Date; start: string; selected: string | null; opacity: MotionValue<number>; scale: MotionValue<number>; onStart: (key: string) => void; onPick: (key: string) => void }) {
   const today = dayKey(now);
   const [ym, setYm] = useState(start.slice(0, 7));
   const [shift, setShift] = useState(0);
-  const days = useMemo(() => daysFrom(start, span), [start, span]);
   const cells = monthCells(ym);
   const busy = useMemo(() => new Set(tasks.filter((t) => !t.done && t.due).map((t) => t.due)), [tasks]);
   const goalEnds = useMemo(() => new Set(activeGoals(goals).map((g) => g.end)), [goals]);
@@ -205,15 +237,7 @@ function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart
   const [showShifts, setShowShifts] = useState(false);
   // Each cell comes up later the further it is from today, or from the middle of a month without it.
   const origin = Math.max(0, cells.indexOf(today)) || 17;
-  const strips = days.reduce<{ row: number; col: number; span: number }[]>((all, key) => {
-    const i = cells.indexOf(key);
-    if (i < 0) return all;
-    const row = Math.floor(i / 7);
-    const last = all.at(-1);
-    if (last?.row === row) last.span++;
-    else all.push({ row, col: i % 7, span: 1 });
-    return all;
-  }, []);
+  const at = selected ? cells.indexOf(selected) : -1;
 
   const turn = (n: number) => {
     setShift(n);
@@ -281,17 +305,22 @@ function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart
           }}
         >
           <AnimatePresence initial={false}>
-            {strips.map((s, i) => {
-              const place = { left: `${(s.col / 7) * 100}%`, width: `${(s.span / 7) * 100}%`, top: s.row * ROW };
-              return <motion.span key={i} className="cal-strip" initial={{ opacity: 0, ...place }} animate={{ opacity: 1, ...place }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }} />;
-            })}
+            {at >= 0 && (
+              <motion.span
+                key="picked"
+                className="cal-strip"
+                initial={{ opacity: 0, scale: 0.7, left: `${((at % 7) / 7) * 100}%`, top: Math.floor(at / 7) * ROW }}
+                animate={{ opacity: 1, scale: 1, left: `${((at % 7) / 7) * 100}%`, top: Math.floor(at / 7) * ROW }}
+                exit={{ opacity: 0, scale: 0.7 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              />
+            )}
           </AnimatePresence>
           {cells.map((key, i) => {
-            const at = days.indexOf(key);
-            const cls = ['cal-day', !key.startsWith(ym) && 'is-other', at === 0 && 'is-start'].filter(Boolean).join(' ');
+            const cls = ['cal-day', !key.startsWith(ym) && 'is-other', key === selected && 'is-start'].filter(Boolean).join(' ');
             const far = Math.hypot(Math.floor(i / 7) - Math.floor(origin / 7), i % 7 - origin % 7);
             return (
-              <button key={key} type="button" className={cls} style={{ animationDelay: `${far * 0.035}s` }} aria-label={`${parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, открыть по часам`} onClick={() => onPick(key)}>
+              <button key={key} type="button" className={cls} style={{ animationDelay: `${far * 0.035}s` }} aria-label={parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} aria-pressed={key === selected} onClick={() => onPick(key)}>
                 <span className={key === today ? 'cal-num is-today' : 'cal-num'}>{Number(key.slice(8))}</span>
                 {busy.has(key) && <i className="cal-dot" />}
                 {shifts.some((s) => s.date === key) && (
@@ -318,7 +347,7 @@ function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart
           <strong>Смены в {monthIn(ym)}</strong>
           <span>{worked.list.length ? `${worked.list.length} · ${hoursText(worked.hours)} ч · ${rub(worked.pay)}` : 'Пока нет'}</span>
         </button>
-        <motion.button type="button" className="shifts-add" whileTap={{ scale: 0.92 }} onClick={() => openSheet('shift', { date: start.startsWith(ym) ? start : `${ym}-01` })}>
+        <motion.button type="button" className="shifts-add" whileTap={{ scale: 0.92 }} onClick={() => openSheet('shift', { date: selected ?? (start.startsWith(ym) ? start : `${ym}-01`) })}>
           <Icon name="plus" size={16} stroke={2} />
           Смена
         </motion.button>
@@ -345,6 +374,80 @@ function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart
   );
 }
 
+/* ─────────── One day, over the matrix ─────────── */
+
+const inTimeOrder = (a: Task, b: Task) => Number(a.done) - Number(b.done) || (a.time ?? '99').localeCompare(b.time ?? '99');
+
+function DayPanel({ day, tasks, shifts, now, opened, onOpen, onClose, onHours }: { day: string; tasks: Task[]; shifts: Shift[]; now: Date; opened: Opened | null; onOpen: (t: Task, morph: string) => void; onClose: () => void; onHours: () => void }) {
+  const [text, setText] = useState('');
+  const list = tasks.filter((t) => t.due === day).sort(inTimeOrder);
+  const worked = shifts.filter((s) => s.date === day);
+  const parsed = parseQuick(text, now, day);
+
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    if (!parsed) return;
+    actions.addTask({ title: parsed.title, desc: '', due: parsed.due ?? day, time: parsed.time, minutes: parsed.minutes ?? (parsed.time ? DEFAULT_MINUTES : undefined), priority: parsed.priority, tags: parsed.tags.length ? parsed.tags : undefined, repeat: parsed.repeat });
+    pulseWave();
+    setText('');
+  };
+
+  return (
+    <motion.section className="day-panel" aria-label={fmtWeekday(day)} initial={{ opacity: 0, y: 90 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 90, transition: { duration: 0.2, ease: 'easeIn' } }} transition={{ type: 'spring', stiffness: 300, damping: 32 }}>
+      <i className="day-panel-grip" />
+      <header className="day-panel-head">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.h2 key={day} initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(6px)' }} transition={{ duration: 0.28, ease: EASE }}>
+            {fmtWeekday(day)}
+          </motion.h2>
+        </AnimatePresence>
+        <button type="button" className="round-btn" aria-label="Закрыть день" onClick={onClose}>
+          <Icon name="close" size={18} />
+        </button>
+      </header>
+
+      <div className="day-shifts">
+        {worked.map((s) => (
+          <motion.button key={s.id} type="button" className="day-shift" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={POP} whileTap={{ scale: 0.96 }} onClick={() => openSheet('shift', { id: s.id })}>
+            <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={16} />
+            <span>
+              {shiftName(s.type)} смена
+              <small>
+                {hoursText(s.h)} ч · {rub(s.pay)}
+              </small>
+            </span>
+          </motion.button>
+        ))}
+        {worked.length < 2 && (
+          <motion.button type="button" className="day-shift day-shift--add" whileTap={{ scale: 0.96 }} onClick={() => openSheet('shift', { date: day })}>
+            <Icon name="plus" size={16} stroke={2} />
+            <span>Смена</span>
+          </motion.button>
+        )}
+      </div>
+
+      {list.length > 0 && (
+        <ul className="day-tasks">
+          <AnimatePresence initial={false}>
+            {list.map((t) => (
+              <TaskLine key={t.id} task={t} compact morphPrefix="day" opened={opened} onOpen={onOpen} />
+            ))}
+          </AnimatePresence>
+        </ul>
+      )}
+
+      <form onSubmit={add}>
+        <input className="field" value={text} onChange={(e) => setText(e.target.value)} placeholder="Добавить задачу на этот день" aria-label="Новая задача на этот день" enterKeyHint="done" maxLength={200} />
+      </form>
+
+      <button type="button" className="scan-link" onClick={onHours}>
+        <Icon name="clock" size={18} />
+        Открыть по часам
+      </button>
+    </motion.section>
+  );
+}
+
 /* ─────────── Hour by hour ─────────── */
 
 interface TimelineProps {
@@ -356,22 +459,24 @@ interface TimelineProps {
   span: number;
   opened: Opened | null;
   goalOpen: OpenedGoal | null;
-  draft: Draft | null;
   onStart: (key: string) => void;
   onSpan: (n: number) => void;
   onOpen: (t: Task, morph: string) => void;
   onGoal: (o: OpenedGoal) => void;
-  onSlot: (d: Draft) => void;
 }
 
-function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, draft, onStart, onSpan, onOpen, onGoal, onSlot }: TimelineProps) {
+function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, onStart, onSpan, onOpen, onGoal }: TimelineProps) {
   const today = dayKey(now);
+  // The hour a new task is being written for stands marked while its sheet is open.
+  const sheet = useSheet();
+  const sheetData = useSheetData();
+  const draft = sheet === 'newTask' && sheetData.date && sheetData.time ? { due: sheetData.date, time: sheetData.time } : null;
   const days = useMemo(() => daysFrom(start, span), [start, span]);
   // A long ribbon of days with some of them in the window: it follows the finger and the pinch, and neighbours are already there when it moves.
   const ribbon = useMemo(() => daysFrom(dayKey(addDays(parseDay(start), -AROUND)), RIBBON), [start]);
   const root = useRef<HTMLElement>(null);
   const view = useRef<HTMLDivElement>(null);
-  const body = useRef<HTMLDivElement>(null);
+  const hoursBox = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const fade = useMotionValue(1);
   // Days in the window as a number with a fraction, while the fingers are on it.
@@ -511,12 +616,12 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
   const lastDay = days[span - 1];
   const title = start.slice(0, 7) === lastDay.slice(0, 7) ? monthName(start.slice(0, 7)) : `${monthName(start.slice(0, 7))} – ${monthName(lastDay.slice(0, 7))}`;
 
-  // With today further down than the screen reaches, the page starts at the current hour.
+  // With today further down than the screen reaches, the hours start at the current one.
   useEffect(() => {
-    const scroller = root.current?.closest('.budget');
-    if (!scroller || !body.current || !daysFrom(start, span).includes(today)) return;
-    const y = top(minutesNow) + body.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-    if (y > scroller.clientHeight * 0.6) scroller.scrollTo({ top: y - scroller.clientHeight * 0.4, behavior: 'smooth' });
+    const box = hoursBox.current;
+    if (!box || !daysFrom(start, span).includes(today)) return;
+    const y = top(minutesNow);
+    if (y > box.clientHeight * 0.6) box.scrollTo({ top: y - box.clientHeight * 0.4, behavior: 'smooth' });
     // Only on arrival: later it is the owner who scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -614,7 +719,9 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
           </motion.div>
         </div>
       </div>
-      <div ref={body} className="tl-body" style={{ height: hours.length * HOUR }}>
+      {/* Only the hours scroll: the month and the days above them stay where they are. */}
+      <div ref={hoursBox} className="tl-scroll">
+      <div className="tl-body" style={{ height: hours.length * HOUR }}>
         <div className="tl-hours" aria-hidden="true">
           {hours.map((h, i) => (
             <span key={h} style={{ top: (h - earliest) * HOUR, animationDelay: `${0.15 + i * 0.025}s` }}>
@@ -630,7 +737,7 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
                 <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }} aria-hidden={off || undefined}>
                   {!off &&
                     hours.map((h) => (
-                      <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => onSlot({ due: key, time: `${String(h).padStart(2, '0')}:00` }))} />
+                      <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => openSheet('newTask', { date: key, time: `${String(h).padStart(2, '0')}:00` }))} />
                     ))}
                   {draft?.due === key && draft.time && (
                     <motion.i className="tl-ghost" style={{ top: top(toMinutes(draft.time)), height: HOUR - 2 }} initial={{ opacity: 0, scale: 0.86 }} animate={{ opacity: 1, scale: 1 }} transition={POP}>
@@ -666,6 +773,7 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
             })}
           </motion.div>
         </div>
+      </div>
       </div>
     </motion.section>
   );
@@ -779,63 +887,5 @@ function Matrix({ tasks, now, opened, onOpen }: { tasks: Task[]; now: Date; open
         );
       })}
     </div>
-  );
-}
-
-/* ─────────── The line at the bottom ─────────── */
-
-/** Type it as it comes: the day, time, priority and tags are read out of the line as you go, and shown above it. */
-function QuickAdd({ fallback, draft, onDraftUsed }: { fallback: string; draft: Draft | null; onDraftUsed: () => void }) {
-  const [text, setText] = useState('');
-  const input = useRef<HTMLInputElement>(null);
-  const now = new Date();
-  const parsed = parseQuick(text, now);
-
-  useEffect(() => {
-    if (draft) input.current?.focus();
-  }, [draft]);
-
-  const due = parsed?.due ?? draft?.due ?? fallback;
-  const time = parsed?.time ?? draft?.time;
-  const chips = [
-    (parsed?.due || draft) && (due === dayKey(now) ? 'Сегодня' : due === dayKey(addDays(now, 1)) ? 'Завтра' : shortDate(due)),
-    time,
-    parsed?.minutes && `${parsed.minutes} мин`,
-    parsed?.repeat && { d: 'Каждый день', w: 'Каждую неделю', m: 'Каждый месяц' }[parsed.repeat],
-    parsed?.priority && `${'!'.repeat(parsed.priority)} ${['', 'Низкий', 'Средний', 'Высокий'][parsed.priority]}`,
-    ...(parsed?.tags ?? []).map((t) => `#${t}`),
-  ].filter(Boolean) as string[];
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!parsed) return;
-    actions.addTask({ title: parsed.title, desc: '', due, time, minutes: parsed.minutes ?? (time ? DEFAULT_MINUTES : undefined), priority: parsed.priority, tags: parsed.tags.length ? parsed.tags : undefined, repeat: parsed.repeat });
-    pulseWave();
-    setText('');
-    onDraftUsed();
-  };
-
-  return (
-    <form className="quick" onSubmit={submit}>
-      <AnimatePresence>
-        {chips.length > 0 && (
-          <motion.div className="quick-chips" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2 }}>
-            {chips.map((c) => (
-              <span key={c}>{c}</span>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <div className="quick-bar">
-        <input ref={input} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => !text && onDraftUsed()} placeholder="Создать…" aria-label="Новая задача" enterKeyHint="done" maxLength={200} />
-        {text.trim() ? (
-          <motion.button type="submit" className="quick-go" aria-label="Добавить" disabled={!parsed} initial={{ scale: 0.6 }} animate={{ scale: 1 }} whileTap={{ scale: 0.85 }}>
-            <Icon name="check" size={18} stroke={2.4} />
-          </motion.button>
-        ) : (
-          <Mic onText={setText} />
-        )}
-      </div>
-    </form>
   );
 }
