@@ -1,0 +1,201 @@
+import { addDays, addMonthsKeepDay, dayKey, parseDay } from '../../lib/dates';
+import type { Priority, Repeat, Task } from '../../lib/types';
+
+/*
+ * What makes the tasks screen TickTick-like and has no screen in it: reading a date out of a typed
+ * line, sorting into smart lists and the matrix, laying a day out in hours.
+ */
+
+export interface Quick {
+  title: string;
+  /** Only when the line named a day. */
+  due?: string;
+  time?: string;
+  minutes?: number;
+  priority?: Priority;
+  tags: string[];
+  repeat?: Repeat;
+}
+
+/** `\b` knows nothing of Cyrillic, so word edges are spelled out. */
+const word = (src: string) => new RegExp(`(?<![а-яёa-z0-9])(?:${src})(?![а-яёa-z0-9])`, 'i');
+const pad = (n: number) => String(n).padStart(2, '0');
+const clock = (h: number, m = 0) => `${pad(h)}:${pad(m)}`;
+export const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+const WEEKDAYS: [RegExp, number][] = [[/^пон|^пн/, 1], [/^вто|^вт/, 2], [/^сре|^ср/, 3], [/^чет|^чт/, 4], [/^пят|^пт/, 5], [/^суб|^сб/, 6], [/^вос|^вс/, 0]];
+const MONTHS = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+/** The nearest such date, this year or the next. */
+function nextDate(day: number, month: number, today: string): string | undefined {
+  if (day < 1 || day > 31 || month < 0 || month > 11) return undefined;
+  const year = Number(today.slice(0, 4));
+  const key = dayKey(new Date(year, month, day));
+  return key >= today ? key : dayKey(new Date(year + 1, month, day));
+}
+
+/**
+ * A line as it is typed, «Купить хлеб завтра в 15 !! #дом», taken apart. What was understood is
+ * removed from the title; null when no title is left.
+ */
+export function parseQuick(line: string, now: Date): (Quick & { title: string }) | null {
+  const today = dayKey(now);
+  let text = ` ${line} `;
+  const take = (re: RegExp, then: (m: RegExpMatchArray) => void) => {
+    const m = text.match(re);
+    if (!m) return false;
+    text = text.replace(m[0], ' ');
+    then(m);
+    return true;
+  };
+  const out: Quick = { title: '', tags: [] };
+
+  for (let more = true; more; ) {
+    more = take(/(?<=\s)#([^\s#]+)/, (m) => out.tags.push(m[1]));
+  }
+  take(/(?<=\s)(!{1,3})(?=\s)/, (m) => (out.priority = m[1].length as Priority));
+
+  take(word('каждый день|ежедневно'), () => (out.repeat = 'd')) || take(word('каждую неделю|еженедельно'), () => (out.repeat = 'w')) || take(word('каждый месяц|ежемесячно'), () => (out.repeat = 'm'));
+
+  const after = (n: number) => dayKey(addDays(now, n));
+  take(word('послезавтра'), () => (out.due = after(2))) ||
+    take(word('завтра'), () => (out.due = after(1))) ||
+    take(word('сегодня'), () => (out.due = today)) ||
+    take(word('через (\\d+ )?(день|дня|дней|неделю|недели|недель|месяц|месяца|месяцев)'), (m) => {
+      const n = Number(m[1] ?? 1);
+      out.due = m[2].startsWith('нед') ? after(n * 7) : m[2].startsWith('мес') ? addMonthsKeepDay(today, n) : after(n);
+    }) ||
+    take(word('во? (понедельник|вторник|среду|четверг|пятницу|субботу|воскресенье|пн|вт|ср|чт|пт|сб|вс)'), (m) => {
+      const target = WEEKDAYS.find(([re]) => re.test(m[1].toLowerCase()))![1];
+      out.due = after((target - now.getDay() + 7) % 7 || 7);
+    }) ||
+    take(word('(\\d{1,2}) (январ[яь]|феврал[яь]|марта?|апрел[яь]|ма[яй]|июн[яь]|июл[яь]|августа?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь])'), (m) => {
+      out.due = nextDate(Number(m[1]), MONTHS.findIndex((p) => m[2].toLowerCase().startsWith(p)), today);
+    }) ||
+    take(word('(\\d{1,2})[./](\\d{1,2})(?![:\\d])'), (m) => {
+      out.due = nextDate(Number(m[1]), Number(m[2]) - 1, today);
+    });
+
+  const hour = (raw: string, part?: string) => {
+    const h = Number(raw);
+    const p = part?.toLowerCase();
+    if ((p === 'дня' || p === 'вечера') && h < 12) return h + 12;
+    if (p === 'ночи' && h === 12) return 0;
+    return h;
+  };
+  take(word('с (\\d{1,2})(?:[:.](\\d{2}))? до (\\d{1,2})(?:[:.](\\d{2}))?'), (m) => {
+    const from = Number(m[1]) * 60 + Number(m[2] ?? 0);
+    const to = Number(m[3]) * 60 + Number(m[4] ?? 0);
+    out.time = clock(Number(m[1]), Number(m[2] ?? 0));
+    if (to > from) out.minutes = to - from;
+  }) ||
+    take(word('в (\\d{1,2})(?:[:.](\\d{2}))?(?: (утра|дня|вечера|ночи))?'), (m) => {
+      const h = hour(m[1], m[3]);
+      if (h <= 23) out.time = clock(h, Number(m[2] ?? 0));
+    }) ||
+    take(word('(\\d{1,2}):(\\d{2})'), (m) => {
+      if (Number(m[1]) <= 23) out.time = clock(Number(m[1]), Number(m[2]));
+    }) ||
+    take(word('утром'), () => (out.time = clock(9))) ||
+    take(word('дн[её]м'), () => (out.time = clock(14))) ||
+    take(word('вечером'), () => (out.time = clock(19)));
+
+  // A time alone means the next time it comes round.
+  if (out.time && !out.due && toMinutes(out.time) <= now.getHours() * 60 + now.getMinutes()) out.due = after(1);
+  if (out.time && !out.due) out.due = today;
+
+  const title = text.replace(/\s+/g, ' ').trim();
+  if (!title) return null;
+  return { ...out, title: title[0].toUpperCase() + title.slice(1) };
+}
+
+/** Marks it done; a repeating one comes back on its next day, as a new task, so what was done stays. */
+export function nextRepeat(task: Task): string | null {
+  if (!task.repeat || !task.due) return null;
+  if (task.repeat === 'd') return dayKey(addDays(parseDay(task.due), 1));
+  if (task.repeat === 'w') return dayKey(addDays(parseDay(task.due), 7));
+  return addMonthsKeepDay(task.due, 1);
+}
+
+export interface Group {
+  id: string;
+  label: string;
+  tasks: Task[];
+}
+
+const inOrder = (a: Task, b: Task) => (b.priority ?? 0) - (a.priority ?? 0) || (a.due || '9').localeCompare(b.due || '9') || (a.time ?? '99').localeCompare(b.time ?? '99') || a.updatedAt - b.updatedAt;
+
+/** The smart lists. Empty ones are left out. */
+export function smartGroups(tasks: Task[], today: Date): Group[] {
+  const t = dayKey(today);
+  const tomorrow = dayKey(addDays(today, 1));
+  const week = dayKey(addDays(today, 7));
+  const open = tasks.filter((x) => !x.done);
+  const groups: Group[] = [
+    { id: 'late', label: 'Просрочено', tasks: open.filter((x) => x.due && x.due < t) },
+    { id: 'today', label: 'Сегодня', tasks: open.filter((x) => x.due === t) },
+    { id: 'tomorrow', label: 'Завтра', tasks: open.filter((x) => x.due === tomorrow) },
+    { id: 'week', label: 'Следующие 7 дней', tasks: open.filter((x) => x.due > tomorrow && x.due <= week) },
+    { id: 'later', label: 'Позже', tasks: open.filter((x) => x.due > week) },
+    { id: 'none', label: 'Без даты', tasks: open.filter((x) => !x.due) },
+    { id: 'done', label: 'Выполнено', tasks: tasks.filter((x) => x.done) },
+  ];
+  return groups.filter((g) => g.tasks.length).map((g) => ({ ...g, tasks: [...g.tasks].sort(inOrder) }));
+}
+
+export type Quadrant = 'do' | 'plan' | 'hand' | 'drop';
+
+/** Eisenhower's four boxes: important is a high priority, urgent is due by tomorrow. */
+export function quadrantOf(task: Task, today: Date): Quadrant {
+  const important = (task.priority ?? 0) >= 2;
+  const urgent = !!task.due && task.due <= dayKey(addDays(today, 1));
+  return important ? (urgent ? 'do' : 'plan') : urgent ? 'hand' : 'drop';
+}
+
+export const DEFAULT_MINUTES = 60;
+
+export interface Placed {
+  task: Task;
+  /** Minutes from midnight. */
+  from: number;
+  length: number;
+  col: number;
+  cols: number;
+}
+
+/** Side by side where they overlap; each cluster of overlapping tasks shares the width. */
+export function layoutDay(tasks: Task[]): Placed[] {
+  const timed = tasks
+    .filter((t) => t.time)
+    .map((task) => ({ task, from: toMinutes(task.time!), length: task.minutes || DEFAULT_MINUTES }))
+    .sort((a, b) => a.from - b.from || b.length - a.length);
+  const out: Placed[] = [];
+  let cluster: Placed[] = [];
+  let ends = -1;
+  const close = () => {
+    const cols = Math.max(0, ...cluster.map((p) => p.col)) + 1;
+    cluster.forEach((p) => (p.cols = cols));
+    out.push(...cluster);
+    cluster = [];
+  };
+  for (const t of timed) {
+    if (t.from >= ends) {
+      close();
+      ends = -1;
+    }
+    let col = 0;
+    while (cluster.some((p) => p.col === col && p.from + p.length > t.from)) col++;
+    cluster.push({ ...t, col, cols: 1 });
+    ends = Math.max(ends, t.from + t.length);
+  }
+  close();
+  return out;
+}
+
+/** The month's page: whole weeks from Monday, with the neighbours' days filling the first and last. */
+export function monthCells(ym: string): string[] {
+  const first = parseDay(`${ym}-01`);
+  const start = addDays(first, -((first.getDay() + 6) % 7));
+  const cells = Array.from({ length: 42 }, (_, i) => dayKey(addDays(start, i)));
+  return cells[35].startsWith(ym) ? cells : cells.slice(0, 35);
+}

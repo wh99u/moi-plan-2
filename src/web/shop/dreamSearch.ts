@@ -104,6 +104,8 @@ export async function findPhotos(name: string, signal?: AbortSignal): Promise<Ph
   return [...best, ...rest].filter((p) => !seen.has(p.url) && !!seen.add(p.url));
 }
 
+const TRIED_QUERIES = 6;
+
 /** Scenes and sets of many things: no good as a picture of one. */
 const NOT_ONE_THING = /\b(packs?|sets?|collection|kit|bundle|props?|scene|room|assets?|level|environment|interior)\b/i;
 
@@ -124,7 +126,9 @@ export function fitsQuery(title: string, query: string): number {
 export async function findPictures(name: string, signal?: AbortSignal): Promise<Found[]> {
   const q = await dreamQuery(name, signal);
   let models: Found[] = [];
-  for (const query of [...new Set([q, ...fallbacks(q)])].slice(0, 3)) {
+  // Model numbers and stray letters only narrow a long name read from a link down to nothing.
+  const plain = q.split(/\s+/).filter((w) => w.length > 1 && !/^\d+$/.test(w)).join(' ');
+  for (const query of [...new Set([q, ...fallbacks(plain)])].slice(0, TRIED_QUERIES)) {
     const fit = (await fromSketchfab(query, signal).catch(() => [] as Found[]))
       .map((m) => ({ m, score: fitsQuery(m.title, query) }))
       .filter((x) => x.score > 0)

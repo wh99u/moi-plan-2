@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import { upcoming } from '../app/money/logic';
 import { openSheet } from '../app/sheet';
 import { CountUp, EASE } from '../app/ui/text';
-import { actions, useStore } from '../lib/appStore';
+import { useStore } from '../lib/appStore';
 import { addDays, dayKey } from '../lib/dates';
 import { visible } from '../lib/records';
 import type { Task } from '../lib/types';
 import { Icon } from '../ui/Icon';
 import { buildReminders, plural } from './reminders';
-import { pulseWave } from './Wave';
+import { completeTask } from './tasks/TaskWindow';
 
 /** Re-renders on every `step` boundary of the wall clock. */
 export function useNow(step = 1000) {
@@ -33,7 +33,7 @@ export function useToday() {
   const today = dayKey(now);
   const next = dayKey(addDays(now, 1));
   const list = tasks
-    .filter((t) => t.due === today || (!t.done && t.due < today))
+    .filter((t) => t.due === today || (!t.done && t.due && t.due < today))
     .sort((a, b) => Number(a.done) - Number(b.done) || a.due.localeCompare(b.due) || a.updatedAt - b.updatedAt);
   const open = list.filter((t) => !t.done);
   return {
@@ -43,7 +43,7 @@ export function useToday() {
     reminders: buildReminders({
       hour: now.getHours(),
       open,
-      late: open.filter((t) => t.due < today),
+      late: open.filter((t) => t.due && t.due < today),
       tomorrow: tasks.filter((t) => !t.done && t.due === next),
       due: upcoming(subs, now).filter((d) => d.status !== 'later'),
     }),
@@ -135,7 +135,7 @@ function Ring({ share }: { share: number }) {
 }
 
 function TaskRow({ task }: { task: Task }) {
-  const late = !task.done && task.due < dayKey(new Date());
+  const late = !task.done && !!task.due && task.due < dayKey(new Date());
   return (
     <motion.li layout className={`task${task.done ? ' is-done' : ''}`} variants={row} exit={{ opacity: 0, height: 0 }} transition={{ layout: { duration: 0.5, ease: EASE } }}>
       <motion.button
@@ -143,10 +143,7 @@ function TaskRow({ task }: { task: Task }) {
         className="check"
         aria-pressed={task.done}
         aria-label={task.done ? `Вернуть «${task.title}»` : `Готово: «${task.title}»`}
-        onClick={() => {
-          if (!task.done) pulseWave();
-          actions.toggleTask(task.id);
-        }}
+        onClick={() => completeTask(task)}
         whileTap={{ scale: 0.78 }}
       >
         <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">

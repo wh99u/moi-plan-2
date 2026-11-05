@@ -9,6 +9,7 @@ import { CatPick, DateField } from '../money/sheets';
 import { Badge3D } from './Badge3D';
 import { useImage } from './Dream';
 import { autoPicture, linkInto, setBuyPicture, useImporting, wantsPicture } from './importer';
+import { firstUrl } from './link';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -42,6 +43,19 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
   const [cutting, setCutting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
+  const [link, setLink] = useState('');
+  const canPaste = typeof navigator.clipboard?.readText === 'function';
+  const useLink = (text: string) => {
+    if (firstUrl(text)) linkInto(buy.id, text);
+    setLink('');
+  };
+  const pasteLink = async () => {
+    try {
+      useLink(await navigator.clipboard.readText());
+    } catch {
+      /* the browser said no: the field is right there to paste into */
+    }
+  };
   const set = (patch: Partial<Buy>) => actions.updateBuy(buy.id, patch);
 
   // The picture comes by itself once the name is written.
@@ -102,6 +116,44 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 )}
               </motion.button>
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void pickPhoto(e.target.files?.[0])} />
+
+              {!buy.url && (
+                <motion.form
+                  className="buy-link"
+                  {...part(1)}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    useLink(link);
+                  }}
+                >
+                  <input
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                    onPaste={(e) => {
+                      const v = e.clipboardData.getData('text');
+                      if (firstUrl(v)) {
+                        e.preventDefault();
+                        useLink(v);
+                      }
+                    }}
+                    placeholder="Вставь ссылку с Ozon"
+                    aria-label="Ссылка на товар"
+                    inputMode="url"
+                    enterKeyHint="go"
+                  />
+                  {link.trim() ? (
+                    <button type="submit" aria-label="Добавить по ссылке">
+                      <Icon name="arrowRight" size={18} stroke={2.2} />
+                    </button>
+                  ) : (
+                    canPaste && (
+                      <button type="button" aria-label="Вставить из буфера" onClick={() => void pasteLink()}>
+                        <Icon name="copy" size={18} />
+                      </button>
+                    )
+                  )}
+                </motion.form>
+              )}
 
               <motion.label className="buy-price-row" {...part(1)}>
                 <input

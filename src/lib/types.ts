@@ -145,11 +145,31 @@ export interface Shift extends Rec {
   h: number;
 }
 
+/** 0 none, 1 low, 2 medium, 3 high. */
+export type Priority = 0 | 1 | 2 | 3;
+export type Repeat = 'd' | 'w' | 'm';
+
+export interface Subtask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
 export interface Task extends Rec {
   title: string;
   desc: string;
+  /** `YYYY-MM-DD`, or empty for no date. */
   due: string;
   done: boolean;
+  /** `HH:MM`: with it the task stands in the hours of its day. */
+  time?: string;
+  minutes?: number;
+  priority?: Priority;
+  tags?: string[];
+  subtasks?: Subtask[];
+  repeat?: Repeat;
+  /** Minutes spent on it in focus. */
+  focused?: number;
 }
 
 export interface Settings {
