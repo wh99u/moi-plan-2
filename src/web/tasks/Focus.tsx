@@ -1,98 +1,127 @@
-import { motion } from 'motion/react';
+import { AnimatePresence, motion, useDragControls, useMotionValue } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { EASE } from '../../app/ui/text';
-import { actions } from '../../lib/appStore';
-import type { Task } from '../../lib/types';
+import { createPortal } from 'react-dom';
 import { Icon } from '../../ui/Icon';
 import { Seg } from '../Seg';
 import { pulseWave } from '../Wave';
+import { closeFocus, FOCUS_LENGTHS, focusLeft, setFocusLength, startFocus, tickFocus, toggleFocusPause, useFocusTimer, type FocusTimer } from './focusTimer';
 
-const LENGTHS = [
-  { id: '15', label: '15 мин' },
-  { id: '25', label: '25 мин' },
-  { id: '50', label: '50 мин' },
-];
-const R = 112;
+const R = 54;
 const C = 2 * Math.PI * R;
-const TICK = 250;
+const TICK = 500;
+const LENGTHS = FOCUS_LENGTHS.map((m) => ({ id: String(m), label: `${m} мин` }));
+const MORPH = { type: 'spring', stiffness: 300, damping: 32, mass: 0.9 } as const;
 
-/**
- * A pomodoro over the task, the way TickTick has one. It counts towards a moment on the clock, not
- * by ticks, so it stays right while the phone slows the page down in the background.
- */
-export function Focus({ task, onClose }: { task: Task; onClose: () => void }) {
-  const [minutes, setMinutes] = useState('25');
-  const [endsAt, setEndsAt] = useState<number | null>(null);
-  const [left, setLeft] = useState(25 * 60_000);
-  const banked = useRef(0);
-  const total = Number(minutes) * 60_000;
+/** Above every screen: asks how long, then shrinks into a small window that can be dragged out of the way. */
+export function FocusWindow() {
+  const timer = useFocusTimer();
 
-  const bank = (ms: number) => {
-    const whole = Math.round(ms / 60_000);
-    if (whole > banked.current) {
-      actions.updateTask(task.id, { focused: (task.focused ?? 0) + whole - banked.current });
-      banked.current = whole;
-    }
-  };
+  // A timer that ran out while the page was closed.
+  useEffect(() => {
+    if (tickFocus()) pulseWave();
+  }, []);
+
+  return createPortal(<AnimatePresence>{timer && <Body key={timer.taskId} timer={timer} />}</AnimatePresence>, document.body);
+}
+
+function Body({ timer }: { timer: FocusTimer }) {
+  const [now, setNow] = useState(() => Date.now());
+  const bounds = useRef<HTMLDivElement>(null);
+  const controls = useDragControls();
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const setup = timer.phase === 'setup';
+  const done = timer.phase === 'done';
+  const paused = timer.phase === 'run' && timer.endsAt === null;
 
   useEffect(() => {
-    if (endsAt === null) return;
+    if (timer.phase !== 'run' || timer.endsAt === null) return;
     const t = setInterval(() => {
-      const rest = endsAt - Date.now();
-      if (rest > 0) return setLeft(rest);
-      setLeft(0);
-      setEndsAt(null);
-      bank(total);
-      pulseWave();
+      setNow(Date.now());
+      if (tickFocus()) pulseWave();
     }, TICK);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endsAt, total]);
+  }, [timer.phase, timer.endsAt]);
 
-  const running = endsAt !== null;
-  const untouched = !running && left === total;
+  const left = focusLeft(timer, Math.max(now, Date.now()));
   const seconds = Math.ceil(left / 1000);
   const clock = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-  const finish = () => {
-    bank(total - left);
-    onClose();
-  };
+
+  const ring = (
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <circle cx="60" cy="60" r={R} className="focus-track" />
+      <circle cx="60" cy="60" r={R} className="focus-fill" strokeDasharray={C} strokeDashoffset={C * (1 - left / timer.total)} transform="rotate(-90 60 60)" />
+    </svg>
+  );
 
   return (
-    <motion.div className="focus" role="dialog" aria-modal="true" aria-label="Фокус" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-      <button type="button" className="round-btn focus-close" aria-label="Закрыть" onClick={finish}>
-        <Icon name="close" size={18} />
-      </button>
-      <motion.p className="focus-title" initial={{ y: 16, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1, duration: 0.5, ease: EASE }}>
-        {task.title}
-      </motion.p>
-      <div className="focus-ring">
-        <svg viewBox="0 0 240 240" aria-hidden="true">
-          <circle cx="120" cy="120" r={R} className="focus-track" />
-          <circle cx="120" cy="120" r={R} className="focus-fill" strokeDasharray={C} strokeDashoffset={C * (1 - left / total)} transform="rotate(-90 120 120)" />
-        </svg>
-        <strong role="timer">{clock}</strong>
-      </div>
-      {untouched && (
-        <Seg
-          value={minutes}
-          onChange={(v) => {
-            setMinutes(v);
-            setLeft(Number(v) * 60_000);
+    <>
+      <AnimatePresence>{setup && <motion.div className="sheet-scrim focus-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={() => closeFocus()} />}</AnimatePresence>
+      <div ref={bounds} className={`focus-bounds${setup ? ' is-setup' : ''}`}>
+        <motion.div
+          layout
+          layoutDependency={timer.phase === 'setup'}
+          className={setup ? 'focus-card' : `focus-mini${done ? ' is-done' : ''}${paused ? ' is-paused' : ''}`}
+          role={setup ? 'dialog' : 'timer'}
+          aria-modal={setup || undefined}
+          aria-label={`Фокус: ${timer.title}`}
+          style={{ borderRadius: 34, x: setup ? 0 : x, y: setup ? 0 : y }}
+          drag={!setup}
+          dragControls={controls}
+          dragListener={false}
+          dragConstraints={bounds}
+          dragElastic={0.08}
+          dragMomentum={false}
+          onPointerDown={(e) => {
+            if (!setup && !(e.target as Element).closest('button')) controls.start(e);
           }}
-          options={LENGTHS}
-          label="Длина"
-        />
-      )}
-      {left > 0 ? (
-        <motion.button type="button" className="primary-btn focus-go" whileTap={{ scale: 0.96 }} onClick={() => (running ? setEndsAt(null) : setEndsAt(Date.now() + left))}>
-          {running ? 'Пауза' : untouched ? 'Начать' : 'Продолжить'}
-        </motion.button>
-      ) : (
-        <motion.button type="button" className="primary-btn focus-go" whileTap={{ scale: 0.96 }} onClick={onClose}>
-          Готово
-        </motion.button>
-      )}
-    </motion.div>
+          initial={{ opacity: 0, scale: 0.88, y: 24 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.22 } }}
+          transition={MORPH}
+        >
+          {setup ? (
+            <>
+              <button type="button" className="round-btn focus-close" aria-label="Закрыть" onClick={() => closeFocus()}>
+                <Icon name="close" size={18} />
+              </button>
+              <motion.p layout="position" className="focus-title">
+                {timer.title}
+              </motion.p>
+              <motion.div layoutId="focus-ring" className="focus-ring">
+                {ring}
+                <strong>{clock}</strong>
+              </motion.div>
+              <Seg value={String(timer.total / 60_000)} onChange={(v) => setFocusLength(Number(v))} options={LENGTHS} label="Длина" />
+              <motion.button type="button" className="primary-btn focus-go" whileTap={{ scale: 0.96 }} onClick={() => startFocus()}>
+                Начать
+              </motion.button>
+            </>
+          ) : (
+            <>
+              <motion.div layoutId="focus-ring" className="focus-ring">
+                {ring}
+                {done ? (
+                  <span className="focus-ring-done">
+                    <Icon name="check" size={20} stroke={2.6} />
+                  </span>
+                ) : (
+                  <motion.button type="button" className="focus-pause" aria-label={paused ? 'Продолжить' : 'Пауза'} whileTap={{ scale: 0.82 }} onClick={() => toggleFocusPause()}>
+                    <Icon name={paused ? 'play' : 'pause'} size={18} />
+                  </motion.button>
+                )}
+              </motion.div>
+              <div className="focus-words">
+                <strong>{done ? 'Готово' : clock}</strong>
+                <span>{timer.title}</span>
+              </div>
+              <button type="button" className="focus-stop" aria-label={done ? 'Закрыть' : 'Закончить'} onClick={() => closeFocus()}>
+                <Icon name="close" size={16} />
+              </button>
+            </>
+          )}
+        </motion.div>
+      </div>
+    </>
   );
 }

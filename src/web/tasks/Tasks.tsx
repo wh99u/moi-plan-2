@@ -1,21 +1,24 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { animate, AnimatePresence, motion, useMotionValue, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
-import { addDays, dayKey, monthName, parseDay, ymKey, addMonths } from '../../lib/dates';
+import { addDays, addMonths, dayKey, daysBetween, monthName, parseDay, ymKey } from '../../lib/dates';
 import { visible } from '../../lib/records';
-import type { Shift, Task } from '../../lib/types';
+import type { Goal, Shift, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { Seg } from '../Seg';
 import { useNow } from '../Today';
 import { pulseWave } from '../Wave';
-import { Focus } from './Focus';
-import { DEFAULT_MINUTES, layoutDay, monthCells, parseQuick, quadrantOf, smartGroups, type Quadrant } from './logic';
+import { openFocus } from './focusTimer';
+import { GoalAdd, GoalWindow, Goals, type OpenedGoal } from './Goals';
+import { activeGoals, leftWords } from './goalLogic';
+import { DEFAULT_MINUTES, layoutDay, monthCells, parseQuick, quadrantOf, smartGroups, toMinutes, type Quadrant } from './logic';
+import { Mic } from './Speech';
 import { completeTask, TaskWindow } from './TaskWindow';
 
-type View = 'days' | 'list' | 'matrix';
+type View = 'days' | 'list' | 'matrix' | 'goals';
 interface Opened {
   id: string;
   morph: string;
@@ -29,26 +32,42 @@ const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const SPAN = 3;
 const FIRST_HOUR = 7;
 const HOUR = 44;
+/** One row of the month: a cell and the gap under it. */
+const ROW = 40;
+/** How far the timeline has to scroll for the month to have stepped back. */
+const MONTH_BACK = 320;
+const BANDS = 2;
+/** From where a far-off day comes in, when the ribbon is not long enough to travel there. */
+const JUMP = 44;
+/** How far a flick carries on, in seconds of its speed. */
+const THROW = 0.15;
+const GLIDE = { type: 'spring', stiffness: 300, damping: 34 } as const;
+const POP = { type: 'spring', stiffness: 420, damping: 30 } as const;
 
 const shortDate = (key: string) => parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 
 export function Tasks() {
   const tasks = visible(useStore((s) => s.personal.tasks));
   const shifts = visible(useStore((s) => s.personal.shifts));
+  const goals = visible(useStore((s) => s.personal.goals));
   const now = useNow(60_000);
   const today = dayKey(now);
   const [view, setView] = useState<View>('days');
   const [start, setStart] = useState(today);
   const [opened, setOpened] = useState<Opened | null>(null);
-  const [focus, setFocus] = useState<string | null>(null);
+  const [goalOpen, setGoalOpen] = useState<OpenedGoal | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const open = tasks.find((t) => t.id === opened?.id);
-  const focused = tasks.find((t) => t.id === focus);
+  const goal = goals.find((g) => g.id === goalOpen?.id);
+  const scroller = useRef<HTMLDivElement>(null);
+  const { scrollY } = useScroll({ container: scroller });
+  const monthOpacity = useTransform(scrollY, [0, MONTH_BACK], [1, 0.25]);
+  const monthScale = useTransform(scrollY, [0, MONTH_BACK], [1, 0.95]);
   const openTask = (t: Task, morph: string) => setOpened({ id: t.id, morph });
 
   return (
     <>
-      <div className="budget tasks">
+      <div ref={scroller} className="budget tasks">
         <div className="tasks-col">
           <Recede from={2.4} className="tasks-seg">
             <Seg
@@ -59,23 +78,53 @@ export function Tasks() {
                 { id: 'days', label: '3 дня' },
                 { id: 'list', label: 'Список' },
                 { id: 'matrix', label: 'Матрица' },
+                { id: 'goals', label: 'Цели' },
               ]}
             />
           </Recede>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={view} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28, ease: EASE }}>
-              {view === 'days' && <Days tasks={tasks} shifts={shifts} now={now} start={start} onStart={setStart} opened={opened} onOpen={openTask} onSlot={setDraft} />}
+              {view === 'days' && <Days tasks={tasks} goals={goals} shifts={shifts} now={now} start={start} onStart={setStart} opened={opened} goalOpen={goalOpen} draft={draft} monthOpacity={monthOpacity} monthScale={monthScale} onOpen={openTask} onGoal={setGoalOpen} onSlot={setDraft} />}
               {view === 'list' && <List tasks={tasks} now={now} opened={opened} onOpen={openTask} />}
               {view === 'matrix' && <Matrix tasks={tasks} now={now} opened={opened} onOpen={openTask} />}
+              {view === 'goals' && <Goals goals={goals} tasks={tasks} now={now} opened={goalOpen} onOpen={setGoalOpen} />}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
-      <QuickAdd fallback={view === 'days' ? start : today} draft={draft} onDraftUsed={() => setDraft(null)} />
+      {view === 'goals' ? <GoalAdd /> : <QuickAdd fallback={view === 'days' ? start : today} draft={draft} onDraftUsed={() => setDraft(null)} />}
       {createPortal(
         <>
-          <AnimatePresence>{open && opened && <TaskWindow key={open.id} task={open} morph={opened.morph} onClose={() => setOpened(null)} onFocus={() => setFocus(open.id)} />}</AnimatePresence>
-          <AnimatePresence>{focused && <Focus key={focused.id} task={focused} onClose={() => setFocus(null)} />}</AnimatePresence>
+          <AnimatePresence>
+            {open && opened && (
+              <TaskWindow
+                key={open.id}
+                task={open}
+                morph={opened.morph}
+                onClose={() => setOpened(null)}
+                onFocus={() => {
+                  openFocus(open);
+                  setOpened(null);
+                }}
+              />
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {goal && goalOpen && (
+              <GoalWindow
+                key={goal.id}
+                goal={goal}
+                tasks={tasks}
+                now={now}
+                morph={goalOpen.morph}
+                onClose={() => setGoalOpen(null)}
+                onOpenTask={(t) => {
+                  setGoalOpen(null);
+                  setOpened({ id: t.id, morph: `step-${t.id}` });
+                }}
+              />
+            )}
+          </AnimatePresence>
         </>,
         document.body,
       )}
@@ -87,22 +136,40 @@ export function Tasks() {
 
 interface DaysProps {
   tasks: Task[];
+  goals: Goal[];
   shifts: Shift[];
   now: Date;
   start: string;
   onStart: (key: string) => void;
   opened: Opened | null;
+  goalOpen: OpenedGoal | null;
+  draft: Draft | null;
+  monthOpacity: MotionValue<number>;
+  monthScale: MotionValue<number>;
   onOpen: (t: Task, morph: string) => void;
+  onGoal: (o: OpenedGoal) => void;
   onSlot: (d: Draft) => void;
 }
 
-function Days({ tasks, shifts, now, start, onStart, opened, onOpen, onSlot }: DaysProps) {
+function Days({ tasks, goals, shifts, now, start, onStart, opened, goalOpen, draft, monthOpacity, monthScale, onOpen, onGoal, onSlot }: DaysProps) {
   const today = dayKey(now);
   const [ym, setYm] = useState(start.slice(0, 7));
   const [shift, setShift] = useState(0);
   const days = useMemo(() => Array.from({ length: SPAN }, (_, i) => dayKey(addDays(parseDay(start), i))), [start]);
   const cells = monthCells(ym);
   const busy = useMemo(() => new Set(tasks.filter((t) => !t.done && t.due).map((t) => t.due)), [tasks]);
+  const goalEnds = useMemo(() => new Set(activeGoals(goals).map((g) => g.end)), [goals]);
+  // Each cell comes up later the further it is from today, or from the middle of a month without it.
+  const origin = Math.max(0, cells.indexOf(today)) || 17;
+  const strips = days.reduce<{ row: number; col: number; span: number }[]>((all, key) => {
+    const i = cells.indexOf(key);
+    if (i < 0) return all;
+    const row = Math.floor(i / 7);
+    const last = all.at(-1);
+    if (last?.row === row) last.span++;
+    else all.push({ row, col: i % 7, span: 1 });
+    return all;
+  }, []);
 
   const turn = (n: number) => {
     setShift(n);
@@ -120,11 +187,11 @@ function Days({ tasks, shifts, now, start, onStart, opened, onOpen, onSlot }: Da
 
   return (
     <>
-      <section className="cal">
+      <motion.section className="cal" style={{ opacity: monthOpacity, scale: monthScale, transformOrigin: '50% 0%' }}>
         <header className="cal-head">
-          <button type="button" className="cal-turn" aria-label="Предыдущий месяц" onClick={() => turn(-1)}>
+          <motion.button type="button" className="cal-turn" aria-label="Предыдущий месяц" onClick={() => turn(-1)} whileTap={{ scale: 0.8, x: -3 }}>
             <Icon name="back" size={18} />
-          </button>
+          </motion.button>
           <button
             type="button"
             className="cal-month"
@@ -134,16 +201,31 @@ function Days({ tasks, shifts, now, start, onStart, opened, onOpen, onSlot }: Da
             }}
             aria-label="К сегодняшнему дню"
           >
-            {monthName(ym)}
-            {!ym.startsWith(String(now.getFullYear())) && <small> {ym.slice(0, 4)}</small>}
+            <AnimatePresence mode="popLayout" initial={false} custom={shift}>
+              <motion.span
+                key={ym}
+                className="cal-month-in"
+                custom={shift}
+                variants={{ enter: (n: number) => ({ opacity: 0, y: n * 22, filter: 'blur(6px)' }), show: { opacity: 1, y: 0, filter: 'blur(0px)' }, leave: (n: number) => ({ opacity: 0, y: n * -22, filter: 'blur(6px)' }) }}
+                initial="enter"
+                animate="show"
+                exit="leave"
+                transition={{ duration: 0.36, ease: EASE }}
+              >
+                {monthName(ym)}
+                {!ym.startsWith(String(now.getFullYear())) && <small> {ym.slice(0, 4)}</small>}
+              </motion.span>
+            </AnimatePresence>
           </button>
-          <button type="button" className="cal-turn cal-turn--next" aria-label="Следующий месяц" onClick={() => turn(1)}>
+          <motion.button type="button" className="cal-turn cal-turn--next" aria-label="Следующий месяц" onClick={() => turn(1)} whileTap={{ scale: 0.8, x: 3 }}>
             <Icon name="back" size={18} />
-          </button>
+          </motion.button>
         </header>
         <div className="cal-week" aria-hidden="true">
-          {WEEK.map((d) => (
-            <span key={d}>{d}</span>
+          {WEEK.map((d, i) => (
+            <span key={d} style={{ animationDelay: `${i * 0.03}s` }}>
+              {d}
+            </span>
           ))}
         </div>
         <AnimatePresence mode="popLayout" initial={false} custom={shift}>
@@ -164,97 +246,198 @@ function Days({ tasks, shifts, now, start, onStart, opened, onOpen, onSlot }: Da
               if (Math.abs(i.offset.x) > 60) turn(i.offset.x < 0 ? 1 : -1);
             }}
           >
+            <AnimatePresence initial={false}>
+              {strips.map((s, i) => {
+                const place = { left: `${(s.col / 7) * 100}%`, width: `${(s.span / 7) * 100}%`, top: s.row * ROW };
+                return <motion.span key={i} className="cal-strip" initial={{ opacity: 0, ...place }} animate={{ opacity: 1, ...place }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 34 }} />;
+              })}
+            </AnimatePresence>
             {cells.map((key, i) => {
               const at = days.indexOf(key);
-              const weekStart = i % 7 === 0;
-              const weekEnd = i % 7 === 6;
-              const cls = ['cal-day', !key.startsWith(ym) && 'is-other', at >= 0 && 'in-range', (at === 0 || (at > 0 && weekStart)) && 'range-from', (at === SPAN - 1 || (at >= 0 && weekEnd)) && 'range-to'].filter(Boolean).join(' ');
+              const cls = ['cal-day', !key.startsWith(ym) && 'is-other', at === 0 && 'is-start'].filter(Boolean).join(' ');
+              const far = Math.hypot(Math.floor(i / 7) - Math.floor(origin / 7), i % 7 - origin % 7);
               return (
-                <button key={key} type="button" className={cls} aria-label={parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} aria-pressed={at === 0} onClick={() => pick(key)}>
+                <button key={key} type="button" className={cls} style={{ animationDelay: `${far * 0.035}s` }} aria-label={parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} aria-pressed={at === 0} onClick={() => pick(key)}>
                   <span className={key === today ? 'cal-num is-today' : 'cal-num'}>{Number(key.slice(8))}</span>
                   {busy.has(key) && <i className="cal-dot" />}
+                  {goalEnds.has(key) && (
+                    <i className="cal-flag">
+                      <Icon name="flag" size={10} stroke={2.4} />
+                    </i>
+                  )}
                 </button>
               );
             })}
           </motion.div>
         </AnimatePresence>
-      </section>
+      </motion.section>
 
-      <Timeline days={days} tasks={tasks} shifts={shifts} now={now} opened={opened} onOpen={onOpen} onSlot={onSlot} onMove={move} />
+      <Timeline days={days} tasks={tasks} goals={goals} shifts={shifts} now={now} opened={opened} goalOpen={goalOpen} draft={draft} onOpen={onOpen} onGoal={onGoal} onSlot={onSlot} onMove={move} />
     </>
   );
 }
 
-function Timeline({ days, tasks, shifts, now, opened, onOpen, onSlot, onMove }: { days: string[]; tasks: Task[]; shifts: Shift[]; now: Date; opened: Opened | null; onOpen: (t: Task, morph: string) => void; onSlot: (d: Draft) => void; onMove: (n: number) => void }) {
+function Timeline({ days, tasks, goals, shifts, now, opened, goalOpen, draft, onOpen, onGoal, onSlot, onMove }: Omit<DaysProps, 'start' | 'onStart' | 'monthOpacity' | 'monthScale'> & { days: string[]; onMove: (n: number) => void }) {
   const today = dayKey(now);
+  const first = days[0];
+  // A long ribbon of days with three in the window: it follows the finger, and neighbours are already there when it moves.
+  const track = useMemo(() => Array.from({ length: SPAN * 3 }, (_, i) => dayKey(addDays(parseDay(first), i - SPAN))), [first]);
+  const view = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const fade = useMotionValue(1);
+  const shown = useRef(first);
+  const sideways = useRef(false);
+  const panned = useRef(false);
+  const colWidth = () => (view.current?.offsetWidth ?? 0) / SPAN;
+
+  // The ribbon has just been redrawn around the new day: put it back where the eye left it, and let it arrive.
+  useLayoutEffect(() => {
+    const diff = daysBetween(parseDay(shown.current), parseDay(first));
+    shown.current = first;
+    if (!diff) return;
+    if (Math.abs(diff) <= SPAN) {
+      x.set(x.get() + diff * colWidth());
+    } else {
+      x.set(Math.sign(diff) * JUMP);
+      fade.set(0);
+      animate(fade, 1, { duration: 0.35 });
+    }
+    animate(x, 0, GLIDE);
+  }, [first, x, fade]);
+
   const inDay = (key: string) => tasks.filter((t) => t.due === key);
-  const earliest = Math.min(FIRST_HOUR, ...days.flatMap((d) => inDay(d).flatMap((t) => (t.time ? [Number(t.time.slice(0, 2))] : []))));
+  const earliest = Math.min(FIRST_HOUR, ...track.flatMap((d) => inDay(d).flatMap((t) => (t.time ? [Number(t.time.slice(0, 2))] : []))));
   const hours = Array.from({ length: 24 - earliest }, (_, i) => earliest + i);
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   const top = (minutes: number) => ((minutes - earliest * 60) / 60) * HOUR;
+  const bands = activeGoals(goals)
+    .filter((g) => g.start <= days[SPAN - 1] && g.end >= first)
+    .slice(0, BANDS);
+  const unlessPanned = (then: () => void) => () => {
+    if (!panned.current) then();
+  };
 
   return (
-    <motion.section className="tl" drag="x" dragDirectionLock dragConstraints={{ left: 0, right: 0 }} dragElastic={0.12} onDragEnd={(_, i) => Math.abs(i.offset.x) > 70 && onMove(i.offset.x < 0 ? 1 : -1)}>
+    <motion.section
+      className="tl"
+      onPanStart={(_, i) => {
+        sideways.current = Math.abs(i.offset.x) > Math.abs(i.offset.y);
+        if (!sideways.current) return;
+        panned.current = true;
+        x.stop();
+      }}
+      onPan={(_, i) => {
+        if (sideways.current) x.set(i.offset.x);
+      }}
+      onPanEnd={(_, i) => {
+        if (!sideways.current) return;
+        sideways.current = false;
+        setTimeout(() => (panned.current = false), 60);
+        const w = colWidth();
+        const n = w ? Math.max(-SPAN, Math.min(SPAN, Math.round(-(i.offset.x + i.velocity.x * THROW) / w))) : 0;
+        if (n) onMove(n);
+        else animate(x, 0, GLIDE);
+      }}
+    >
+      {bands.length > 0 && (
+        <div className="tl-goals">
+          {bands.map((g, i) => {
+            const morph = `band-${g.id}`;
+            const from = Math.max(0, days.findIndex((k) => k >= g.start));
+            const span = days.filter((k) => k >= g.start && k <= g.end).length;
+            return (
+              <motion.button key={g.id} layoutId={morph} type="button" className="tl-goal" style={{ gridColumn: `${from + 2} / span ${span}`, borderRadius: 8, visibility: goalOpen?.morph === morph ? 'hidden' : undefined }} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + i * 0.08, duration: 0.5, ease: EASE }} onClick={() => onGoal({ id: g.id, morph })}>
+                <Icon name="flag" size={11} stroke={2.2} />
+                <span>{g.title}</span>
+                {span > 1 && <small>{leftWords(daysBetween(now, parseDay(g.end)))}</small>}
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
       <div className="tl-heads">
         <span />
-        {days.map((key) => {
-          const d = parseDay(key);
-          const day = shifts.find((s) => s.date === key);
-          return (
-            <div key={key} className="tl-head">
-              <div className="tl-date">
-                <span>{d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase()}</span>
-                <strong className={key === today ? 'is-today' : undefined}>{d.getDate()}</strong>
-              </div>
-              {day && <span className="tl-chip tl-chip--shift">{day.type === 'n' ? 'Ночная смена' : 'Дневная смена'}</span>}
-              {inDay(key)
-                .filter((t) => !t.time)
-                .map((t) => {
-                  const morph = `chip-${t.id}`;
-                  return (
-                    <motion.button key={t.id} layoutId={morph} type="button" className={`tl-chip p${t.priority ?? 0}${t.done ? ' is-done' : ''}`} style={{ borderRadius: 8, visibility: opened?.morph === morph ? 'hidden' : undefined }} onClick={() => onOpen(t, morph)}>
-                      {t.title}
-                    </motion.button>
-                  );
-                })}
-            </div>
-          );
-        })}
+        <div className="tl-view">
+          <motion.div className="tl-track" style={{ x, opacity: fade }}>
+            {track.map((key) => {
+              const d = parseDay(key);
+              const day = shifts.find((s) => s.date === key);
+              const off = !days.includes(key);
+              return (
+                <div key={key} className={`tl-head${off ? ' is-off' : ''}`} aria-hidden={off || undefined}>
+                  <div className="tl-date">
+                    <span>{d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase()}</span>
+                    <strong className={key === today ? 'is-today' : undefined}>{d.getDate()}</strong>
+                  </div>
+                  {day && <span className="tl-chip tl-chip--shift">{day.type === 'n' ? 'Ночная смена' : 'Дневная смена'}</span>}
+                  {inDay(key)
+                    .filter((t) => !t.time)
+                    .map((t) => {
+                      const morph = `chip-${t.id}`;
+                      const on = opened?.morph === morph;
+                      return (
+                        <motion.button key={t.id} layoutId={morph} layoutDependency={on} type="button" tabIndex={off ? -1 : undefined} className={`tl-chip p${t.priority ?? 0}${t.done ? ' is-done' : ''}`} style={{ borderRadius: 8, visibility: on ? 'hidden' : undefined }} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={POP} whileTap={{ scale: 0.94 }} onClick={unlessPanned(() => onOpen(t, morph))}>
+                          {t.title}
+                        </motion.button>
+                      );
+                    })}
+                </div>
+              );
+            })}
+          </motion.div>
+        </div>
       </div>
       <div className="tl-body" style={{ height: hours.length * HOUR }}>
         <div className="tl-hours" aria-hidden="true">
-          {hours.map((h) => (
-            <span key={h} style={{ top: (h - earliest) * HOUR }}>
+          {hours.map((h, i) => (
+            <span key={h} style={{ top: (h - earliest) * HOUR, animationDelay: `${0.15 + i * 0.025}s` }}>
               {String(h).padStart(2, '0')}:00
             </span>
           ))}
         </div>
-        {days.map((key) => (
-          <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }}>
-            {hours.map((h) => (
-              <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={() => onSlot({ due: key, time: `${String(h).padStart(2, '0')}:00` })} />
-            ))}
-            {layoutDay(inDay(key)).map((p) => {
-              const morph = `block-${p.task.id}`;
+        <div ref={view} className="tl-view">
+          <motion.div className="tl-track" style={{ x, opacity: fade }}>
+            {track.map((key) => {
+              const off = !days.includes(key);
               return (
-                <motion.button
-                  key={p.task.id}
-                  layoutId={morph}
-                  type="button"
-                  className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}`}
-                  style={{ top: top(p.from), height: Math.max(22, (p.length / 60) * HOUR - 2), left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 6, visibility: opened?.morph === morph ? 'hidden' : undefined }}
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.35, ease: EASE }}
-                  onClick={() => onOpen(p.task, morph)}
-                >
-                  {p.task.title}
-                </motion.button>
+                <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }} aria-hidden={off || undefined}>
+                  {hours.map((h) => (
+                    <button key={h} type="button" tabIndex={off ? -1 : undefined} className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => onSlot({ due: key, time: `${String(h).padStart(2, '0')}:00` }))} />
+                  ))}
+                  {draft?.due === key && draft.time && (
+                    <motion.i className="tl-ghost" style={{ top: top(toMinutes(draft.time)), height: HOUR - 2 }} initial={{ opacity: 0, scale: 0.86 }} animate={{ opacity: 1, scale: 1 }} transition={POP}>
+                      Новая задача
+                    </motion.i>
+                  )}
+                  {layoutDay(inDay(key)).map((p, i) => {
+                    const morph = `block-${p.task.id}`;
+                    const on = opened?.morph === morph;
+                    return (
+                      <motion.button
+                        key={p.task.id}
+                        layoutId={morph}
+                        // Only for growing into its window: the ribbon alone moves it the rest of the time.
+                        layoutDependency={on}
+                        type="button"
+                        tabIndex={off ? -1 : undefined}
+                        className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}`}
+                        style={{ top: top(p.from), height: Math.max(22, (p.length / 60) * HOUR - 2), left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 6, visibility: on ? 'hidden' : undefined }}
+                        initial={{ opacity: 0, y: 14, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ ...POP, delay: 0.1 + i * 0.05 }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={unlessPanned(() => onOpen(p.task, morph))}
+                      >
+                        {p.task.title}
+                      </motion.button>
+                    );
+                  })}
+                  {key === today && minutesNow >= earliest * 60 && <motion.i className="tl-now" style={{ top: top(minutesNow), originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} />}
+                </div>
               );
             })}
-            {key === today && minutesNow >= earliest * 60 && <i className="tl-now" style={{ top: top(minutesNow) }} />}
-          </div>
-        ))}
+          </motion.div>
+        </div>
       </div>
     </motion.section>
   );
@@ -373,15 +556,10 @@ function Matrix({ tasks, now, opened, onOpen }: { tasks: Task[]; now: Date; open
 
 /* ─────────── The line at the bottom ─────────── */
 
-type Speech = { lang: string; interimResults: boolean; start(): void; stop(): void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null };
-const SpeechApi = (window as unknown as { SpeechRecognition?: new () => Speech; webkitSpeechRecognition?: new () => Speech }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => Speech }).webkitSpeechRecognition;
-
 /** Type it as it comes: the day, time, priority and tags are read out of the line as you go, and shown above it. */
 function QuickAdd({ fallback, draft, onDraftUsed }: { fallback: string; draft: Draft | null; onDraftUsed: () => void }) {
   const [text, setText] = useState('');
-  const [listening, setListening] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const speech = useRef<Speech | null>(null);
   const now = new Date();
   const parsed = parseQuick(text, now);
 
@@ -409,19 +587,6 @@ function QuickAdd({ fallback, draft, onDraftUsed }: { fallback: string; draft: D
     onDraftUsed();
   };
 
-  const listen = () => {
-    if (!SpeechApi) return;
-    if (listening) return speech.current?.stop();
-    const s = new SpeechApi();
-    s.lang = 'ru-RU';
-    s.interimResults = true;
-    s.onresult = (e) => setText(Array.from({ length: e.results.length }, (_, i) => e.results[i][0].transcript).join(' '));
-    s.onend = () => setListening(false);
-    speech.current = s;
-    s.start();
-    setListening(true);
-  };
-
   return (
     <form className="quick" onSubmit={submit}>
       <AnimatePresence>
@@ -440,14 +605,7 @@ function QuickAdd({ fallback, draft, onDraftUsed }: { fallback: string; draft: D
             <Icon name="check" size={18} stroke={2.4} />
           </motion.button>
         ) : (
-          SpeechApi && (
-            <button type="button" className={`quick-mic${listening ? ' is-on' : ''}`} aria-label={listening ? 'Остановить запись' : 'Сказать голосом'} aria-pressed={listening} onClick={listen}>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="9" y="3" width="6" height="11" rx="3" />
-                <path d="M5.500 11a6.500 6.500 0 0 0 13 0M12 17.500V21" />
-              </svg>
-            </button>
-          )
+          <Mic onText={setText} />
         )}
       </div>
     </form>

@@ -2348,6 +2348,7 @@ a {
 .cal {
   margin-top: 16px;
   overflow: hidden;
+  will-change: transform, opacity;
 }
 .cal-head {
   display: flex;
@@ -2355,6 +2356,8 @@ a {
   justify-content: space-between;
 }
 .cal-month {
+  display: block;
+  overflow: hidden;
   font-size: clamp(30px, 9vw, 38px);
   font-weight: 700;
   line-height: 1.1;
@@ -2390,15 +2393,18 @@ a {
   color: var(--ink-3);
 }
 .cal-grid {
+  position: relative;
   margin-top: 4px;
   row-gap: 2px;
   touch-action: pan-y;
 }
 .cal-day {
   position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   height: 38px;
+  animation: cal-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
   font-size: 15px;
   font-weight: 500;
   font-feature-settings: 'tnum' 1;
@@ -2406,30 +2412,35 @@ a {
 .cal-day.is-other {
   color: var(--ink-3);
 }
-/* The three days on show, as one strip across the week. */
-.cal-day.in-range {
-  background: var(--fill-2);
-}
-.cal-day.range-from {
-  border-radius: 12px 0 0 12px;
-}
-.cal-day.range-to {
-  border-radius: 0 12px 12px 0;
-}
-.cal-day.range-from.range-to {
-  border-radius: 12px;
-}
 .cal-num {
+  position: relative;
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
   border-radius: 10px;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cal-day:active .cal-num {
+  transform: scale(0.8);
+}
+.cal-day.is-start .cal-num {
+  animation: cal-pick 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .cal-num.is-today {
   background: #2d6df6;
   color: #fff;
   font-weight: 600;
+}
+/* A slow ring going out of today. */
+.cal-num.is-today::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px #2d6df6;
+  animation: cal-today 3s ease-out infinite;
+  pointer-events: none;
 }
 .cal-dot {
   position: absolute;
@@ -2438,6 +2449,62 @@ a {
   height: 4px;
   border-radius: 50%;
   background: var(--accent);
+  animation: cal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s backwards;
+}
+.cal-flag {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  display: grid;
+  color: var(--accent);
+  animation: cal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s backwards;
+}
+/* The three days on show: one strip that travels when another day is chosen. */
+.cal-strip {
+  position: absolute;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--fill-2);
+}
+.cal-week span {
+  animation: cal-fade 0.5s ease backwards;
+}
+.cal-month-in {
+  display: inline-block;
+}
+@keyframes cal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.6);
+  }
+}
+@keyframes cal-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes cal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+@keyframes cal-pick {
+  from {
+    transform: scale(0.7);
+  }
+}
+@keyframes cal-today {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
 }
 .tl {
   margin-top: 16px;
@@ -2445,10 +2512,82 @@ a {
   box-shadow: inset 0 1px 0 var(--glass-line);
   touch-action: pan-y;
 }
+/* Long goals over the days they cross. */
+.tl-goals {
+  display: grid;
+  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  row-gap: 4px;
+  margin-bottom: 8px;
+}
+.tl-goal {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin: 0 2px;
+  padding: 4px 8px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 12%, transparent));
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.tl-goal svg {
+  flex: none;
+  color: var(--accent);
+}
+.tl-goal span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tl-goal small {
+  flex: none;
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 500;
+}
+.tl-ghost {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  width: calc(100% - 2px);
+  padding: 3px 4px 3px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.2;
+  pointer-events: none;
+  animation: tl-breathe 1.6s ease-in-out infinite;
+}
+@keyframes tl-breathe {
+  50% {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
 .tl-heads,
 .tl-body {
   display: grid;
-  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+/* Three days in the window; the ribbon behind it holds three more on each side. */
+.tl-view {
+  min-width: 0;
+  overflow-x: clip;
+  animation: tl-hour 0.5s ease backwards;
+}
+.tl-track {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  width: 300%;
+  height: 100%;
+  margin-left: -100%;
 }
 .tl-head {
   display: grid;
@@ -2456,6 +2595,11 @@ a {
   gap: 4px;
   min-width: 0;
   padding: 0 2px 8px;
+}
+/* Days outside the window are there to slide in, and do not hold the row open. */
+.tl-head.is-off {
+  height: 0;
+  padding-bottom: 0;
 }
 .tl-date {
   display: flex;
@@ -2521,6 +2665,7 @@ a {
   position: relative;
 }
 .tl-hours span {
+  animation: tl-hour 0.5s ease backwards;
   position: absolute;
   left: 0;
   width: 38px;
@@ -2544,6 +2689,14 @@ a {
 }
 .tl-slot:hover {
   background: var(--fill);
+}
+.tl-slot:active {
+  background: var(--fill-2);
+}
+@keyframes tl-hour {
+  from {
+    opacity: 0;
+  }
 }
 .tl-block {
   position: absolute;
@@ -2586,6 +2739,12 @@ a {
   height: 6px;
   border-radius: 50%;
   background: #ff3b30;
+  animation: tl-now 2s ease-in-out infinite;
+}
+@keyframes tl-now {
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 59, 48, 0.22);
+  }
 }
 .tlist {
   display: grid;
@@ -2891,68 +3050,308 @@ a {
   height: 32px;
   color: var(--ink-3);
 }
-.focus {
+/* The timer: asks how long in a card, then lives on as a small window over everything. */
+.focus-bounds {
   position: fixed;
   z-index: 60;
   inset: 0;
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: calc(12px + var(--safe-t)) var(--edge) calc(176px + var(--safe-b));
+  pointer-events: none;
+}
+.focus-bounds.is-setup {
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: var(--edge);
-  background: #03060e;
-  --ink: #fff;
-  --ink-2: rgba(255, 255, 255, 0.7);
-  color: #fff;
+  padding-bottom: var(--nav-space);
+}
+.focus-scrim {
+  z-index: 59;
+}
+.focus-card,
+.focus-mini {
+  background: var(--sheet);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-top), 0 16px 40px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+.focus-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(100%, 340px);
+  padding: 24px 20px 20px;
 }
 .focus-close {
   position: absolute;
-  right: 16px;
-  top: calc(16px + var(--safe-t));
+  right: 12px;
+  top: 12px;
 }
 .focus-title {
-  max-width: 320px;
-  font-size: 20px;
-  font-weight: 500;
+  max-width: 240px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
   text-align: center;
 }
 .focus-ring {
   position: relative;
+  flex: none;
   display: grid;
   place-items: center;
-  width: min(72vw, 300px);
-  aspect-ratio: 1;
 }
-.focus-ring svg {
+.focus-card .focus-ring {
+  width: 188px;
+  height: 188px;
+}
+.focus-mini .focus-ring {
+  width: 48px;
+  height: 48px;
+}
+.focus-ring > svg {
   position: absolute;
   inset: 0;
 }
 .focus-ring circle {
   fill: none;
-  stroke-width: 5;
+  stroke-width: 6;
   stroke-linecap: round;
 }
+.focus-mini .focus-ring circle {
+  stroke-width: 9;
+}
 .focus-track {
-  stroke: rgba(255, 255, 255, 0.12);
+  stroke: var(--fill-2);
 }
 .focus-fill {
   stroke: #5aa7ff;
-  filter: drop-shadow(0 0 8px rgba(90, 167, 255, 0.7));
-  transition: stroke-dashoffset 0.25s linear;
+  filter: drop-shadow(0 0 5px rgba(90, 167, 255, 0.6));
+  transition: stroke-dashoffset 0.5s linear;
 }
-.focus-ring strong {
-  font-size: clamp(52px, 15vw, 68px);
+.focus-ring > strong {
+  font-size: 44px;
   font-weight: 300;
   letter-spacing: -0.02em;
   font-feature-settings: 'tnum' 1;
 }
-.focus-go,
-.focus .seg {
-  width: min(100%, 320px);
+.focus-card .seg,
+.focus-go {
+  width: 100%;
 }
-.focus .seg-opt {
+.focus-card .seg-opt {
   white-space: nowrap;
+}
+.focus-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 232px;
+  padding: 8px 6px 8px 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.focus-mini:active {
+  cursor: grabbing;
+}
+.focus-pause,
+.focus-ring-done {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.focus-ring-done {
+  color: #5aa7ff;
+  animation: cal-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.focus-words {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.focus-words strong {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-feature-settings: 'tnum' 1;
+}
+.focus-words span {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.focus-mini.is-paused .focus-words strong {
+  color: var(--ink-2);
+}
+.focus-stop {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ink-2);
+}
+/* Long goals. */
+.goals {
+  margin-top: 16px;
+}
+.goals > ul {
+  display: grid;
+  gap: 12px;
+}
+.goal-card {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+}
+.goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.goal-head strong {
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.goal-head em {
+  flex: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+.goal-head em.is-late,
+.goal-left.is-late {
+  color: #ff5a52;
+}
+.goal-left {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.goal-meter {
+  display: grid;
+  gap: 6px;
+}
+.goal-cells {
+  display: flex;
+  gap: 3px;
+}
+.goal-cells i {
+  flex: 1;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--fill-2);
+  animation: goal-cell 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.goal-cells i.is-gone {
+  background: var(--accent);
+}
+.goal-cells i.is-now {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+@keyframes goal-cell {
+  from {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+}
+.goal-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-feature-settings: 'tnum' 1;
+}
+.goal-pace.is-ahead {
+  color: #35c46b;
+}
+.goal-pace.is-behind {
+  color: #ff5a52;
+}
+.goal-bar {
+  height: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--fill-2);
+}
+.goal-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: 0 50%;
+}
+.goal-reached {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  color: var(--ink-2);
+}
+.goal-reached svg {
+  flex: none;
+  color: var(--accent);
+}
+.goal-reached span {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+}
+.goal-reached small {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.goal-step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 0;
+  text-align: left;
+  font-size: 15px;
+}
+.goal-step span {
+  min-width: 0;
+}
+.goal-step small {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.task-sub.is-done .goal-step span {
+  color: var(--ink-3);
+  text-decoration: line-through;
 }
 .buy-link {
   display: flex;
@@ -3335,7 +3734,18 @@ a {
   .badge3d-turn,
   .is-loading,
   .is-smearing .b-amt,
-  .is-smearing .b-income-sum {
+  .is-smearing .b-income-sum,
+  .cal-day,
+  .cal-day.is-start .cal-num,
+  .cal-num.is-today::after,
+  .cal-dot,
+  .cal-flag,
+  .cal-week span,
+  .tl-hours span,
+  .tl-ghost,
+  .tl-now::before,
+  .goal-cells i,
+  .focus-ring-done {
     animation: none;
   }
   .reminder-text {

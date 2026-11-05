@@ -170,6 +170,19 @@ export interface Task extends Rec {
   repeat?: Repeat;
   /** Minutes spent on it in focus. */
   focused?: number;
+  /** The long goal this is a step of. */
+  goalId?: string;
+}
+
+/** Something to reach over weeks or months. */
+export interface Goal extends Rec {
+  title: string;
+  why?: string;
+  /** `YYYY-MM-DD`. */
+  start: string;
+  end: string;
+  /** The day it was reached. */
+  doneAt?: string;
 }
 
 export interface Settings {
@@ -193,6 +206,7 @@ export interface StateV4 {
   personal: {
     shifts: Shift[];
     tasks: Task[];
+    goals: Goal[];
     plan: number;
     settings: Settings;
     processedLaunches: string[];

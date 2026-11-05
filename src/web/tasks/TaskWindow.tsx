@@ -1,14 +1,16 @@
 import { motion } from 'motion/react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { EASE } from '../../app/ui/text';
-import { actions } from '../../lib/appStore';
+import { actions, useStore } from '../../lib/appStore';
 import { uid } from '../../lib/ids';
+import { visible } from '../../lib/records';
 import type { Priority, Repeat, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { DateField } from '../money/sheets';
 import { Seg } from '../Seg';
 import { GrowText } from '../shop/BuyWindow';
 import { pulseWave } from '../Wave';
+import { activeGoals } from './goalLogic';
 import { DEFAULT_MINUTES, nextRepeat } from './logic';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
@@ -59,6 +61,7 @@ export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morp
   const set = (patch: Partial<Task>) => actions.updateTask(task.id, patch);
   const subs = task.subtasks ?? [];
   const tags = task.tags ?? [];
+  const goals = activeGoals(visible(useStore((s) => s.personal.goals)));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -163,7 +166,20 @@ export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morp
                 </form>
               </motion.div>
 
-              <motion.button type="button" className="scan-link" {...part(8)} onClick={onFocus}>
+              {goals.length > 0 && (
+                <motion.div className="task-subs" {...part(8)}>
+                  <span className="task-win-label">Цель</span>
+                  <div className="tags">
+                    {goals.map((g) => (
+                      <button key={g.id} type="button" className={`tag${task.goalId === g.id ? ' is-on' : ''}`} aria-pressed={task.goalId === g.id} onClick={() => set({ goalId: task.goalId === g.id ? undefined : g.id })}>
+                        {g.title}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              <motion.button type="button" className="scan-link" {...part(9)} onClick={onFocus}>
                 <Icon name="clock" size={18} />
                 Фокус{task.focused ? `: уже ${task.focused} мин` : ''}
               </motion.button>

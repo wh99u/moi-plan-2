@@ -1,10 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { actions, appStore } from '../../lib/appStore';
-import type { CutoutResult } from '../../lib/cutoutBrowser';
 import { putImage } from '../../lib/images';
 import { visible } from '../../lib/records';
 import type { Buy } from '../../lib/types';
-import { cutOutByModel, solidShare } from './cutout';
 import { findPhotos, findPictures, type Photo } from './dreamSearch';
 import { parseShared, type Shared } from './shareScript';
 import { fetchImage, firstUrl, fullScreen, lookup, pageImage, proxied, shopOf } from './link';
@@ -47,26 +45,21 @@ export async function setBuyPicture(id: string, blob: Blob) {
   if (current(id)) actions.updateBuy(id, { imgId, cut: false, tint: undefined, autoPic: undefined });
 }
 
-/** How far down the results to look. Each try can take half a minute on a phone with no fast graphics. */
-const TRIES = 3;
+/** How far down the results to look when a picture does not load. */
+const TRIES = 4;
 const MIN_NAME = 3;
-/** From here it reads as one thing at once; below it, as hoses and wires, kept only if nothing better comes. */
-const SOLID = 0.2;
 
-/** The first found picture that comes away from its background as one solid thing, or else the most solid; null when none does. */
-async function pictureByName(name: string, signal: AbortSignal) {
-  let best: { cut: CutoutResult; share: number } | null = null;
+/**
+ * The first found picture that loads, whole. Cutting the thing out of it with a neural network took
+ * about 800 MB, enough for a phone to shut the tab, so nothing heavier than a download runs here.
+ */
+async function pictureByName(name: string, signal: AbortSignal): Promise<Blob | null> {
   for (const f of (await findPictures(name, signal)).slice(0, TRIES)) {
     const blob = await fetchImage(f.full, signal);
     if (signal.aborted) return null;
-    const cut = blob && (await cutOutByModel(blob).catch(() => null));
-    if (signal.aborted) return null;
-    if (!cut) continue;
-    const share = await solidShare(cut.blob);
-    if (share >= SOLID) return cut;
-    if (!best || share > best.share) best = { cut, share };
+    if (blob) return blob;
   }
-  return best?.cut ?? null;
+  return null;
 }
 
 /** A purchase with no picture, or with one found by a name since changed. A shop's or the owner's own stays. */
@@ -93,14 +86,14 @@ export async function autoPicture(id: string): Promise<void> {
   picking.set(id, { name, stop });
   setBusy(id, true);
   try {
-    const cut = await pictureByName(name, stop.signal);
+    const blob = await pictureByName(name, stop.signal);
     if (stop.signal.aborted) return;
-    if (!cut) {
+    if (!blob) {
       nothing.add(name);
       return;
     }
-    const imgId = await putImage(cut.blob);
-    if (current(id)?.title.trim() === name) actions.updateBuy(id, { imgId, cut: true, tint: cut.tint, autoPic: name });
+    const imgId = await putImage(blob);
+    if (current(id)?.title.trim() === name) actions.updateBuy(id, { imgId, cut: false, tint: undefined, autoPic: name });
   } catch {
     /* offline: the card stays without a picture until it is opened again */
   } finally {

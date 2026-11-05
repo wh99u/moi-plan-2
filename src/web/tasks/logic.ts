@@ -18,13 +18,15 @@ export interface Quick {
 }
 
 /** `\b` knows nothing of Cyrillic, so word edges are spelled out. */
-const word = (src: string) => new RegExp(`(?<![а-яёa-z0-9])(?:${src})(?![а-яёa-z0-9])`, 'i');
+export const word = (src: string) => new RegExp(`(?<![а-яёa-z0-9])(?:${src})(?![а-яёa-z0-9])`, 'i');
 const pad = (n: number) => String(n).padStart(2, '0');
 const clock = (h: number, m = 0) => `${pad(h)}:${pad(m)}`;
 export const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
 const WEEKDAYS: [RegExp, number][] = [[/^пон|^пн/, 1], [/^вто|^вт/, 2], [/^сре|^ср/, 3], [/^чет|^чт/, 4], [/^пят|^пт/, 5], [/^суб|^сб/, 6], [/^вос|^вс/, 0]];
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'ма', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+export const MONTH_WORD = 'январ[яь]|феврал[яь]|марта?|апрел[яь]|ма[яй]|июн[яь]|июл[яь]|августа?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь]';
 
 /** The nearest such date, this year or the next. */
 function nextDate(day: number, month: number, today: string): string | undefined {
@@ -33,6 +35,9 @@ function nextDate(day: number, month: number, today: string): string | undefined
   const key = dayKey(new Date(year, month, day));
   return key >= today ? key : dayKey(new Date(year + 1, month, day));
 }
+
+/** The same from a month named in words or by its index. */
+export const dateFromWords = (day: number, month: string | number, today: string) => nextDate(day, typeof month === 'number' ? month : MONTHS.findIndex((p) => month.toLowerCase().startsWith(p)), today);
 
 /**
  * A line as it is typed, «Купить хлеб завтра в 15 !! #дом», taken apart. What was understood is
@@ -69,8 +74,8 @@ export function parseQuick(line: string, now: Date): (Quick & { title: string })
       const target = WEEKDAYS.find(([re]) => re.test(m[1].toLowerCase()))![1];
       out.due = after((target - now.getDay() + 7) % 7 || 7);
     }) ||
-    take(word('(\\d{1,2}) (январ[яь]|феврал[яь]|марта?|апрел[яь]|ма[яй]|июн[яь]|июл[яь]|августа?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь])'), (m) => {
-      out.due = nextDate(Number(m[1]), MONTHS.findIndex((p) => m[2].toLowerCase().startsWith(p)), today);
+    take(word(`(\\d{1,2}) (${MONTH_WORD})`), (m) => {
+      out.due = dateFromWords(Number(m[1]), m[2], today);
     }) ||
     take(word('(\\d{1,2})[./](\\d{1,2})(?![:\\d])'), (m) => {
       out.due = nextDate(Number(m[1]), Number(m[2]) - 1, today);

@@ -4,7 +4,7 @@ import { uid } from './ids';
 import { migrateV3 } from './migrate';
 import { visible } from './records';
 import { templateCategories } from './template';
-import type { Bank, BankCode, BudgetMonth, Buy, Car, Category, Income, Rec, Settings, Shift, Spend, StateV4, Sub, Task } from './types';
+import type { Bank, BankCode, BudgetMonth, Buy, Car, Category, Goal, Income, Rec, Settings, Shift, Spend, StateV4, Sub, Task } from './types';
 
 export { visible };
 
@@ -34,6 +34,7 @@ function load(storage: Storage, key: string, opts: StoreOptions, now: number): {
       if (parsed && parsed.v === 4) {
         // Lists added after v4 shipped start empty in older saves.
         parsed.shared.subs ??= [];
+        parsed.personal.goals ??= [];
         return { state: parsed, error: false };
       }
     } catch {
@@ -261,6 +262,21 @@ export function createStore(storage: Storage, key: string, opts: StoreOptions = 
     },
     deleteTask(id: string) {
       personal({ tasks: removeIn(state.personal.tasks, id) });
+    },
+    addGoal(g: Omit<Goal, 'id' | 'updatedAt'>): Goal {
+      const goal = stamp({ ...g, id: uid() });
+      personal({ goals: [...state.personal.goals, goal] });
+      return goal;
+    },
+    updateGoal(id: string, patch: Partial<Omit<Goal, 'id' | 'updatedAt'>>) {
+      personal({ goals: patchIn(state.personal.goals, id, patch) });
+    },
+    /** Its steps stay as ordinary tasks. */
+    deleteGoal(id: string) {
+      personal({
+        goals: removeIn(state.personal.goals, id),
+        tasks: state.personal.tasks.map((t) => (t.goalId === id ? { ...t, goalId: undefined, updatedAt: Date.now() } : t)),
+      });
     },
     setPlan(n: number) {
       personal({ plan: n });

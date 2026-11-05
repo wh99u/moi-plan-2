@@ -12,6 +12,7 @@ import { Nav } from './Nav';
 import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
 import { Shop } from './shop/Shop';
+import { FocusWindow } from './tasks/Focus';
 import { Tasks } from './tasks/Tasks';
 import { Sheets } from './Sheets';
 import { Soon } from './Soon';
@@ -67,6 +68,7 @@ export function App() {
       <TopBar route={route} />
       <Nav route={route} />
       <Sheets />
+      <FocusWindow />
     </MotionConfig>
   );
 }

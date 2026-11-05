@@ -3,7 +3,7 @@ import { fallbacks, toEnglish } from './words';
 /*
  * Pictures for a dream or a purchase by its name. Google answers automated visitors with a captcha, so two open
  * sources are used instead, both readable from a browser: Sketchfab's renders of 3D models, on a
- * plain studio background that cuts out cleanly, and photographs from Wikimedia Commons.
+ * plain studio background, and photographs from Wikimedia Commons.
  */
 
 export interface Found {
@@ -11,7 +11,7 @@ export interface Found {
   title: string;
   /** Small, for the choice. */
   thumb: string;
-  /** Large, to cut out. */
+  /** Large enough for a card, and no larger: it is kept on the device. */
   full: string;
   source: 'Sketchfab' | 'Wikimedia Commons';
 }
@@ -49,7 +49,7 @@ async function fromSketchfab(q: string, signal?: AbortSignal): Promise<Found[]> 
   return (json.results ?? []).flatMap((m) => {
     const images = [...(m.thumbnails?.images ?? [])].sort((a, b) => a.width - b.width);
     const thumb = images.find((i) => i.width >= 400) ?? images.at(-1);
-    const full = images.at(-1);
+    const full = images.find((i) => i.width >= 1000) ?? images.at(-1);
     return thumb && full ? [{ id: m.uid, title: m.name, thumb: thumb.url, full: full.url, source: 'Sketchfab' as const }] : [];
   });
 }
@@ -121,7 +121,7 @@ export function fitsQuery(title: string, query: string): number {
 
 /**
  * Pictures of a thing by its name, best first: 3D renders whose name really matches, since they
- * stand on a plain studio background and cut out cleanly, then photographs as a last resort.
+ * stand on a plain studio background, then photographs as a last resort.
  */
 export async function findPictures(name: string, signal?: AbortSignal): Promise<Found[]> {
   const q = await dreamQuery(name, signal);
