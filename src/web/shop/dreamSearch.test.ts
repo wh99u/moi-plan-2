@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { dreamQuery, mixFound, type Found } from './dreamSearch';
 
 const found = (id: string) => ({ id }) as Found;
@@ -7,7 +7,13 @@ describe('dreamQuery', () => {
   it('knows the names people dream of, without a translator', async () => {
     expect(await dreamQuery('порш 911')).toBe('porsche 911');
     expect(await dreamQuery('Порше Панамера')).toBe('porsche panamera');
-    expect(await dreamQuery('айфон 17 про')).toContain('iphone 17');
+    expect(await dreamQuery('айфон 17 про')).toBe('iphone 17 pro');
+  });
+
+  it('keeps model numbers when other words need translating', async () => {
+    const offline = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+    expect(await dreamQuery('велосипед 29')).toBe('bicycle 29');
+    offline.mockRestore();
   });
 
   it('leaves a Latin name as it is', async () => {

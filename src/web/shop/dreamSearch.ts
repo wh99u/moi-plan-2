@@ -22,13 +22,18 @@ const NAMES: [RegExp, string][] = [
   [/бмв/i, 'bmw'], [/мерс[а-яё]*/i, 'mercedes'], [/ауди/i, 'audi'], [/тесл[а-яё]*/i, 'tesla'], [/лада/i, 'lada'], [/тойот[а-яё]*/i, 'toyota'],
   [/лексус[а-яё]*/i, 'lexus'], [/хендай|хёндэ|хундай/i, 'hyundai'], [/киа/i, 'kia'], [/феррари/i, 'ferrari'], [/ламборгини|ламба/i, 'lamborghini'],
   [/бентли/i, 'bentley'], [/рендж ровер/i, 'range rover'], [/ленд крузер|крузак/i, 'land cruiser'], [/гелик|гелендваген/i, 'mercedes g-class'], [/мустанг/i, 'mustang'],
-  [/айфон[а-яё]*/i, 'iphone'], [/макбук[а-яё]*/i, 'macbook'], [/айпад[а-яё]*/i, 'ipad'], [/самсунг/i, 'samsung'], [/плейстейшн|плойк[а-яё]*/i, 'playstation'],
+  [/(?<![а-яё])про(?![а-яё])/i, 'pro'], [/айфон[а-яё]*/i, 'iphone'], [/макбук[а-яё]*/i, 'macbook'], [/айпад[а-яё]*/i, 'ipad'], [/самсунг/i, 'samsung'], [/плейстейшн|плойк[а-яё]*/i, 'playstation'],
   [/квартир[а-яё]*/i, 'apartment'], [/переезд[а-яё]*/i, 'moving boxes'], [/дом(?![а-яё])/i, 'house'], [/отдых[а-яё]*|отпуск[а-яё]*/i, 'beach resort'], [/мальдив[а-яё]*/i, 'maldives'], [/яхт[а-яё]*/i, 'yacht'], [/мотоцикл[а-яё]*/i, 'motorcycle'],
 ];
 
 export async function dreamQuery(name: string, signal?: AbortSignal): Promise<string> {
-  const direct = NAMES.reduce((text, [re, en]) => text.replace(re, en), name);
-  return /[а-яё]/i.test(direct) ? toEnglish(direct, signal) : direct.trim();
+  const direct = NAMES.reduce((text, [re, en]) => text.replace(re, en), name).trim();
+  const russian = direct.split(/\s+/).filter((w) => /[а-яё]/i.test(w));
+  if (!russian.length) return direct;
+  // Only the words still in Russian go to the translator: it would lose the model number in «911».
+  const english = await toEnglish(russian.join(' '), signal);
+  const known = direct.split(/\s+/).filter((w) => !/[а-яё]/i.test(w));
+  return [english, ...known].filter(Boolean).join(' ');
 }
 
 interface SketchfabImage {
