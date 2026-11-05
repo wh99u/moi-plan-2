@@ -5,7 +5,10 @@ import { useProfile } from '../app/profile';
 import { closeSheet, openSheet } from '../app/sheet';
 import { toggleTheme, useTheme } from '../app/theme';
 import { EASE } from '../app/ui/text';
+import { actions, appStore, isDemo } from '../lib/appStore';
+import { visible } from '../lib/records';
 import { Icon } from '../ui/Icon';
+import { missingCards } from './money/data';
 import { Home } from './Home';
 import { Mark } from './Mark';
 import { Budget } from './money/Budget';
@@ -16,6 +19,7 @@ import { Shop } from './shop/Shop';
 import { FocusWindow } from './tasks/Focus';
 import { Tasks } from './tasks/Tasks';
 import { Sheets } from './Sheets';
+import { sync } from './sync/site';
 import { Soon } from './Soon';
 import { Wave } from './Wave';
 
@@ -48,6 +52,20 @@ export function App() {
   }, []);
 
   useEffect(() => closeSheet(), [route]);
+
+  useEffect(() => (isDemo ? undefined : sync.start()), []);
+
+  // All six cards exist from the first visit, and a shift whose day has come reaches the budget, wherever the site was opened.
+  useEffect(() => {
+    const settle = () => {
+      if (document.hidden) return;
+      missingCards(visible(appStore.get().shared.banks)).forEach((code) => actions.addBank(code, 0));
+      actions.settleShifts();
+    };
+    settle();
+    document.addEventListener('visibilitychange', settle);
+    return () => document.removeEventListener('visibilitychange', settle);
+  }, []);
 
   // A bank's message can arrive through a link; it must not get lost while the budget is being rebuilt.
   useEffect(() => {

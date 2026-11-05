@@ -27,8 +27,10 @@ export interface Income extends Rec {
   date: string;
   amount: number;
   bankId: string;
-  source: 'manual' | 'shortcut';
+  source: 'manual' | 'shortcut' | 'shift';
   note?: string;
+  /** The shift this is the pay for. Its id is `shift-<id>`, so two devices cannot pay it twice. */
+  shiftId?: string;
 }
 
 export interface Car {
@@ -120,6 +122,8 @@ export interface Spend extends Rec {
   subId?: string;
   /** The card it was paid from; its sum went down with this spend. */
   bankId?: string;
+  /** The wish from the purchases list this is the buying of. */
+  buyId?: string;
   /** Added by itself from a bank's message. */
   auto?: boolean;
 }
@@ -143,6 +147,8 @@ export interface Shift extends Rec {
   type: 'd' | 'n';
   pay: number;
   h: number;
+  /** The card the pay goes to; otherwise the one used last. */
+  bankId?: string;
 }
 
 /** 0 none, 1 low, 2 medium, 3 high. */

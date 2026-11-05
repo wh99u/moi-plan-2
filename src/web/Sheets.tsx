@@ -1,20 +1,21 @@
-import { motion } from 'motion/react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { ACCENTS, setAccent, useAccent } from '../app/accent';
 import { GOOGLE_CLIENT_ID, renderGoogleButton } from '../app/google';
 import { setProfile, useProfile } from '../app/profile';
 import { closeSheet, useSheet } from '../app/sheet';
 import { setThemePref, useTheme, type ThemePref } from '../app/theme';
 import { Sheet } from '../app/ui/Sheet';
-import { actions } from '../lib/appStore';
-import { addDays, dayKey } from '../lib/dates';
+import { isDemo } from '../lib/appStore';
 import { Icon } from '../ui/Icon';
 import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
 import { Seg } from './Seg';
 import { ShopSheets } from './shop/sheets';
 import { AddSheets } from './tasks/AddSheets';
+import { useSyncStatus } from './sync/engine';
+import { sync } from './sync/site';
 import { ShiftSheet } from './tasks/ShiftSheet';
-import { pulseWave } from './Wave';
 
 export function Sheets() {
   const open = useSheet();
@@ -22,9 +23,6 @@ export function Sheets() {
     <>
       <Sheet open={open === 'more'} onClose={closeSheet} title="Ещё">
         <MoreGrid />
-      </Sheet>
-      <Sheet open={open === 'task'} onClose={closeSheet} title="Новая задача">
-        <TaskForm />
       </Sheet>
       <Sheet open={open === 'profile'} onClose={closeSheet} title="Профиль">
         <ProfileForm />
@@ -64,55 +62,6 @@ function MoreGrid() {
         </motion.button>
       ))}
     </div>
-  );
-}
-
-function TaskForm() {
-  const [title, setTitle] = useState('');
-  const [when, setWhen] = useState<'today' | 'tomorrow'>('today');
-  const input = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // After the sheet has sprung up, so the keyboard does not fight the animation.
-    const t = setTimeout(() => input.current?.focus(), 380);
-    return () => clearTimeout(t);
-  }, []);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
-    const now = new Date();
-    actions.addTask({ title: t, desc: '', due: dayKey(when === 'today' ? now : addDays(now, 1)) });
-    pulseWave();
-    closeSheet();
-  };
-
-  return (
-    <form className="form" onSubmit={submit}>
-      <input
-        ref={input}
-        className="field"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Что нужно сделать?"
-        aria-label="Задача"
-        maxLength={120}
-        enterKeyHint="done"
-      />
-      <Seg
-        value={when}
-        onChange={setWhen}
-        options={[
-          { id: 'today', label: 'Сегодня' },
-          { id: 'tomorrow', label: 'Завтра' },
-        ]}
-        label="Когда"
-      />
-      <motion.button type="submit" className="primary-btn" disabled={!title.trim()} whileTap={{ scale: 0.96 }}>
-        Добавить
-      </motion.button>
-    </form>
   );
 }
 
@@ -159,9 +108,114 @@ function ProfileForm() {
         ]}
         label="Тема"
       />
+      <span className="form-label">Цвет сайта</span>
+      <AccentPick />
       <motion.button type="submit" className="primary-btn" whileTap={{ scale: 0.96 }}>
         Сохранить
       </motion.button>
+      <SyncBlock />
     </form>
+  );
+}
+
+function AccentPick() {
+  const accent = useAccent();
+  return (
+    <div className="accent-pick" role="radiogroup" aria-label="Цвет сайта">
+      {ACCENTS.map((a) => (
+        <button key={a.id} type="button" role="radio" aria-checked={accent === a.id} aria-label={a.label} title={a.label} className="accent-dot" style={{ '--dot': a.swatch } as CSSProperties} onClick={() => setAccent(a.id)}>
+          <AnimatePresence initial={false}>
+            {accent === a.id && (
+              <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: 'spring', stiffness: 460, damping: 26 }}>
+                <Icon name="check" size={16} stroke={3} />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const TOKEN_PAGE = 'https://github.com/settings/tokens/new?scopes=gist&description=%D0%9C%D0%BE%D0%B9%20%D0%BF%D0%BB%D0%B0%D0%BD';
+
+function syncedAgo(at?: number) {
+  if (!at) return '';
+  const min = Math.round((Date.now() - at) / 60000);
+  return min < 1 ? 'только что' : min < 60 ? `${min} мин назад` : new Date(at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** One account on every device: the owner's GitHub, and a token that reaches only its gists. */
+function SyncBlock() {
+  const status = useSyncStatus(sync);
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState('');
+  const [howTo, setHowTo] = useState(false);
+
+  if (isDemo) return null;
+
+  const connect = async () => {
+    setBusy(true);
+    setProblem('');
+    try {
+      await sync.connect(token);
+      setToken('');
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'Не получилось подключить');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (status.state === 'off') {
+    return (
+      <section className="sync">
+        <h3>Синхронизация между устройствами</h3>
+        <p className="form-hint">Данные будут одни и те же на телефоне и на компьютере. Вход через твой аккаунт GitHub, данные лежат там же в зашифрованном виде</p>
+        <button type="button" className="scan-link" aria-expanded={howTo} onClick={() => setHowTo(!howTo)}>
+          <Icon name="link" size={18} />
+          Как подключить
+        </button>
+        {howTo && (
+          <ol className="sync-steps">
+            <li>
+              <a href={TOKEN_PAGE} target="_blank" rel="noreferrer">
+                Открой страницу создания токена
+              </a>
+              . Галочка gist уже стоит, срок поставь «No expiration»
+            </li>
+            <li>Нажми Generate token и скопируй его</li>
+            <li>Вставь сюда. На другом устройстве вставь этот же токен</li>
+          </ol>
+        )}
+        <input className="field" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Токен GitHub" aria-label="Токен GitHub" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        {problem && <p className="form-note">{problem}</p>}
+        <motion.button type="button" className="primary-btn primary-btn--quiet" disabled={!token.trim() || busy} whileTap={{ scale: 0.96 }} onClick={() => void connect()}>
+          {busy ? 'Подключаю' : 'Подключить'}
+        </motion.button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="sync">
+      <h3>Синхронизация между устройствами</h3>
+      <p className="sync-state">
+        <i className={`sync-dot is-${status.state}`} />
+        <span>
+          {status.login}
+          <small>{status.state === 'busy' ? 'Синхронизирую' : status.state === 'error' ? status.message : `Обновлено ${syncedAgo(status.at)}`}</small>
+        </span>
+      </p>
+      <div className="form-two">
+        <button type="button" className="scan-link" disabled={status.state === 'busy'} onClick={() => void sync.syncNow()}>
+          Обновить
+        </button>
+        <button type="button" className="scan-link" onClick={sync.disconnect}>
+          Отключить
+        </button>
+      </div>
+    </section>
   );
 }

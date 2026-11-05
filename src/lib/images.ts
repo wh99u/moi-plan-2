@@ -49,6 +49,24 @@ export async function putImage(blob: Blob): Promise<string> {
   return id;
 }
 
+/** A picture that came from another device, under the id it has there. */
+export async function putImageAs(id: string, blob: Blob): Promise<void> {
+  const value: Stored = { type: blob.type, buf: await blob.arrayBuffer() };
+  await run('readwrite', (s) => s.put(value, id));
+}
+
+export async function hasImage(id: string): Promise<boolean> {
+  return (await run('readonly', (s) => s.count(id))) > 0;
+}
+
+const changed = new Set<() => void>();
+/** New pictures have arrived: whatever is waiting for one looks again. */
+export const imagesChanged = () => changed.forEach((fn) => fn());
+export const onImagesChanged = (fn: () => void) => {
+  changed.add(fn);
+  return () => changed.delete(fn);
+};
+
 export async function getImageBlob(id: string): Promise<Blob | null> {
   const v = (await run('readonly', (s) => s.get(id))) as Stored | undefined;
   return v ? new Blob([v.buf], { type: v.type }) : null;

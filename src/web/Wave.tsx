@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { hueMatrix, hueOf, useAccent } from '../app/accent';
 import { useTheme } from '../app/theme';
+import { LOW } from '../app/ui/device';
 import { tabIndex, type Route } from './route';
 
 /**
@@ -67,6 +69,7 @@ const FRAG = `
 precision highp float;
 uniform vec2 uRes;
 uniform float uT, uZoom, uIn, uTheme, uDim, uGlow;
+uniform mat3 uHue;
 varying float vCenter, vSlope, vWidth, vOffset, vWidth2, vLobe, vFocus, vY;
 ${NOISE}
 
@@ -84,8 +87,8 @@ void main() {
   float one = d / vWidth;
   float two = (d - vOffset) / vWidth2;
   float folds = noise(vec2(d * 9. + vLobe * 1.5, vY * 3. + uT * .24));
-  float fine = noise(vec2(d * 19. - 1., vY * 4.6 - uT * .18 + 4.));
-  float ribbon = max(exp(-one * one), .82 * exp(-two * two)) * (.9 + .17 * folds + .04 * fine);
+  FINE
+  float ribbon = max(exp(-one * one), .82 * exp(-two * two)) * (.9 + .17 * folds FINE_USE);
 
   // The light spills to the right in slow uneven lobes and stops sharply on the left.
   float side = d > 0. ? exp(-d / (.115 + .055 * vLobe)) : exp(d / .034);
@@ -111,6 +114,7 @@ void main() {
   vec3 col = mix(dark, light, uTheme);
   vec3 bg = mix(vec3(.004, .009, .016), vec3(.925, .953, .99), uTheme);
   col = mix(bg, col, uIn);
+  col = clamp(uHue * col, 0., 1.);
   // A hair of grain, otherwise the long dark gradients break into bands.
   col += (grain(gl_FragCoord.xy + fract(uT)) - .5) / 170.;
   gl_FragColor = vec4(col, 1.);
@@ -153,7 +157,14 @@ function lieOf(route: Route, tall: boolean): Lie {
 const ENTRY = 2;
 const ENTRY_ZOOM = 16;
 /** Rows of the mesh the line is computed on. */
-const ROWS = 140;
+const ROWS = LOW ? 80 : 140;
+/** A phone draws the line this many times a second: on the home screen, and elsewhere where it is dim and still. */
+const PHONE_FPS = 30;
+const PHONE_FPS_AWAY = 20;
+/** The finest streaks cannot be seen at a phone's resolution here, and cost a third of the shader. */
+const FRAG_SRC = LOW
+  ? FRAG.replace('FINE_USE', '').replace('FINE', '')
+  : FRAG.replace('FINE_USE', '+ .04 * fine').replace('FINE', 'float fine = noise(vec2(d * 19. - 1., vY * 4.6 - uT * .18 + 4.));');
 
 let glow = 0;
 /** A short brightening of the line, for moments worth marking. */
@@ -171,9 +182,10 @@ function shader(gl: WebGLRenderingContext, type: number, src: string) {
 /** The living ribbon behind everything: two shaders on a strip mesh, no images, no libraries. */
 export function Wave({ route }: { route: Route }) {
   const { theme } = useTheme();
+  const accent = useAccent();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const live = useRef({ theme, route });
-  live.current = { theme, route };
+  const live = useRef({ theme, route, hue: hueOf(accent) });
+  live.current = { theme, route, hue: hueOf(accent) };
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -185,7 +197,7 @@ export function Wave({ route }: { route: Route }) {
     }
     const program = gl.createProgram()!;
     gl.attachShader(program, shader(gl, gl.VERTEX_SHADER, VERT));
-    gl.attachShader(program, shader(gl, gl.FRAGMENT_SHADER, FRAG));
+    gl.attachShader(program, shader(gl, gl.FRAGMENT_SHADER, FRAG_SRC));
     gl.bindAttribLocation(program, 0, 'a');
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
@@ -206,13 +218,13 @@ export function Wave({ route }: { route: Route }) {
     const u = (n: string) => gl.getUniformLocation(program, n);
     const at = {
       res: u('uRes'), t: u('uT'), zoom: u('uZoom'), in: u('uIn'), theme: u('uTheme'), base: u('uBase'), amp: u('uAmp'), bulge: u('uBulge'),
-      sweep: u('uSweep'), sweepAt: u('uSweepAt'), thick: u('uThick'), dim: u('uDim'), glow: u('uGlow'), ptr: u('uPtr'),
+      sweep: u('uSweep'), sweepAt: u('uSweepAt'), thick: u('uThick'), dim: u('uDim'), glow: u('uGlow'), ptr: u('uPtr'), hue: u('uHue'),
     };
 
     const portrait = matchMedia(PORTRAIT);
     const calm = matchMedia('(prefers-reduced-motion: reduce)');
     const resize = () => {
-      const scale = Math.min(devicePixelRatio || 1, 1.25);
+      const scale = LOW ? 1 : Math.min(devicePixelRatio || 1, 1.25);
       el.width = Math.round(innerWidth * scale);
       el.height = Math.round(innerHeight * scale);
       gl.viewport(0, 0, el.width, el.height);
@@ -234,11 +246,14 @@ export function Wave({ route }: { route: Route }) {
     let last = 0;
     let lie: Lie | null = null;
     let dim = live.current.route === 'home' ? 0 : 1;
+    let hueNow = NaN;
 
     const frame = (ms: number) => {
       raf = requestAnimationFrame(frame);
       if (!start) start = last = ms;
       const age = (ms - start) / 1000;
+      // The opening shot gets every frame; after it a phone can spare the rest for what is on top of the line.
+      if (LOW && age > ENTRY && ms - last < 1000 / (live.current.route === 'home' ? PHONE_FPS : PHONE_FPS_AWAY) - 2) return;
       const dt = Math.min((ms - last) / 1000, 0.05);
       last = ms;
 
@@ -255,6 +270,10 @@ export function Wave({ route }: { route: Route }) {
 
       const still = calm.matches;
       const pull = still ? 1 : 1 - Math.pow(2, (-15 * age) / ENTRY);
+      if (live.current.hue !== hueNow) {
+        hueNow = live.current.hue;
+        gl.uniformMatrix3fv(at.hue, false, hueMatrix(hueNow));
+      }
       gl.uniform2f(at.res, el.width, el.height);
       gl.uniform1f(at.t, still ? 40 : 40 + age);
       gl.uniform1f(at.zoom, 1 + (ENTRY_ZOOM - 1) * (1 - pull));

@@ -76,3 +76,15 @@ export function splitBuys(buys: Buy[]): { main: Buy[]; rest: Buy[] } {
   const free = MAIN_COUNT - pinned.length;
   return { main: [...pinned, ...others.slice(0, free)], rest: others.slice(free) };
 }
+
+/** Shortest and slowest a swipe up can be and still count as a flick on to the dream. */
+const FLICK_MIN_PX = 40;
+const FLICK_MIN_SPEED = 0.4;
+/** How much of the list may be left below, as a share of the screen. */
+const FLICK_LEFT_SHARE = 0.4;
+
+/** A flick up on the purchases goes straight to the dream, unless a long stretch of the list is still below. */
+export function flickReachesDream(distance: number, ms: number, left: number, height: number): boolean {
+  if (distance < FLICK_MIN_PX || ms <= 0 || distance / ms < FLICK_MIN_SPEED) return false;
+  return left <= height * FLICK_LEFT_SHARE;
+}

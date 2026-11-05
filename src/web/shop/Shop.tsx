@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatMoney, useCurrency } from '../../app/money/currency';
 import { openSheet } from '../../app/sheet';
+import { LOW } from '../../app/ui/device';
 import { EASE } from '../../app/ui/text';
 import { actions, appStore, useStore } from '../../lib/appStore';
 import { visible } from '../../lib/records';
@@ -13,7 +14,7 @@ import { Recede } from '../Recede';
 import { BuyWindow } from './BuyWindow';
 import { Dream, DreamBackdrop, useImage } from './Dream';
 import { autoPicture, takeShopLink, useImporting, wantsPicture } from './importer';
-import { activeBuys, isBlankBuy, MAIN_COUNT, splitBuys } from './logic';
+import { activeBuys, flickReachesDream, isBlankBuy, MAIN_COUNT, splitBuys } from './logic';
 
 /** Which purchase is open, and the thing on screen its window grows out of and returns to. */
 interface Opened {
@@ -32,9 +33,10 @@ export function Shop() {
   // From the dream's top edge at the bottom of the screen (0) to it filling the screen (1).
   const { scrollYProgress: toward } = useScroll({ container: scroller, target: dream, offset: ['start end', 'start start'] });
   const pageOpacity = useTransform(toward, [0, 0.6], [1, 0]);
-  const pageScale = useTransform(toward, [0, 1], [1, 0.94]);
+  // On a phone only the fade: scaling the whole page on every step of a scroll costs too much.
+  const pageScale = useTransform(toward, [0, 1], [1, LOW ? 1 : 0.94]);
   const photoOpacity = useTransform(toward, [0.05, 0.85], [0, 1]);
-  const photoScale = useTransform(toward, [0, 1], [1.12, 1]);
+  const photoScale = useTransform(toward, [0, 1], [LOW ? 1 : 1.12, 1]);
   const dreamOpacity = useTransform(toward, [0.4, 1], [0, 1]);
   const open = buys.find((b) => b.id === opened?.id && !b.boughtAt);
   const shown = buys.filter((b) => !(b.id === opened?.id && isBlankBuy(b)));
@@ -66,7 +68,30 @@ export function Shop() {
     if (open && isBlankBuy(open)) actions.deleteBuy(open.id);
     else if (open) void autoPicture(open.id);
   };
-  const toDream = () => dream.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const toDream = () => scroller.current?.scrollTo({ top: dream.current?.offsetTop ?? 0, behavior: 'smooth' });
+
+  // With little of the list left below, one flick is enough: it goes on to the dream instead of stopping at the end of the list.
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    let from: { y: number; t: number } | null = null;
+    const onStart = (e: TouchEvent) => {
+      from = e.touches.length === 1 ? { y: e.touches[0].clientY, t: e.timeStamp } : null;
+    };
+    const onEnd = (e: TouchEvent) => {
+      const touch = e.changedTouches[0];
+      if (!from || !touch) return;
+      if (flickReachesDream(from.y - touch.clientY, e.timeStamp - from.t, el.scrollHeight - el.clientHeight - el.scrollTop, el.clientHeight)) toDream();
+      from = null;
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, []);
 
   return (
     <>
@@ -74,6 +99,8 @@ export function Shop() {
         <DreamBackdrop opacity={photoOpacity} scale={photoScale} />
 
         <motion.section className="buys" style={{ opacity: pageOpacity, scale: pageScale, transformOrigin: '50% 100%' }}>
+          {/* The list scrolls inside its own page; past its end the next swipe carries on to the dream. */}
+          <motion.div ref={list} className="buys-scroll" layoutScroll>
           <Recede from={2.2} className="mains">
             <h2>Важные покупки</h2>
             <ul className="mains-row">
@@ -103,11 +130,12 @@ export function Shop() {
           <button type="button" className="buys-how" onClick={() => openSheet('shopShare')}>
             Добавлять из магазинов через «Поделиться»
           </button>
+          </motion.div>
           <button type="button" className="buys-hint" onClick={toDream}>
-            <motion.span animate={{ y: [0, 4, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
+            <span>
               <Icon name="down" size={14} stroke={2.2} />
-            </motion.span>
-            Свайпни вниз к мечте
+            </span>
+            К мечте
           </button>
         </motion.section>
 

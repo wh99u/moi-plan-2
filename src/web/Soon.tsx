@@ -3,10 +3,11 @@ import { EASE } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
 import { Recede } from './Recede';
 import { section, type Route } from './route';
+import { blur } from '../app/ui/device';
 
 const part = (delay: number) => ({
-  initial: { opacity: 0, y: 14, filter: 'blur(8px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  initial: { opacity: 0, y: 14, ...blur(8) },
+  animate: { opacity: 1, y: 0, ...blur(0) },
   transition: { delay, duration: 0.8, ease: EASE },
 });
 

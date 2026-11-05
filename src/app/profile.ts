@@ -40,6 +40,8 @@ const subscribe = (fn: () => void) => {
 };
 
 export const useProfile = () => useSyncExternalStore(subscribe, () => profile);
+export const getProfile = () => profile;
+export const subscribeProfile = subscribe;
 
 /** «Иван Богоцкий» from Google → «Иван» in the greeting. */
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? '';

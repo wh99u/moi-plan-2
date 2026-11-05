@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Shift, Task } from '../../lib/types';
-import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nextRepeat, parseQuick, quadrantOf, smartGroups } from './logic';
+import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nearestSpan, nextRepeat, pageStart, parseQuick, quadrantOf, smartGroups, turnPages, weekStart } from './logic';
 
 // Thursday, 5 November 2026, 12:30.
 const NOW = new Date(2026, 10, 5, 12, 30);
@@ -172,4 +172,33 @@ it('a time alone goes to the day it was written on', () => {
   expect(line?.due).toBeUndefined();
   expect(parseQuick('врач завтра в 15', now, '2026-11-20')).toMatchObject({ due: '2026-11-06', time: '15:00' });
   expect(parseQuick('врач в 15', now)).toMatchObject({ due: '2026-11-05' });
+});
+
+describe('pages of the hours', () => {
+  it('settles on the nearest of the three views', () => {
+    expect(nearestSpan(1.4)).toBe(1);
+    expect(nearestSpan(2.4)).toBe(3);
+    expect(nearestSpan(4.9)).toBe(3);
+    expect(nearestSpan(5.2)).toBe(7);
+  });
+
+  it('starts a week on Monday', () => {
+    expect(weekStart('2026-11-05')).toBe('2026-11-02');
+    expect(weekStart('2026-11-08')).toBe('2026-11-02');
+    expect(weekStart('2026-11-02')).toBe('2026-11-02');
+    expect(pageStart('2026-11-05', 7)).toBe('2026-11-02');
+    expect(pageStart('2026-11-05', 3)).toBe('2026-11-05');
+  });
+
+  it('turns exactly one page, or none', () => {
+    expect(turnPages(-10, 300, 0)).toBe(0);
+    expect(turnPages(-100, 300, 0)).toBe(1);
+    expect(turnPages(100, 300, 0)).toBe(-1);
+    expect(turnPages(-20, 300, -1)).toBe(1);
+    expect(turnPages(20, 300, 1)).toBe(-1);
+    // A long drag with a hard flick is still one page.
+    expect(turnPages(-290, 300, -5)).toBe(1);
+    // Dragged left, flicked back right: the page stays.
+    expect(turnPages(-100, 300, 1)).toBe(0);
+  });
 });

@@ -10,7 +10,7 @@ import { Icon } from '../../ui/Icon';
 import { AmountInput } from '../AmountInput';
 import { fullDate, parseAmount, typedAmount } from '../money/data';
 import { plural } from '../reminders';
-import { DateField } from '../money/sheets';
+import { CardPick, DateField, useCards } from '../money/sheets';
 import { pulseWave } from '../Wave';
 import { GrowText } from './BuyWindow';
 import { autoDream, setDreamLink, setDreamPhoto } from './importer';
@@ -87,6 +87,9 @@ function SaveForm() {
   const [amount, setAmount] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const value = parseAmount(amount);
+  const banks = visible(useStore((s) => s.shared.banks));
+  const cards = useCards();
+  const [bankId, setBankId] = useState<string | undefined>();
 
   useEffect(() => {
     const t = setTimeout(() => input.current?.focus(), 380);
@@ -97,6 +100,9 @@ function SaveForm() {
     e.preventDefault();
     if (!value) return;
     actions.setCar({ saved: Math.max(0, (car.saved ?? 0) + value) });
+    // Off the card and into the dream; back onto it when the sum has a minus.
+    const card = banks.find((b) => b.id === bankId);
+    if (card) actions.updateBank(card.id, { sum: card.sum - value });
     pulseWave();
     closeSheet();
   };
@@ -104,7 +110,8 @@ function SaveForm() {
   return (
     <form className="form" onSubmit={submit}>
       <AmountInput inputRef={input} className="field" value={amount} onValue={setAmount} placeholder="Сумма, ₽" aria-label="Сумма в рублях" />
-      <p className="form-hint">С минусом, если пришлось взять обратно. Деньги с карт это не списывает</p>
+      <p className="form-hint">С минусом, если пришлось взять обратно. Выбери карту, и сумма спишется с неё, иначе бюджет не изменится</p>
+      <CardPick cards={cards} value={bankId} onChange={(id) => setBankId(bankId === id ? undefined : id)} />
       <motion.button type="submit" className="primary-btn" disabled={!value} whileTap={{ scale: 0.96 }}>
         Отложить
       </motion.button>

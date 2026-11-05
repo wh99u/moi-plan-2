@@ -7,7 +7,7 @@ import { dayKey } from '../../lib/dates';
 import { visible } from '../../lib/records';
 import type { Shift } from '../../lib/types';
 import { AmountInput } from '../AmountInput';
-import { DateField } from '../money/sheets';
+import { CardPick, DateField, useCards, useDefaultCard } from '../money/sheets';
 import { parseAmount, typedAmount } from '../money/data';
 import { Seg } from '../Seg';
 import { pulseWave } from '../Wave';
@@ -41,6 +41,10 @@ function ShiftForm({ shift, shifts, day }: { shift?: Shift; shifts: Shift[]; day
   const [pay, setPay] = useState(text(usual?.pay));
   const [touched, setTouched] = useState(false);
   const [sure, setSure] = useState(false);
+  const cards = useCards();
+  const [usualCard] = useDefaultCard(cards);
+  const [bankId, setBankId] = useState(shift?.bankId ?? usual?.bankId ?? usualCard);
+  const ahead = date > dayKey(new Date());
   const h = parseAmount(hours);
   const money = parseAmount(pay);
   const fits = h > 0 && h <= MAX_HOURS;
@@ -56,7 +60,7 @@ function ShiftForm({ shift, shifts, day }: { shift?: Shift; shifts: Shift[]; day
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!fits) return;
-    const record = { date, type, h, pay: money };
+    const record = { date, type, h, pay: money, bankId };
     // The same kind of shift on the same day is that shift being corrected, not a second one.
     const same = shifts.find((s) => s.date === date && s.type === type && s.id !== shift?.id);
     if (shift && same) actions.deleteShift(same.id);
@@ -107,6 +111,12 @@ function ShiftForm({ shift, shifts, day }: { shift?: Shift; shifts: Shift[]; day
           />
         </label>
       </div>
+      {money > 0 && (
+        <>
+          <span className="form-label">{ahead ? 'На какую карту придёт в этот день' : 'На какую карту пришло'}</span>
+          <CardPick cards={cards} value={bankId} onChange={setBankId} />
+        </>
+      )}
       <motion.button type="submit" className="primary-btn" disabled={!fits} whileTap={{ scale: 0.96 }}>
         {shift ? 'Сохранить' : 'Добавить'}
       </motion.button>

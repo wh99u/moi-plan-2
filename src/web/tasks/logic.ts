@@ -217,3 +217,37 @@ export function monthCells(ym: string): string[] {
   const cells = Array.from({ length: 42 }, (_, i) => dayKey(addDays(start, i)));
   return cells[35].startsWith(ym) ? cells : cells.slice(0, 35);
 }
+
+/** The three views of the hours: one day, three, a week. */
+export const SPANS = [1, 3, 7] as const;
+
+export const nearestSpan = (z: number): number => SPANS.reduce<number>((best, n) => (Math.abs(n - z) < Math.abs(best - z) ? n : best), SPANS[0]);
+
+/** The Monday of that week. */
+export function weekStart(key: string): string {
+  const d = parseDay(key);
+  return dayKey(addDays(d, -((d.getDay() + 6) % 7)));
+}
+
+/** The first day shown when the window of `span` days holds this one. */
+export const pageStart = (key: string, span: number) => (span === 7 ? weekStart(key) : key);
+
+/** Past this share of the window a slow swipe turns the page. */
+const TURN_SHARE = 0.22;
+/** Faster than this a flick turns it however short it was, px per ms. */
+const TURN_SPEED = 0.35;
+
+/**
+ * Where a swipe ends: always exactly one page, or none. `offset` is how far the ribbon has moved,
+ * `speed` how fast the finger was going. Moving left brings later days: +1.
+ */
+export function turnPages(offset: number, width: number, speed: number): -1 | 0 | 1 {
+  if (!width) return 0;
+  if (Math.abs(speed) >= TURN_SPEED) {
+    // A flick back against the way it was dragged puts the page back.
+    if (offset * speed < 0) return 0;
+    return speed < 0 ? 1 : -1;
+  }
+  if (Math.abs(offset) < width * TURN_SHARE) return 0;
+  return offset < 0 ? 1 : -1;
+}

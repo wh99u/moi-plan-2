@@ -7,7 +7,8 @@ import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
 import { dayKey } from '../../lib/dates';
 import { visible } from '../../lib/records';
-import type { SpendItem } from '../../lib/types';
+import { rub } from '../../lib/money';
+import type { Buy, SpendItem } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { pulseWave } from '../Wave';
 import { allCats, catIcon, existingCat } from './categories';
@@ -30,21 +31,24 @@ export function MoneySheets() {
       <Sheet open={open === 'balance'} onClose={closeSheet} title="Сколько на карте">
         <BalanceForm id={data.id} />
       </Sheet>
+      <Sheet open={open === 'bought'} onClose={closeSheet} title="Куплено">
+        <BoughtForm id={data.id} />
+      </Sheet>
     </>
   );
 }
 
-function useCards() {
+export function useCards() {
   return cardViews(visible(useStore((s) => s.shared.banks)));
 }
 
 /** The card picked last time, or the first one. */
-function useDefaultCard(cards: CardView[]) {
+export function useDefaultCard(cards: CardView[]) {
   const last = useStore((s) => s.personal.settings.lastTopUpBankId);
   return useState(() => (cards.some((c) => c.id === last) ? last : cards[0]?.id));
 }
 
-function CardPick({ cards, value, onChange }: { cards: CardView[]; value?: string; onChange: (id: string) => void }) {
+export function CardPick({ cards, value, onChange }: { cards: CardView[]; value?: string; onChange: (id: string) => void }) {
   return (
     <div className="card-pick" role="radiogroup" aria-label="Карта">
       {cards.map(
@@ -199,6 +203,21 @@ function PurchaseForm() {
     [spends],
   );
   const suggestions = titleFocus ? suggestTitles(title, past) : [];
+  // Something from the purchases list: taking it fills the form, and it leaves the list once added.
+  const buys = visible(useStore((s) => s.shared.buys));
+  const [wishId, setWishId] = useState<string | null>(null);
+  const wishes = titleFocus && title.trim().length >= 2 ? buys.filter((b) => !b.boughtAt && b.title.toLowerCase().includes(title.trim().toLowerCase())).slice(0, 3) : [];
+  const pickWish = (b: Buy) => {
+    setWishId(b.id);
+    setTitle(b.title);
+    if (b.price) {
+      amountTouched.current = true;
+      setAmount(typedAmount(String(b.price)));
+    }
+    if (b.note) setAbout(b.note);
+    suggestCat(b.category);
+    setTitleFocus(false);
+  };
 
   const suggestCat = (name?: string) => {
     if (!catTouched.current) setCat(name ?? '');
@@ -258,11 +277,15 @@ function PurchaseForm() {
     e.preventDefault();
     if (!bankId || value <= 0) return;
     const clean = items.filter((x) => x.name.trim()).map(({ name, price }) => ({ name, price }));
+    // The name was changed after picking the wish: then it is some other purchase.
+    const wish = buys.find((b) => b.id === wishId && b.title === title);
+    if (wish) actions.updateBuy(wish.id, { boughtAt: Date.now() });
     actions.spendFrom(
       bankId,
       value,
       {
         title: title.trim() || 'Покупка',
+        ...(wish ? { buyId: wish.id } : {}),
         ...(clean.length ? { items: clean } : {}),
         ...(cat ? { cat } : {}),
         ...(about.trim() ? { note: about.trim() } : {}),
@@ -312,7 +335,7 @@ function PurchaseForm() {
         />
       </div>
       <AnimatePresence initial={false}>
-        {suggestions.length > 0 && (
+        {(suggestions.length > 0 || wishes.length > 0) && (
           <motion.ul
             className="suggest"
             aria-label="Подсказки"
@@ -321,6 +344,17 @@ function PurchaseForm() {
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: EASE }}
           >
+            {wishes.map((b) => (
+              <li key={b.id}>
+                <button type="button" onClick={() => pickWish(b)}>
+                  <span className="suggest-wish">
+                    <Icon name="bag" size={16} stroke={2} />
+                  </span>
+                  <span>{b.title}</span>
+                  <em>{b.price ? rub(b.price) : 'из списка'}</em>
+                </button>
+              </li>
+            ))}
             {suggestions.map((s) => (
               <li key={s.title}>
                 <button type="button" onClick={() => pickTitle(s)}>
@@ -446,6 +480,39 @@ function BalanceForm({ id }: { id?: string }) {
       </div>
       <motion.button type="submit" className="primary-btn" whileTap={{ scale: 0.96 }}>
         Сохранить
+      </motion.button>
+    </form>
+  );
+}
+
+/** A wish from the purchases list has been bought: what it really cost, and from which card. */
+function BoughtForm({ id }: { id?: string }) {
+  const buy = visible(useStore((s) => s.shared.buys)).find((b) => b.id === id);
+  const cards = useCards();
+  const [bankId, setBankId] = useDefaultCard(cards);
+  const [amount, setAmount] = useState(() => (buy?.price ? typedAmount(String(buy.price)) : ''));
+  const [date, setDate] = useState(() => dayKey(new Date()));
+  const value = parseAmount(amount);
+
+  if (!buy) return null;
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!bankId || value <= 0) return;
+    actions.buyFrom(buy.id, bankId, value, date);
+    pulseWave();
+    closeSheet();
+  };
+
+  return (
+    <form className="form" onSubmit={submit}>
+      <p className="form-hint">«{buy.title}» уйдёт из списка покупок и появится в бюджете</p>
+      <div className="form-two">
+        <AmountInput className="field" value={amount} onValue={setAmount} placeholder="Сумма, ₽" aria-label="Сумма в рублях" />
+        <DateField value={date} onChange={setDate} />
+      </div>
+      <CardPick cards={cards} value={bankId} onChange={setBankId} />
+      <motion.button type="submit" className="primary-btn" disabled={value <= 0 || !bankId} whileTap={{ scale: 0.96 }}>
+        Записать в бюджет
       </motion.button>
     </form>
   );

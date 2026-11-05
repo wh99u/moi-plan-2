@@ -1,33 +1,40 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { hued, hueOf, useAccent } from '../../app/accent';
 import { Amt } from '../../app/money/Amt';
 import { setNotice, useNotice } from '../../app/money/auto';
 import { formatMoney, loadRate, setCurrency, useCurrency, type Cur } from '../../app/money/currency';
 import { WaveChart, type ChartPalette } from '../../app/money/WaveChart';
 import { openSheet } from '../../app/sheet';
 import { EASE, MorphText } from '../../app/ui/text';
-import { actions, appStore, useStore } from '../../lib/appStore';
+import { useStore } from '../../lib/appStore';
+import { monthIn, ymKey } from '../../lib/dates';
 import { visible } from '../../lib/records';
 import type { Spend } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
+import { navigate } from '../route';
 import { Seg } from '../Seg';
-import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, missingCards, type CardView, type Span } from './data';
+import { activeBuys, isBlankBuy } from '../shop/logic';
+import { openTasks } from '../tasks/entry';
+import { hoursText, monthShifts } from '../tasks/logic';
+import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, type CardView, type Span } from './data';
 import { Logo } from './Logo';
 import { SpendWindow } from './SpendWindow';
+import { blur } from '../../app/ui/device';
 
 /** The panel is dark blue in both themes, so the chart keeps one set of colours. */
-const PALETTE: ChartPalette = {
-  fill: ['rgba(120, 190, 255, 0)', 'rgba(130, 195, 255, 0.2)', 'rgba(190, 225, 255, 0.5)'],
-  stroke: ['rgba(190, 225, 255, 0.6)', '#cfe6ff', '#ffffff'],
-  halo: 'rgba(190, 225, 255, 0.26)',
-  headGlow: 'rgba(220, 238, 255, 0.55)',
+const palette = (hue: number): ChartPalette => ({
+  fill: [hued(hue, 208, 100, 73.5, 0), hued(hue, 209, 100, 75, 0.2), hued(hue, 208, 100, 87, 0.5)],
+  stroke: [hued(hue, 208, 100, 87, 0.6), hued(hue, 211, 100, 90), '#ffffff'],
+  halo: hued(hue, 208, 100, 87, 0.26),
+  headGlow: hued(hue, 209, 100, 93, 0.55),
   head: '#fff',
   pick: 'rgba(255, 255, 255, 0.6)',
-  light: 'rgba(190, 228, 255, 0.34)',
-};
+  light: hued(hue, 205, 100, 87, 0.34),
+});
 
 /** How many purchases appear at first, and how many more each tap brings. */
 const PAGE = 40;
@@ -35,12 +42,6 @@ const PAGE = 40;
 export function Budget() {
   const [opened, setOpened] = useState<string | null>(null);
   const spends = visible(useStore((s) => s.shared.spends));
-
-  // All six cards exist from the first visit, so an operation always has somewhere to go.
-  // The list is read at this very moment: an effect can run twice, and a card must not appear twice.
-  useEffect(() => {
-    missingCards(visible(appStore.get().shared.banks)).forEach((code) => actions.addBank(code, 0));
-  }, []);
 
   useEffect(() => {
     void loadRate();
@@ -54,6 +55,7 @@ export function Budget() {
         <div className="b-col">
           <TopPanel />
           <Tiles />
+          <Links />
           <Purchases spends={spends} openedId={opened} onOpen={setOpened} />
         </div>
       </motion.div>
@@ -74,6 +76,8 @@ function TopPanel() {
   const [cardsOpen, setCardsOpen] = useState(false);
   const [noRate, setNoRate] = useState(false);
   const [smear, setSmear] = useState(false);
+  const accent = useAccent();
+  const chartColors = useMemo(() => palette(hueOf(accent)), [accent]);
 
   const cards = cardViews(banks);
   const total = banks.reduce((t, b) => t + b.sum, 0);
@@ -132,9 +136,9 @@ function TopPanel() {
             <motion.p
               key={span}
               className="b-income-sum"
-              initial={{ opacity: 0, y: 12, filter: 'blur(8px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -8, filter: 'blur(6px)' }}
+              initial={{ opacity: 0, y: 12, ...blur(8) }}
+              animate={{ opacity: 1, y: 0, ...blur(0) }}
+              exit={{ opacity: 0, y: -8, ...blur(6) }}
               transition={{ duration: 0.32, ease: EASE }}
             >
               {formatMoney(sum, cur, rate)}
@@ -160,7 +164,7 @@ function TopPanel() {
         </div>
       </div>
 
-      <WaveChart points={points} palette={PALETTE} delay={0.35} format={(v) => formatMoney(v, cur, rate)} />
+      <WaveChart points={points} palette={chartColors} delay={0.35} format={(v) => formatMoney(v, cur, rate)} />
       {!sum && <p className="b-chart-empty">Доходов за это время нет</p>}
 
       <div className="b-span">
@@ -213,7 +217,7 @@ function CardsWindow({ total, cards, onClose }: { total: number; cards: CardView
           </header>
           <ul>
             {cards.map((c, i) => (
-              <motion.li key={c.code} initial={{ opacity: 0, x: -16, filter: 'blur(6px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} transition={{ delay: 0.08 + i * 0.05, duration: 0.55, ease: EASE }}>
+              <motion.li key={c.code} initial={{ opacity: 0, x: -16, ...blur(6) }} animate={{ opacity: 1, x: 0, ...blur(0) }} transition={{ delay: 0.08 + i * 0.05, duration: 0.55, ease: EASE }}>
                 <button
                   type="button"
                   className="cards-row"
@@ -256,6 +260,43 @@ function Tiles() {
           </motion.button>
         </Recede>
       ))}
+    </div>
+  );
+}
+
+/** What the other screens add to this one, each a tap away from where it comes from. */
+function Links() {
+  const { cur, rate } = useCurrency();
+  const shifts = visible(useStore((s) => s.personal.shifts));
+  const buys = visible(useStore((s) => s.shared.buys));
+  const now = useMemo(() => new Date(), []);
+  const worked = monthShifts(shifts, ymKey(now));
+  const wishes = activeBuys(buys).filter((b) => !isBlankBuy(b));
+  const wanted = wishes.reduce((t, b) => t + b.price, 0);
+  return (
+    <div className="b-links">
+      <button type="button" className="b-link" onClick={() => openTasks('month')}>
+        <span className="b-link-icon">
+          <Icon name="calendar" size={18} stroke={2} />
+        </span>
+        <span className="b-link-text">
+          <strong>Смены в {monthIn(ymKey(now))}</strong>
+          <span>{worked.list.length ? `${worked.list.length} ${plural(worked.list.length, ['смена', 'смены', 'смен'])}, ${hoursText(worked.hours)} ч` : 'Пока нет'}</span>
+        </span>
+        {worked.pay > 0 && <span className="b-link-sum">+{formatMoney(worked.pay, cur, rate)}</span>}
+        <Icon name="chevron" size={16} stroke={2} />
+      </button>
+      <button type="button" className="b-link" onClick={() => navigate('shop')}>
+        <span className="b-link-icon">
+          <Icon name="bag" size={18} stroke={2} />
+        </span>
+        <span className="b-link-text">
+          <strong>Хочу купить</strong>
+          <span>{wishes.length ? `${wishes.length} ${plural(wishes.length, ['покупка', 'покупки', 'покупок'])}` : 'Пока ничего'}</span>
+        </span>
+        {wanted > 0 && <span className="b-link-sum">{formatMoney(wanted, cur, rate)}</span>}
+        <Icon name="chevron" size={16} stroke={2} />
+      </button>
     </div>
   );
 }

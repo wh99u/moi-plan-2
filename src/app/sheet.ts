@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type SheetKind = 'more' | 'task' | 'profile' | 'tx' | 'txView' | 'balance' | 'auto' | 'cat' | 'planIncome' | 'dream' | 'dreamInfo' | 'dreamPic' | 'dreamSave' | 'shopShare' | 'shift' | 'newTask' | 'newGoal';
+export type SheetKind = 'more' | 'task' | 'profile' | 'tx' | 'txView' | 'balance' | 'auto' | 'cat' | 'planIncome' | 'dream' | 'dreamInfo' | 'dreamPic' | 'dreamSave' | 'shopShare' | 'shift' | 'newTask' | 'newGoal' | 'bought';
 
 /** What a sheet is about: the record it edits or shows. */
 export interface SheetData {

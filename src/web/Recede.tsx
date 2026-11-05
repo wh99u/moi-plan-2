@@ -1,5 +1,6 @@
 import { motion, type HTMLMotionProps } from 'motion/react';
 import { useLayoutEffect, useRef } from 'react';
+import { blur, LOW } from '../app/ui/device';
 
 /** Very quick at the start, a long soft landing: sharp and very smooth at once. */
 export const PULL_EASE = [0.04, 0.86, 0.1, 1] as const;
@@ -45,14 +46,14 @@ export function Recede({ from, delay = 0, solid = false, panel = false, onAnimat
 
   // Out of focus while it is that close, as things near a lens are. A blur on a solid one would cut its glass children off too.
   const near = !solid && play.current;
-  const initial = play.current ? { scale: from, opacity: solid ? 1 : 0, ...(near ? { filter: 'blur(16px)' } : {}) } : panel ? { scale: 1.14, opacity: 0 } : false;
+  const initial = play.current ? { scale: from, opacity: solid ? 1 : 0, ...(near ? { ...blur(16) } : {}) } : panel ? { scale: 1.14, opacity: 0 } : false;
   const pull = play.current ? PULL : 1;
 
   return (
     <motion.div
       ref={el}
       initial={initial}
-      animate={{ scale: 1, opacity: 1, ...(near ? { filter: 'blur(0px)', transitionEnd: { filter: 'none' } } : {}) }}
+      animate={{ scale: 1, opacity: 1, ...(near ? { ...blur(0), transitionEnd: LOW ? undefined : { filter: 'none' } } : {}) }}
       exit={panel ? { scale: 0.92, opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } } : undefined}
       transition={{
         scale: { delay, duration: pull, ease: PULL_EASE },

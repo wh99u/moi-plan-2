@@ -4,7 +4,7 @@ import { formatMoney, useCurrency } from '../../app/money/currency';
 import { openSheet } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { useStore } from '../../lib/appStore';
-import { getImageUrl } from '../../lib/images';
+import { getImageUrl, onImagesChanged } from '../../lib/images';
 import { visible } from '../../lib/records';
 import { plural } from '../reminders';
 import { autoDream, DREAM, useImporting } from './importer';
@@ -16,9 +16,15 @@ export function useImage(id?: string) {
   useEffect(() => {
     let live = true;
     setUrl(null);
-    if (id) void getImageUrl(id).then((u) => live && setUrl(u));
+    const look = () => {
+      if (id) void getImageUrl(id).then((u) => live && u && setUrl(u));
+    };
+    look();
+    // It may still be on its way from another device.
+    const off = onImagesChanged(look);
     return () => {
       live = false;
+      off();
     };
   }, [id]);
   return url;

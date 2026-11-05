@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
+import { openSheet } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { actions } from '../../lib/appStore';
 import type { Buy } from '../../lib/types';
@@ -13,12 +14,13 @@ import { autoPicture, linkInto, setBuyPicture, useImporting, wantsPicture } from
 import { firstUrl } from './link';
 import { isBlankBuy } from './logic';
 import { pulseWave } from '../Wave';
+import { blur } from '../../app/ui/device';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
 const part = (i: number) => ({
-  initial: { opacity: 0, y: 12, filter: 'blur(6px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+  initial: { opacity: 0, y: 12, ...blur(6) },
+  animate: { opacity: 1, y: 0, ...blur(0) },
   transition: { delay: 0.14 + i * 0.04, duration: 0.5, ease: EASE },
 });
 
@@ -210,6 +212,18 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               )}
 
               <motion.div className="buy-actions" {...part(8)}>
+                {!isNew && !blank && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      onClose();
+                      openSheet('bought', { id: buy.id });
+                    }}
+                  >
+                    Купил
+                  </button>
+                )}
                 <button type="button" className={`scan-link${buy.pinned ? ' is-on' : ''}`} onClick={() => set({ pinned: buy.pinned ? undefined : Date.now() })}>
                   <Icon name="flag" size={18} />
                   {buy.pinned ? 'Убрать из важных' : 'В важные'}

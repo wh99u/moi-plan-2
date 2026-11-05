@@ -1,6 +1,6 @@
 import { animate, AnimatePresence, motion, useMotionValue, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { openSheet, useSheet, useSheetData } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
@@ -11,16 +11,20 @@ import type { Goal, Shift, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
+import { navigate } from '../route';
 import { Seg } from '../Seg';
 import { useNow } from '../Today';
 import { pulseWave } from '../Wave';
 import { openFocus } from './focusTimer';
 import { GoalWindow, Goals, type OpenedGoal } from './Goals';
 import { activeGoals, leftWords } from './goalLogic';
-import { DEFAULT_MINUTES, hoursText, layoutDay, monthCells, monthShifts, parseQuick, quadrantOf, shiftName, smartGroups, toMinutes, type Quadrant } from './logic';
+import { clearWanted, wantedView, type TasksView } from './entry';
+import { DEFAULT_MINUTES, hoursText, layoutDay, monthCells, monthShifts, nearestSpan, pageStart, parseQuick, quadrantOf, shiftName, smartGroups, SPANS, toMinutes, turnPages, type Quadrant } from './logic';
+import { ShiftGlyph } from './ShiftGlyph';
 import { completeTask, TaskWindow } from './TaskWindow';
+import { blur, LOW } from '../../app/ui/device';
 
-type View = 'month' | 'hours' | 'list' | 'goals';
+type View = TasksView;
 interface Opened {
   id: string;
   morph: string;
@@ -29,39 +33,39 @@ const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const FIRST_HOUR = 7;
 const HOUR = 44;
 /** One row of the month: a cell and the gap under it. */
-const ROW = 40;
+const ROW = 48;
 /** How far the page has to scroll for the month to have stepped back. */
 const MONTH_BACK = 320;
 const BANDS = 2;
-/** How many days fit in the window, from close up to a whole week. */
-const MIN_SPAN = 3;
-const MAX_SPAN = 7;
+const MIN_SPAN = SPANS[0];
+const MAX_SPAN = SPANS[SPANS.length - 1];
 /** A little past either end while the fingers are still on it. */
-const STRETCH = 0.4;
+const STRETCH = 0.3;
 /** From this many days on, the columns are narrow and everything in them tightens up. */
 const DENSE = 5;
 const SPAN_KEY = 'tasks_span';
-/** Days kept ready on each side of the week, so that any move or pinch finds its neighbours already drawn. */
-const AROUND = MAX_SPAN;
-const RIBBON = AROUND * 2 + MAX_SPAN;
 /** From where a far-off day comes in, when the ribbon is not long enough to travel there. */
 const JUMP = 44;
-/** How far a flick carries on, in seconds of its speed. */
-const THROW = 0.15;
 /** How long after the last turn of a trackpad's pinch it is taken as finished, ms. */
 const WHEEL_REST = 180;
+/** How far a finger goes before it is known whether it is swiping or scrolling, px. */
+const LOCK = 8;
+/** A pause this long before lifting the finger cancels the flick, ms. */
+const FLICK_GONE = 90;
+/** How long all the neighbours stay drawn after the number of days changes, ms. */
+const WIDE_FOR = 600;
 const GLIDE = { type: 'spring', stiffness: 300, damping: 34 } as const;
+const TURN = { type: 'tween', duration: 0.3, ease: [0.22, 1, 0.36, 1] } as const;
 const POP = { type: 'spring', stiffness: 420, damping: 30 } as const;
 
 const shortDate = (key: string) => parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 const daysFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => dayKey(addDays(parseDay(first), i)));
-const clampSpan = (n: number) => Math.max(MIN_SPAN, Math.min(MAX_SPAN, n));
 
 function savedSpan(): number {
   try {
-    return clampSpan(Number(localStorage.getItem(SPAN_KEY)) || MIN_SPAN);
+    return nearestSpan(Number(localStorage.getItem(SPAN_KEY)) || 3);
   } catch {
-    return MIN_SPAN;
+    return 3;
   }
 }
 
@@ -70,9 +74,12 @@ export function Tasks() {
   const shifts = visible(useStore((s) => s.personal.shifts));
   const goals = visible(useStore((s) => s.personal.goals));
   const now = useNow(60_000);
-  const [view, setView] = useState<View>('month');
+  const [view, setView] = useState<View>(() => wantedView() ?? 'month');
   const [start, setStart] = useState(() => dayKey(now));
   const [span, setSpan] = useState(savedSpan);
+  useEffect(clearWanted, []);
+  // A week always begins on Monday; one day or three begin wherever they were put.
+  const first = pageStart(start, span);
   const [opened, setOpened] = useState<Opened | null>(null);
   const [goalOpen, setGoalOpen] = useState<OpenedGoal | null>(null);
   // The day open in the panel under the month.
@@ -82,10 +89,14 @@ export function Tasks() {
   const scroller = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll({ container: scroller });
   const monthOpacity = useTransform(scrollY, [0, MONTH_BACK], [1, 0.25]);
-  const monthScale = useTransform(scrollY, [0, MONTH_BACK], [1, 0.95]);
+  // Scaling a whole month on every step of a scroll is too much for a phone.
+  const monthScale = useTransform(scrollY, [0, MONTH_BACK], [1, LOW ? 1 : 0.95]);
   const openTask = (t: Task, morph: string) => setOpened({ id: t.id, morph });
   const changeSpan = (n: number) => {
     setSpan(n);
+    // Going closer, today stays in sight if it was.
+    const today = dayKey(now);
+    if (n < span && today >= first && today <= dayKey(addDays(parseDay(first), span - 1))) setStart(today);
     try {
       localStorage.setItem(SPAN_KEY, String(n));
     } catch {
@@ -160,7 +171,7 @@ export function Tasks() {
                   </AnimatePresence>
                 </>
               )}
-              {view === 'hours' && <Timeline tasks={tasks} goals={goals} shifts={shifts} now={now} start={start} span={span} opened={opened} goalOpen={goalOpen} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onGoal={setGoalOpen} />}
+              {view === 'hours' && <Timeline tasks={tasks} goals={goals} shifts={shifts} now={now} start={first} span={span} opened={opened} goalOpen={goalOpen} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onGoal={setGoalOpen} />}
               {view === 'list' && <List tasks={tasks} now={now} opened={opened} onOpen={openTask} />}
               {view === 'goals' && <Goals goals={goals} tasks={tasks} now={now} opened={goalOpen} onOpen={setGoalOpen} />}
             </motion.div>
@@ -264,7 +275,7 @@ function Month({ tasks, goals, shifts, now, start, selected, opacity, scale, onS
               key={ym}
               className="cal-month-in"
               custom={shift}
-              variants={{ enter: (n: number) => ({ opacity: 0, y: n * 22, filter: 'blur(6px)' }), show: { opacity: 1, y: 0, filter: 'blur(0px)' }, leave: (n: number) => ({ opacity: 0, y: n * -22, filter: 'blur(6px)' }) }}
+              variants={{ enter: (n: number) => ({ opacity: 0, y: n * 22, ...blur(6) }), show: { opacity: 1, y: 0, ...blur(0) }, leave: (n: number) => ({ opacity: 0, y: n * -22, ...blur(6) }) }}
               initial="enter"
               animate="show"
               exit="leave"
@@ -328,7 +339,7 @@ function Month({ tasks, goals, shifts, now, start, selected, opacity, scale, onS
                     {shifts
                       .filter((s) => s.date === key)
                       .map((s) => (
-                        <Icon key={s.id} name={s.type === 'n' ? 'moon' : 'sun'} size={10} />
+                        <ShiftGlyph key={s.id} type={s.type} size={13} />
                       ))}
                   </i>
                 )}
@@ -358,7 +369,7 @@ function Month({ tasks, goals, shifts, now, start, selected, opacity, scale, onS
             {worked.list.map((s) => (
               <li key={s.id}>
                 <button type="button" className="shift-row" onClick={() => openSheet('shift', { id: s.id })}>
-                  <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={15} />
+                  <ShiftGlyph type={s.type} size={16} />
                   <span>
                     {fmtDay(s.date).replace('.', '')}, {shiftName(s.type).toLowerCase()}
                   </span>
@@ -383,6 +394,8 @@ function DayPanel({ day, tasks, shifts, now, opened, onOpen, onClose, onHours }:
   const list = tasks.filter((t) => t.due === day).sort(inTimeOrder);
   const worked = shifts.filter((s) => s.date === day);
   const parsed = parseQuick(text, now, day);
+  const spent = visible(useStore((s) => s.shared.spends)).filter((s) => s.date === day).reduce((t, s) => t + s.amount, 0);
+  const toBuy = visible(useStore((s) => s.shared.buys)).filter((b) => b.due === day && !b.boughtAt);
 
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -397,7 +410,7 @@ function DayPanel({ day, tasks, shifts, now, opened, onOpen, onClose, onHours }:
       <i className="day-panel-grip" />
       <header className="day-panel-head">
         <AnimatePresence mode="popLayout" initial={false}>
-          <motion.h2 key={day} initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -10, filter: 'blur(6px)' }} transition={{ duration: 0.28, ease: EASE }}>
+          <motion.h2 key={day} initial={{ opacity: 0, y: 10, ...blur(6) }} animate={{ opacity: 1, y: 0, ...blur(0) }} exit={{ opacity: 0, y: -10, ...blur(6) }} transition={{ duration: 0.28, ease: EASE }}>
             {fmtWeekday(day)}
           </motion.h2>
         </AnimatePresence>
@@ -409,7 +422,7 @@ function DayPanel({ day, tasks, shifts, now, opened, onOpen, onClose, onHours }:
       <div className="day-shifts">
         {worked.map((s) => (
           <motion.button key={s.id} type="button" className="day-shift" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={POP} whileTap={{ scale: 0.96 }} onClick={() => openSheet('shift', { id: s.id })}>
-            <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={16} />
+            <ShiftGlyph type={s.type} size={18} />
             <span>
               {shiftName(s.type)} смена
               <small>
@@ -434,6 +447,25 @@ function DayPanel({ day, tasks, shifts, now, opened, onOpen, onClose, onHours }:
             ))}
           </AnimatePresence>
         </ul>
+      )}
+
+      {(spent > 0 || toBuy.length > 0) && (
+        <div className="day-money">
+          {spent > 0 && (
+            <button type="button" onClick={() => navigate('money')}>
+              <Icon name="wallet" size={16} stroke={2} />
+              <span>Потрачено</span>
+              <strong>{rub(spent)}</strong>
+            </button>
+          )}
+          {toBuy.map((b) => (
+            <button key={b.id} type="button" onClick={() => navigate('shop')}>
+              <Icon name="bag" size={16} stroke={2} />
+              <span>Купить: {b.title}</span>
+              {b.price > 0 && <strong>{rub(b.price)}</strong>}
+            </button>
+          ))}
+        </div>
       )}
 
       <form onSubmit={add}>
@@ -472,8 +504,12 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
   const sheetData = useSheetData();
   const draft = sheet === 'newTask' && sheetData.date && sheetData.time ? { due: sheetData.date, time: sheetData.time } : null;
   const days = useMemo(() => daysFrom(start, span), [start, span]);
-  // A long ribbon of days with some of them in the window: it follows the finger and the pinch, and neighbours are already there when it moves.
-  const ribbon = useMemo(() => daysFrom(dayKey(addDays(parseDay(start), -AROUND)), RIBBON), [start]);
+  // One page of days on each side is drawn, so a swipe finds its neighbours ready. While the number of days itself changes, all of them are.
+  const [wide, setWide] = useState(false);
+  const around = wide ? MAX_SPAN : span;
+  const count = wide ? MAX_SPAN * 3 : span * 3;
+  const ribbon = useMemo(() => daysFrom(dayKey(addDays(parseDay(start), -around)), count), [start, around, count]);
+  const trackStyle = { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`, width: `calc(${count * 100}% / var(--span))`, marginLeft: `calc(${-around * 100}% / var(--span))` };
   const root = useRef<HTMLElement>(null);
   const view = useRef<HTMLDivElement>(null);
   const hoursBox = useRef<HTMLDivElement>(null);
@@ -482,58 +518,76 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
   // Days in the window as a number with a fraction, while the fingers are on it.
   const zoom = useMotionValue(span);
   const shown = useRef(start);
-  const sideways = useRef(false);
   const pinching = useRef(false);
   const panned = useRef(false);
-  const latest = useRef({ start, span });
-  latest.current = { start, span };
-  const colWidth = (n: number) => (view.current?.offsetWidth ?? 0) / n;
-  const move = (n: number) => onStart(dayKey(addDays(parseDay(latest.current.start), n)));
+  const turning = useRef<{ stop: () => void } | null>(null);
+  const latest = useRef({ start, span, around, onStart, onSpan });
+  latest.current = { start, span, around, onStart, onSpan };
+  const widthNow = () => view.current?.offsetWidth ?? 0;
+  const colWidth = (n: number) => widthNow() / n;
+  const narrowLater = useRef(0);
+  const widen = (ms: number) => {
+    setWide(true);
+    clearTimeout(narrowLater.current);
+    if (ms) narrowLater.current = window.setTimeout(() => setWide(false), ms);
+  };
 
   // The ribbon has just been redrawn around the new day: put it back where the eye left it, and let it arrive.
   useLayoutEffect(() => {
     const diff = daysBetween(parseDay(shown.current), parseDay(start));
     shown.current = start;
     if (!diff) return;
-    if (Math.abs(diff) <= AROUND) {
-      x.set(x.get() + diff * colWidth(latest.current.span));
+    if (Math.abs(diff) <= latest.current.around) {
+      const at = x.get() + diff * colWidth(zoom.get());
+      // A finished swipe lands exactly here, with nothing left to travel.
+      if (Math.abs(at) < 1) x.set(0);
+      else {
+        x.set(at);
+        animate(x, 0, GLIDE);
+      }
     } else {
       x.set(Math.sign(diff) * JUMP);
       fade.set(0);
       animate(fade, 1, { duration: 0.35 });
+      animate(x, 0, GLIDE);
     }
-    animate(x, 0, GLIDE);
-  }, [start, x, fade]);
+  }, [start, x, fade, zoom]);
 
   // Column widths and how tight they are come straight from the zoom, with no redraw on every move of the fingers.
   useLayoutEffect(() => {
     const paint = (z: number) => {
       root.current?.style.setProperty('--span', String(z));
       root.current?.classList.toggle('is-dense', z >= DENSE - 0.5);
+      root.current?.classList.toggle('is-single', z < 1.5);
     };
     paint(zoom.get());
     return zoom.on('change', paint);
   }, [zoom]);
 
-  useEffect(() => {
+  const lastSpan = useRef(span);
+  useLayoutEffect(() => {
+    if (lastSpan.current === span) return;
+    lastSpan.current = span;
+    if (!pinching.current) widen(WIDE_FOR);
     const c = animate(zoom, span, GLIDE);
     return () => c.stop();
   }, [span, zoom]);
 
-  // The fingers came off: settle on a whole number of days, and on whichever day ended up at the left edge.
+  useEffect(() => () => clearTimeout(narrowLater.current), []);
+
+  // The fingers came off: settle on one of the three views, and on whichever day ended up at the left edge.
   const settle = useRef(() => {});
   settle.current = () => {
-    const next = clampSpan(Math.round(zoom.get()));
-    const w = colWidth(next);
-    const n = w ? Math.max(-AROUND, Math.min(AROUND, Math.round(-x.get() / w))) : 0;
-    if (next !== latest.current.span) {
-      latest.current.span = next;
-      onSpan(next);
-    } else {
-      animate(zoom, next, GLIDE);
-    }
-    if (n) move(n);
+    const l = latest.current;
+    const next = nearestSpan(zoom.get());
+    const w = colWidth(zoom.get());
+    const n = w ? Math.max(-MAX_SPAN, Math.min(MAX_SPAN, Math.round(-x.get() / w))) : 0;
+    const first = pageStart(dayKey(addDays(parseDay(l.start), n)), next);
+    if (next !== l.span) l.onSpan(next);
+    else animate(zoom, next, GLIDE);
+    if (first !== l.start) l.onStart(first);
     else animate(x, 0, GLIDE);
+    widen(WIDE_FOR);
   };
 
   useEffect(() => {
@@ -548,10 +602,11 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
     const onStartTouch = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
       if (e.cancelable) e.preventDefault();
+      turning.current?.stop();
       x.stop();
       zoom.stop();
       pinching.current = panned.current = true;
-      sideways.current = false;
+      widen(0);
       const mid = middle(e.touches);
       // The day under the fingers stays under them, as a place on a photo does.
       pinch = { dist: apart(e.touches), zoom: zoom.get(), mid, day: (mid - x.get()) / colWidth(zoom.get()) };
@@ -576,20 +631,84 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
       if (!e.ctrlKey) return;
       e.preventDefault();
       zoom.stop();
+      widen(0);
       zoom.set(stretch(zoom.get() * (1 + e.deltaY * 0.01)));
       clearTimeout(rest);
       rest = window.setTimeout(() => settle.current(), WHEEL_REST);
     };
-    // Safari would zoom the whole page otherwise.
-    const noPageZoom = (e: Event) => e.preventDefault();
+
+    /*
+     * One finger going sideways turns exactly one page. Which way it is going is decided once, after
+     * the first few pixels; going up or down, it is left to the browser, which scrolls the hours.
+     */
+    let drag: { id: number; from: number; y: number; base: number; lastX: number; lastT: number; speed: number; on: boolean } | null = null;
+    const onDown = (e: PointerEvent) => {
+      if (drag || pinching.current || e.button !== 0) return;
+      if (!(e.target as Element).closest('.tl-heads, .tl-scroll')) return;
+      drag = { id: e.pointerId, from: e.clientX, y: e.clientY, base: 0, lastX: e.clientX, lastT: e.timeStamp, speed: 0, on: false };
+    };
+    const onMovePointer = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (pinching.current) {
+        drag = null;
+        return;
+      }
+      if (!drag.on) {
+        const dx = e.clientX - drag.from;
+        const dy = e.clientY - drag.y;
+        if (Math.hypot(dx, dy) < LOCK) return;
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          drag = null;
+          return;
+        }
+        drag.on = panned.current = true;
+        // A page still arriving is caught wherever it is, so nothing jumps under the finger.
+        turning.current?.stop();
+        x.stop();
+        drag.base = x.get();
+        drag.from = e.clientX;
+      }
+      const w = widthNow();
+      x.set(Math.max(-w, Math.min(w, drag.base + e.clientX - drag.from)));
+      const dt = e.timeStamp - drag.lastT;
+      if (dt > 0) {
+        drag.speed = 0.7 * ((e.clientX - drag.lastX) / dt) + 0.3 * drag.speed;
+        drag.lastX = e.clientX;
+        drag.lastT = e.timeStamp;
+      }
+    };
+    const release = (speed: number) => {
+      const w = widthNow();
+      const pages = turnPages(x.get(), w, speed);
+      turning.current = animate(x, -pages * w, {
+        ...TURN,
+        onComplete: () => {
+          if (!pages) return;
+          const l = latest.current;
+          // At once: the eye must not catch the ribbon between the old day and the new one.
+          flushSync(() => l.onStart(dayKey(addDays(parseDay(l.start), pages * l.span))));
+        },
+      });
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const was = drag;
+      drag = null;
+      if (!was.on) return;
+      // A finger that stopped before lifting has no flick left in it.
+      release(e.type === 'pointerup' && e.timeStamp - was.lastT < FLICK_GONE ? was.speed : 0);
+      setTimeout(() => (panned.current = false), 80);
+    };
 
     el.addEventListener('touchstart', onStartTouch, { passive: false });
     el.addEventListener('touchmove', onMoveTouch, { passive: false });
     el.addEventListener('touchend', onEndTouch);
     el.addEventListener('touchcancel', onEndTouch);
     el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('gesturestart', noPageZoom);
-    el.addEventListener('gesturechange', noPageZoom);
+    el.addEventListener('pointerdown', onDown);
+    addEventListener('pointermove', onMovePointer);
+    addEventListener('pointerup', onUp);
+    addEventListener('pointercancel', onUp);
     return () => {
       clearTimeout(rest);
       el.removeEventListener('touchstart', onStartTouch);
@@ -597,9 +716,13 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
       el.removeEventListener('touchend', onEndTouch);
       el.removeEventListener('touchcancel', onEndTouch);
       el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('gesturestart', noPageZoom);
-      el.removeEventListener('gesturechange', noPageZoom);
+      el.removeEventListener('pointerdown', onDown);
+      removeEventListener('pointermove', onMovePointer);
+      removeEventListener('pointerup', onUp);
+      removeEventListener('pointercancel', onUp);
     };
+    // Reads everything that changes through refs, so a swipe is not cut off by a redraw.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [x, zoom]);
 
   const inDay = (key: string) => tasks.filter((t) => t.due === key);
@@ -627,42 +750,17 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
   }, []);
 
   return (
-    <motion.section
-      ref={root}
-      className="tl"
-      onPanStart={(_, i) => {
-        sideways.current = !pinching.current && Math.abs(i.offset.x) > Math.abs(i.offset.y);
-        if (!sideways.current) return;
-        panned.current = true;
-        x.stop();
-      }}
-      onPan={(_, i) => {
-        if (sideways.current) x.set(i.offset.x);
-      }}
-      onPanEnd={(_, i) => {
-        if (!sideways.current) return;
-        sideways.current = false;
-        setTimeout(() => (panned.current = false), 60);
-        const w = colWidth(span);
-        const n = w ? Math.max(-AROUND, Math.min(AROUND, Math.round(-(i.offset.x + i.velocity.x * THROW) / w))) : 0;
-        if (n) move(n);
-        else animate(x, 0, GLIDE);
-      }}
-    >
+    <section ref={root} className="tl">
       <header className="tl-top">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.h2 key={title} initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }} transition={{ duration: 0.32, ease: EASE }}>
-            {title}
-          </motion.h2>
-        </AnimatePresence>
-        <div className="tl-zoom" role="group" aria-label="Сколько дней видно">
-          <motion.button type="button" aria-label="Меньше дней" disabled={span <= MIN_SPAN} whileTap={{ scale: 0.8 }} onClick={() => onSpan(span - 1)}>
-            −
-          </motion.button>
-          <span>{span === MAX_SPAN ? 'Неделя' : `${span} ${plural(span, ['день', 'дня', 'дней'])}`}</span>
-          <motion.button type="button" aria-label="Больше дней" disabled={span >= MAX_SPAN} whileTap={{ scale: 0.8 }} onClick={() => onSpan(span + 1)}>
-            +
-          </motion.button>
+        <button type="button" className="tl-title" aria-label="К сегодняшнему дню" onClick={() => onStart(pageStart(today, span))}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.h2 key={title} initial={{ opacity: 0, y: 12, ...blur(6) }} animate={{ opacity: 1, y: 0, ...blur(0) }} exit={{ opacity: 0, y: -12, ...blur(6) }} transition={{ duration: 0.32, ease: EASE }}>
+              {title}
+            </motion.h2>
+          </AnimatePresence>
+        </button>
+        <div className="tl-spans">
+          <Seg value={String(span)} onChange={(v) => onSpan(Number(v))} label="Сколько дней видно" options={SPANS.map((n) => ({ id: String(n), label: `${n} ${plural(n, ['день', 'дня', 'дней'])}` }))} />
         </div>
       </header>
       {bands.length > 0 && (
@@ -684,24 +782,26 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
       <div className="tl-heads">
         <span />
         <div className="tl-view">
-          <motion.div className="tl-track" style={{ x, opacity: fade }}>
+          <motion.div className="tl-track" style={{ x, opacity: fade, ...trackStyle }}>
             {ribbon.map((key) => {
               const d = parseDay(key);
               const off = !days.includes(key);
               return (
-                <div key={key} className={`tl-head${off ? ' is-off' : ''}`} aria-hidden={off || undefined}>
+                <div key={key} className="tl-head" aria-hidden={off || undefined}>
+                  {/* The place is kept on every day, so the row does not jump when one with a shift slides in. */}
+                  <div className="tl-shift">
+                    {shifts
+                      .filter((s) => s.date === key)
+                      .map((s) => (
+                        <button key={s.id} type="button" tabIndex={off ? -1 : undefined} aria-label={`${shiftName(s.type)} смена, ${hoursText(s.h)} ч, изменить`} onClick={unlessPanned(() => openSheet('shift', { id: s.id }))}>
+                          <ShiftGlyph type={s.type} size={14} />
+                        </button>
+                      ))}
+                  </div>
                   <div className="tl-date">
                     <span>{d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase()}</span>
                     <strong className={key === today ? 'is-today' : undefined}>{d.getDate()}</strong>
                   </div>
-                  {shifts
-                    .filter((s) => s.date === key)
-                    .map((s) => (
-                      <button key={s.id} type="button" tabIndex={off ? -1 : undefined} className="tl-chip tl-chip--shift" aria-label={`${shiftName(s.type)} смена, ${hoursText(s.h)} ч, изменить`} onClick={unlessPanned(() => openSheet('shift', { id: s.id }))}>
-                        <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={11} />
-                        <span>{hoursText(s.h)} ч</span>
-                      </button>
-                    ))}
                   {inDay(key)
                     .filter((t) => !t.time)
                     .map((t) => {
@@ -721,61 +821,61 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
       </div>
       {/* Only the hours scroll: the month and the days above them stay where they are. */}
       <div ref={hoursBox} className="tl-scroll">
-      <div className="tl-body" style={{ height: hours.length * HOUR }}>
-        <div className="tl-hours" aria-hidden="true">
-          {hours.map((h, i) => (
-            <span key={h} style={{ top: (h - earliest) * HOUR, animationDelay: `${0.15 + i * 0.025}s` }}>
-              {String(h).padStart(2, '0')}:00
-            </span>
-          ))}
-        </div>
-        <div ref={view} className="tl-view">
-          <motion.div className="tl-track" style={{ x, opacity: fade }}>
-            {ribbon.map((key) => {
-              const off = !days.includes(key);
-              return (
-                <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }} aria-hidden={off || undefined}>
-                  {!off &&
-                    hours.map((h) => (
-                      <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => openSheet('newTask', { date: key, time: `${String(h).padStart(2, '0')}:00` }))} />
-                    ))}
-                  {draft?.due === key && draft.time && (
-                    <motion.i className="tl-ghost" style={{ top: top(toMinutes(draft.time)), height: HOUR - 2 }} initial={{ opacity: 0, scale: 0.86 }} animate={{ opacity: 1, scale: 1 }} transition={POP}>
-                      Новая задача
-                    </motion.i>
-                  )}
-                  {layoutDay(inDay(key)).map((p, i) => {
-                    const morph = `block-${p.task.id}`;
-                    const on = opened?.morph === morph;
-                    return (
-                      <motion.button
-                        key={p.task.id}
-                        layoutId={morph}
-                        // Only for growing into its window: the ribbon alone moves it the rest of the time.
-                        layoutDependency={on}
-                        type="button"
-                        tabIndex={off ? -1 : undefined}
-                        className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}`}
-                        style={{ top: top(p.from), height: Math.max(22, (p.length / 60) * HOUR - 2), left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 6, visibility: on ? 'hidden' : undefined }}
-                        initial={{ opacity: 0, y: 14, scale: 0.9 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ ...POP, delay: 0.1 + i * 0.05 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={unlessPanned(() => onOpen(p.task, morph))}
-                      >
-                        {p.task.title}
-                      </motion.button>
-                    );
-                  })}
-                  {key === today && minutesNow >= earliest * 60 && <motion.i className="tl-now" style={{ top: top(minutesNow), originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} />}
-                </div>
-              );
-            })}
-          </motion.div>
+        <div className="tl-body" style={{ height: hours.length * HOUR }}>
+          <div className="tl-hours" aria-hidden="true">
+            {hours.map((h, i) => (
+              <span key={h} style={{ top: (h - earliest) * HOUR, animationDelay: `${0.15 + i * 0.025}s` }}>
+                {String(h).padStart(2, '0')}:00
+              </span>
+            ))}
+          </div>
+          <div ref={view} className="tl-view">
+            <motion.div className="tl-track" style={{ x, opacity: fade, ...trackStyle }}>
+              {ribbon.map((key) => {
+                const off = !days.includes(key);
+                return (
+                  <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }} aria-hidden={off || undefined}>
+                    {!off &&
+                      hours.map((h) => (
+                        <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => openSheet('newTask', { date: key, time: `${String(h).padStart(2, '0')}:00` }))} />
+                      ))}
+                    {draft?.due === key && draft.time && (
+                      <motion.i className="tl-ghost" style={{ top: top(toMinutes(draft.time)), height: HOUR - 2 }} initial={{ opacity: 0, scale: 0.86 }} animate={{ opacity: 1, scale: 1 }} transition={POP}>
+                        Новая задача
+                      </motion.i>
+                    )}
+                    {layoutDay(inDay(key)).map((p) => {
+                      const morph = `block-${p.task.id}`;
+                      const on = opened?.morph === morph;
+                      return (
+                        <motion.button
+                          key={p.task.id}
+                          layoutId={morph}
+                          // Only for growing into its window: the ribbon alone moves it the rest of the time.
+                          layoutDependency={on}
+                          type="button"
+                          tabIndex={off ? -1 : undefined}
+                          className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}`}
+                          style={{ top: top(p.from), height: Math.max(22, (p.length / 60) * HOUR - 2), left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 6, visibility: on ? 'hidden' : undefined }}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={POP}
+                          whileTap={{ scale: 0.96 }}
+                          onClick={unlessPanned(() => onOpen(p.task, morph))}
+                        >
+                          {p.task.title}
+                        </motion.button>
+                      );
+                    })}
+                    {key === today && minutesNow >= earliest * 60 && <motion.i className="tl-now" style={{ top: top(minutesNow), originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} />}
+                  </div>
+                );
+              })}
+            </motion.div>
+          </div>
         </div>
       </div>
-      </div>
-    </motion.section>
+    </section>
   );
 }
 

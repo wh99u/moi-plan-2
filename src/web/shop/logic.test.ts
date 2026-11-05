@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Buy, Car, Income, Spend } from '../../lib/types';
-import { dreamPlan, hasDream, isBlankBuy, monthlyPace, splitBuys, usablePhoto } from './logic';
+import { dreamPlan, hasDream, isBlankBuy, monthlyPace, splitBuys, usablePhoto, flickReachesDream } from './logic';
 
 const NOW = new Date(2026, 10, 5, 12);
 const car = (o: Partial<Car>) => ({ name: 'Porsche 911', price: 1_000_000, date: '', color: '', updatedAt: 0, ...o }) as Car;
@@ -111,5 +111,20 @@ describe('isBlankBuy', () => {
     expect(isBlankBuy(buy('a', { title: '', price: 100 }))).toBe(false);
     expect(isBlankBuy(buy('a', { title: '', price: 0, url: 'https://x.ru' }))).toBe(false);
     expect(isBlankBuy(buy('a', { title: '', price: 0, note: 'синий' }))).toBe(false);
+  });
+});
+
+describe('one flick to the dream', () => {
+  it('goes when little of the list is left', () => {
+    expect(flickReachesDream(120, 150, 100, 664)).toBe(true);
+    expect(flickReachesDream(120, 150, 0, 664)).toBe(true);
+  });
+  it('stays while a long stretch of the list is below', () => {
+    expect(flickReachesDream(120, 150, 900, 664)).toBe(false);
+  });
+  it('takes a slow drag or a short touch for scrolling', () => {
+    expect(flickReachesDream(120, 900, 0, 664)).toBe(false);
+    expect(flickReachesDream(20, 30, 0, 664)).toBe(false);
+    expect(flickReachesDream(-120, 150, 0, 664)).toBe(false);
   });
 });

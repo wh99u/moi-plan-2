@@ -1,6 +1,9 @@
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import { blurCurve, sampleCurve } from './logic';
+import { LOW } from '../ui/device';
+
+const PHONE_FRAME = 30;
 
 export interface ChartPoint {
   key: string;
@@ -116,7 +119,7 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
     const c = canvas.current;
     const l = live.current;
     if (!c || !w) return;
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(LOW ? 1.5 : 2, devicePixelRatio || 1);
     c.width = w * dpr;
     c.height = H * dpr;
     l.w = w;
@@ -271,6 +274,11 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
 
     const tick = (now: number) => {
       raf = 0;
+      // Half the frames on a phone: the light under the line drifts slowly anyway.
+      if (LOW && first && now - last < PHONE_FRAME) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       if (!first) {
         first = now;
         last = now;

@@ -6,29 +6,22 @@ import { EASE, MorphText, RollingText } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
 import { Recede } from './Recede';
 import { nextReminderTurn } from './reminders';
-import { Today, useNow, useToday } from './Today';
+import { useNow, useToday } from './Today';
+import { openTasks } from './tasks/entry';
 import { pulseWave } from './Wave';
 import { WeatherLine } from './Weather';
+import { blur, LOW } from '../app/ui/device';
 
 const TILT = { stiffness: 120, damping: 18, mass: 0.6 };
 
-/** The card's two faces change places. */
-const swap = {
-  initial: { opacity: 0, scale: 1.05, filter: 'blur(10px)' },
-  animate: { opacity: 1, scale: 1, filter: 'blur(0px)', transition: { duration: 0.6, ease: EASE } },
-  exit: { opacity: 0, scale: 0.96, filter: 'blur(8px)', transition: { duration: 0.24, ease: 'easeIn' } },
-} as const;
-
 /** Each part of the card comes up after the one above it, every time the home screen opens. */
 const arrive = (i: number) => ({
-  initial: { opacity: 0, y: 22, filter: 'blur(8px)' },
-  animate: { opacity: 1, y: 0, filter: 'blur(0px)', transitionEnd: { filter: 'none' } },
+  initial: { opacity: 0, y: 22, ...blur(8) },
+  animate: { opacity: 1, y: 0, ...blur(0), transitionEnd: LOW ? undefined : { filter: 'none' } },
   transition: { delay: 0.12 + i * 0.09, duration: 0.7, ease: EASE },
 });
 
 export function Home() {
-  const [view, setView] = useState<'hello' | 'today'>('hello');
-
   // The line behind flares as the screen opens.
   useEffect(() => pulseWave(), []);
 
@@ -78,17 +71,7 @@ export function Home() {
         <div ref={card} className="hero-light">
           <motion.div className="hero-size" animate={height === null ? undefined : { height }} initial={false} transition={{ type: 'spring', stiffness: 170, damping: 24, mass: 0.9 }}>
             <div ref={inner} className="hero-inner">
-              <AnimatePresence mode="wait">
-                {view === 'hello' ? (
-                  <motion.div key="hello" {...swap}>
-                    <Hello onOpen={() => setView('today')} />
-                  </motion.div>
-                ) : (
-                  <motion.div key="today" {...swap}>
-                    <Today onBack={() => setView('hello')} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <Hello />
             </div>
           </motion.div>
         </div>
@@ -98,7 +81,7 @@ export function Home() {
   );
 }
 
-function Hello({ onOpen }: { onOpen: () => void }) {
+function Hello() {
   return (
     <div className="hello">
       <Recede from={2.2} delay={0.02} className="hello-part">
@@ -120,7 +103,7 @@ function Hello({ onOpen }: { onOpen: () => void }) {
           className="cta"
           onClick={() => {
             pulseWave();
-            onOpen();
+            openTasks('hours');
           }}
           initial={{ opacity: 0, y: 26, scale: 0.86 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -195,9 +178,9 @@ function Reminder() {
         <motion.p
           key={text}
           className="reminder-text"
-          initial={{ opacity: 0, y: 8, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -6, filter: 'blur(6px)' }}
+          initial={{ opacity: 0, y: 8, ...blur(6) }}
+          animate={{ opacity: 1, y: 0, ...blur(0) }}
+          exit={{ opacity: 0, y: -6, ...blur(6) }}
           transition={{ duration: 0.55, ease: EASE }}
         >
           {text}

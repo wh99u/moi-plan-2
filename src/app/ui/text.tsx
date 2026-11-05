@@ -1,6 +1,7 @@
 import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { Fragment, useEffect } from 'react';
 import { grouped } from '../../lib/money';
+import { blur } from './device';
 
 export const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -35,9 +36,9 @@ export function MorphText({ text, delay = 0, className = '' }: { text: string; d
                   key={n++}
                   className="morph-ch"
                   variants={{
-                    hidden: { opacity: 0, y: '0.5em', filter: 'blur(10px)' },
-                    show: { opacity: 1, y: '0em', filter: 'blur(0px)', transition: { duration: 0.7, ease: EASE } },
-                    exit: { opacity: 0, y: '-0.35em', filter: 'blur(8px)', transition: { duration: 0.32, ease: 'easeIn' } },
+                    hidden: { opacity: 0, y: '0.5em', ...blur(10) },
+                    show: { opacity: 1, y: '0em', ...blur(0), transition: { duration: 0.7, ease: EASE } },
+                    exit: { opacity: 0, y: '-0.35em', ...blur(8), transition: { duration: 0.32, ease: 'easeIn' } },
                   }}
                 >
                   {c}
@@ -62,9 +63,9 @@ export function RollingText({ text, className = '' }: { text: string; className?
             <motion.span
               key={c}
               className="roll-ch"
-              initial={{ y: '90%', opacity: 0, filter: 'blur(4px)' }}
-              animate={{ y: '0%', opacity: 1, filter: 'blur(0px)' }}
-              exit={{ y: '-90%', opacity: 0, filter: 'blur(4px)' }}
+              initial={{ y: '90%', opacity: 0, ...blur(4) }}
+              animate={{ y: '0%', opacity: 1, ...blur(0) }}
+              exit={{ y: '-90%', opacity: 0, ...blur(4) }}
               transition={{ duration: 0.55, ease: EASE }}
             >
               {c}

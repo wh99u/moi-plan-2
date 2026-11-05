@@ -10,6 +10,7 @@ import { Icon } from '../../ui/Icon';
 import { catIcon } from './categories';
 import { cardLabel, fullDate } from './data';
 import { Logo } from './Logo';
+import { blur } from '../../app/ui/device';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -68,8 +69,8 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
                 {items.map((it, i) => (
                   <motion.li
                     key={`${i}-${it.name}`}
-                    initial={{ opacity: 0, x: -14, filter: 'blur(5px)' }}
-                    animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                    initial={{ opacity: 0, x: -14, ...blur(5) }}
+                    animate={{ opacity: 1, x: 0, ...blur(0) }}
                     transition={{ delay: 0.16 + Math.min(i, 16) * 0.035, duration: 0.55, ease: EASE }}
                   >
                     <span>{it.name}</span>

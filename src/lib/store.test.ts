@@ -258,3 +258,69 @@ test('a shift can be corrected and removed', () => {
   store.actions.deleteShift(shift.id);
   expect(visible(store.get().personal.shifts)).toEqual([]);
 });
+
+describe('shifts reach the budget', () => {
+  const inNov = () => createStore(localStorage, KEY, { now: () => new Date(2026, 10, 5) });
+
+  test('pays a shift whose day has come, once, to the usual card', () => {
+    const s = inNov();
+    const bank = s.actions.addBank('sber', 100);
+    s.actions.addShift({ date: '2026-11-05', type: 'd', h: 12, pay: 5000 });
+    s.actions.settleShifts();
+    const incomes = visible(s.get().shared.incomes);
+    expect(incomes).toHaveLength(1);
+    expect(incomes[0]).toMatchObject({ amount: 5000, source: 'shift', bankId: bank.id, date: '2026-11-05' });
+    expect(visible(s.get().shared.banks)[0].sum).toBe(5100);
+  });
+
+  test('waits for a shift still ahead', () => {
+    const s = inNov();
+    s.actions.addBank('sber', 100);
+    s.actions.addShift({ date: '2026-11-06', type: 'n', h: 12, pay: 5000 });
+    expect(visible(s.get().shared.incomes)).toHaveLength(0);
+    expect(visible(s.get().shared.banks)[0].sum).toBe(100);
+  });
+
+  test('moves the money by the difference when the shift is corrected', () => {
+    const s = inNov();
+    s.actions.addBank('sber', 0);
+    const shift = s.actions.addShift({ date: '2026-11-05', type: 'd', h: 12, pay: 5000 });
+    s.actions.updateShift(shift.id, { pay: 7000 });
+    expect(visible(s.get().shared.incomes)[0].amount).toBe(7000);
+    expect(visible(s.get().shared.banks)[0].sum).toBe(7000);
+  });
+
+  test('takes the money back when the shift is deleted', () => {
+    const s = inNov();
+    s.actions.addBank('sber', 0);
+    const shift = s.actions.addShift({ date: '2026-11-05', type: 'd', h: 12, pay: 5000 });
+    s.actions.deleteShift(shift.id);
+    expect(visible(s.get().shared.incomes)).toHaveLength(0);
+    expect(visible(s.get().shared.banks)[0].sum).toBe(0);
+  });
+
+  test('moves the pay to another card', () => {
+    const s = inNov();
+    const a = s.actions.addBank('sber', 0);
+    const b = s.actions.addBank('alfa', 0);
+    const shift = s.actions.addShift({ date: '2026-11-05', type: 'd', h: 12, pay: 5000, bankId: a.id });
+    s.actions.updateShift(shift.id, { bankId: b.id });
+    const sums = visible(s.get().shared.banks).map((x) => x.sum);
+    expect(sums).toEqual([0, 5000]);
+  });
+});
+
+describe('a wish bought', () => {
+  test('leaves the list, lowers the card and comes back if the spend is undone', () => {
+    const s = createStore(localStorage, KEY, { now: () => new Date(2026, 10, 5) });
+    const bank = s.actions.addBank('sber', 10000);
+    const buy = s.actions.addBuy({ title: 'Наушники', url: '', price: 3000, category: 'Техника' });
+    const spend = s.actions.buyFrom(buy.id, bank.id, 2500)!;
+    expect(spend).toMatchObject({ title: 'Наушники', amount: 2500, cat: 'Техника', buyId: buy.id });
+    expect(visible(s.get().shared.buys)[0].boughtAt).toBeTruthy();
+    expect(visible(s.get().shared.banks)[0].sum).toBe(7500);
+    s.actions.revertSpend(spend.id);
+    expect(visible(s.get().shared.buys)[0].boughtAt).toBeUndefined();
+    expect(visible(s.get().shared.banks)[0].sum).toBe(10000);
+  });
+});

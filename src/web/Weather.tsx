@@ -2,6 +2,7 @@ import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { EASE } from '../app/ui/text';
 import { describeWeather, fetchWeather, isFresh, lastWeather, temperature, type Weather as Now, type WeatherKind } from './weatherData';
+import { blur } from '../app/ui/device';
 
 const CLOUD = 'M7 18.500a4 4 0 0 1-.6-7.950 5.500 5.500 0 0 1 10.600-1.200A4.600 4.600 0 0 1 17.500 18.500z';
 const LOW_CLOUD = 'M7.500 15a3.500 3.500 0 0 1-.5-6.960 5 5 0 0 1 9.600-1.040A4.100 4.100 0 0 1 17 15z';
@@ -83,7 +84,7 @@ export function WeatherLine() {
         <Picture kind={kind} />
       </motion.span>
       <Degrees value={now.temp} />
-      <motion.span initial={{ opacity: 0, x: -10, filter: 'blur(6px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} transition={{ delay: 0.55, duration: 0.6, ease: EASE }}>
+      <motion.span initial={{ opacity: 0, x: -10, ...blur(6) }} animate={{ opacity: 1, x: 0, ...blur(0) }} transition={{ delay: 0.55, duration: 0.6, ease: EASE }}>
         {words}
       </motion.span>
     </p>

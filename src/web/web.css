@@ -14,78 +14,78 @@
 }
 
 [data-theme='dark'] {
-  --bg: #02040a;
-  --ink: #f3f8ff;
-  --ink-2: rgba(218, 232, 255, 0.64);
-  --ink-3: rgba(218, 232, 255, 0.36);
-  --accent: #5aa7ff;
-  --accent-hi: #a9d6ff;
-  --fill: rgba(170, 205, 255, 0.08);
-  --fill-2: rgba(170, 205, 255, 0.15);
+  --bg: hsl(calc(225 + var(--hue)) 67% 2.4%);
+  --ink: hsl(calc(215 + var(--hue)) 100% 97.6%);
+  --ink-2: hsl(calc(217 + var(--hue)) 100% 92.7% / 0.64);
+  --ink-3: hsl(calc(217 + var(--hue)) 100% 92.7% / 0.36);
+  --accent: hsl(calc(212 + var(--hue)) 100% 67.6%);
+  --accent-hi: hsl(calc(209 + var(--hue)) 100% 83.1%);
+  --fill: hsl(calc(215 + var(--hue)) 100% 83.3% / 0.08);
+  --fill-2: hsl(calc(215 + var(--hue)) 100% 83.3% / 0.15);
   /* Controls may sit right on the bright line, so they carry their own darkness. */
-  --control: rgba(6, 14, 30, 0.42);
-  --control-hover: rgba(14, 30, 60, 0.6);
+  --control: hsl(calc(220 + var(--hue)) 67% 7.1% / 0.42);
+  --control-hover: hsl(calc(219 + var(--hue)) 62% 14.5% / 0.6);
 
-  --glass: linear-gradient(155deg, rgba(150, 190, 255, 0.11), rgba(90, 130, 200, 0.035) 62%, rgba(90, 130, 200, 0.06));
-  --glass-line: rgba(190, 215, 255, 0.13);
-  --glass-top: rgba(225, 240, 255, 0.2);
-  --glass-shadow: 0 34px 90px rgba(0, 6, 24, 0.62);
+  --glass: linear-gradient(155deg, hsl(calc(217 + var(--hue)) 100% 79.4% / 0.11), hsl(calc(218 + var(--hue)) 50% 56.9% / 0.035) 62%, hsl(calc(218 + var(--hue)) 50% 56.9% / 0.06));
+  --glass-line: hsl(calc(217 + var(--hue)) 100% 87.3% / 0.13);
+  --glass-top: hsl(calc(210 + var(--hue)) 100% 94.1% / 0.2);
+  --glass-shadow: 0 34px 90px hsl(calc(225 + var(--hue)) 100% 4.7% / 0.62);
   --glass-blur: blur(30px) saturate(165%);
-  --glass-light: rgba(140, 195, 255, 0.16);
+  --glass-light: hsl(calc(211 + var(--hue)) 100% 77.5% / 0.16);
 
   --cta-bg: #fff;
-  --cta-ink: #03101f;
-  --cta-glow: 0 10px 44px rgba(150, 205, 255, 0.34);
-  --shine: rgba(90, 167, 255, 0.28);
+  --cta-ink: hsl(calc(212 + var(--hue)) 82% 6.7%);
+  --cta-glow: 0 10px 44px hsl(calc(209 + var(--hue)) 100% 79.4% / 0.34);
+  --shine: hsl(calc(212 + var(--hue)) 100% 67.6% / 0.28);
 
-  --nav-glass: rgba(120, 165, 235, 0.11);
-  --nav-hill: rgba(214, 234, 255, 0.86);
-  --nav-rim: rgba(205, 228, 255, 0.34);
-  --nav-rim-low: rgba(205, 228, 255, 0.05);
-  --nav-circle: linear-gradient(160deg, #fff 30%, #cbe4ff);
-  --nav-circle-ink: #04142c;
-  --nav-circle-glow: 0 6px 30px rgba(130, 195, 255, 0.5);
+  --nav-glass: hsl(calc(217 + var(--hue)) 74% 69.6% / 0.11);
+  --nav-hill: hsl(calc(211 + var(--hue)) 100% 92.0% / 0.86);
+  --nav-rim: hsl(calc(212 + var(--hue)) 100% 90.2% / 0.34);
+  --nav-rim-low: hsl(calc(212 + var(--hue)) 100% 90.2% / 0.05);
+  --nav-circle: linear-gradient(160deg, #fff 30%, hsl(calc(211 + var(--hue)) 100% 89.8%));
+  --nav-circle-ink: hsl(calc(216 + var(--hue)) 83% 9.4%);
+  --nav-circle-glow: 0 6px 30px hsl(calc(209 + var(--hue)) 100% 75.5% / 0.5);
 
-  --sheet: rgba(9, 15, 28, 0.74);
-  --cards-glass: rgba(30, 58, 120, 0.28);
-  --scrim: rgba(0, 3, 12, 0.5);
+  --sheet: hsl(calc(221 + var(--hue)) 51% 7.3% / 0.74);
+  --cards-glass: hsl(calc(221 + var(--hue)) 60% 29.4% / 0.28);
+  --scrim: hsl(calc(225 + var(--hue)) 100% 2.4% / 0.5);
 }
 
 [data-theme='light'] {
-  --bg: #ecf3fc;
-  --ink: #05173a;
-  --ink-2: rgba(6, 30, 78, 0.66);
-  --ink-3: rgba(6, 30, 78, 0.42);
-  --accent: #1461f4;
-  --accent-hi: #0d8cf0;
-  --fill: rgba(20, 90, 220, 0.07);
-  --fill-2: rgba(20, 90, 220, 0.13);
+  --bg: hsl(calc(214 + var(--hue)) 73% 95.7%);
+  --ink: hsl(calc(220 + var(--hue)) 84% 12.4%);
+  --ink-2: hsl(calc(220 + var(--hue)) 86% 16.5% / 0.66);
+  --ink-3: hsl(calc(220 + var(--hue)) 86% 16.5% / 0.42);
+  --accent: hsl(calc(219 + var(--hue)) 91% 51.8%);
+  --accent-hi: hsl(calc(206 + var(--hue)) 90% 49.6%);
+  --fill: hsl(calc(219 + var(--hue)) 83% 47.1% / 0.07);
+  --fill-2: hsl(calc(219 + var(--hue)) 83% 47.1% / 0.13);
   --control: rgba(255, 255, 255, 0.55);
   --control-hover: rgba(255, 255, 255, 0.8);
 
-  --glass: linear-gradient(155deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.4) 62%, rgba(240, 247, 255, 0.5));
+  --glass: linear-gradient(155deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.4) 62%, hsl(calc(212 + var(--hue)) 100% 97.1% / 0.5));
   --glass-line: rgba(255, 255, 255, 0.72);
   --glass-top: rgba(255, 255, 255, 0.95);
-  --glass-shadow: 0 34px 80px rgba(20, 70, 170, 0.2);
+  --glass-shadow: 0 34px 80px hsl(calc(220 + var(--hue)) 79% 37.3% / 0.2);
   --glass-blur: blur(30px) saturate(180%);
   --glass-light: rgba(255, 255, 255, 0.7);
 
-  --cta-bg: linear-gradient(115deg, #0f4fed, #1a9bff);
+  --cta-bg: linear-gradient(115deg, hsl(calc(223 + var(--hue)) 88% 49.4%), hsl(calc(206 + var(--hue)) 100% 55.1%));
   --cta-ink: #fff;
-  --cta-glow: 0 12px 38px rgba(20, 100, 245, 0.42);
+  --cta-glow: 0 12px 38px hsl(calc(219 + var(--hue)) 92% 52.0% / 0.42);
   --shine: rgba(255, 255, 255, 0.34);
 
   --nav-glass: rgba(255, 255, 255, 0.5);
-  --nav-hill: rgba(30, 110, 250, 0.82);
+  --nav-hill: hsl(calc(218 + var(--hue)) 96% 54.9% / 0.82);
   --nav-rim: rgba(255, 255, 255, 0.95);
   --nav-rim-low: rgba(255, 255, 255, 0.3);
-  --nav-circle: linear-gradient(150deg, #0f4fed, #1ea6ff);
+  --nav-circle: linear-gradient(150deg, hsl(calc(223 + var(--hue)) 88% 49.4%), hsl(calc(204 + var(--hue)) 100% 55.9%));
   --nav-circle-ink: #fff;
-  --nav-circle-glow: 0 8px 26px rgba(20, 100, 245, 0.5);
+  --nav-circle-glow: 0 8px 26px hsl(calc(219 + var(--hue)) 92% 52.0% / 0.5);
 
-  --sheet: rgba(245, 250, 255, 0.76);
+  --sheet: hsl(calc(210 + var(--hue)) 100% 98.0% / 0.76);
   --cards-glass: rgba(255, 255, 255, 0.42);
-  --scrim: rgba(12, 40, 100, 0.2);
+  --scrim: hsl(calc(221 + var(--hue)) 79% 22.0% / 0.2);
 }
 
 *,
@@ -151,10 +151,10 @@ a {
   height: 100%;
 }
 .wave--flat {
-  background: radial-gradient(38% 90% at 46% 50%, #cfe6ff 0, #2a78e6 22%, transparent 58%), var(--bg);
+  background: radial-gradient(38% 90% at 46% 50%, hsl(calc(211 + var(--hue)) 100% 90.6%) 0, hsl(calc(215 + var(--hue)) 79% 53.3%) 22%, transparent 58%), var(--bg);
 }
 [data-theme='light'] .wave--flat {
-  background: radial-gradient(38% 90% at 46% 50%, #38c0ff 0, #1461f4 26%, transparent 60%), var(--bg);
+  background: radial-gradient(38% 90% at 46% 50%, hsl(calc(199 + var(--hue)) 100% 61.0%) 0, hsl(calc(219 + var(--hue)) 91% 51.8%) 26%, transparent 60%), var(--bg);
 }
 
 .page {
@@ -722,24 +722,24 @@ a {
   --ink: #fff;
   --ink-2: rgba(255, 255, 255, 0.74);
   --ink-3: rgba(255, 255, 255, 0.46);
-  --accent: #8cc8ff;
-  --accent-hi: #cfe6ff;
+  --accent: hsl(calc(209 + var(--hue)) 100% 77.5%);
+  --accent-hi: hsl(calc(211 + var(--hue)) 100% 90.6%);
   --fill: rgba(255, 255, 255, 0.1);
   --fill-2: rgba(255, 255, 255, 0.2);
   --glass-line: rgba(255, 255, 255, 0.16);
-  --sheet: rgba(7, 26, 74, 0.94);
+  --sheet: hsl(calc(223 + var(--hue)) 83% 15.9% / 0.94);
   position: relative;
   padding: calc(72px + var(--safe-t)) var(--pad) 16px;
   border-radius: 0 0 38px 38px;
   color: var(--ink);
-  background: radial-gradient(110% 80% at 88% -8%, rgba(44, 111, 220, 0.72) 0%, rgba(44, 111, 220, 0) 62%), linear-gradient(168deg, rgba(18, 60, 146, 0.74) 0%, rgba(11, 40, 105, 0.72) 52%, rgba(7, 27, 77, 0.76) 100%);
+  background: radial-gradient(110% 80% at 88% -8%, hsl(calc(217 + var(--hue)) 72% 51.8% / 0.72) 0%, hsl(calc(217 + var(--hue)) 72% 51.8% / 0) 62%), linear-gradient(168deg, hsl(calc(220 + var(--hue)) 78% 32.2% / 0.74) 0%, hsl(calc(221 + var(--hue)) 81% 22.7% / 0.72) 52%, hsl(calc(223 + var(--hue)) 83% 16.5% / 0.76) 100%);
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   backdrop-filter: blur(28px) saturate(170%);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 26px 60px rgba(4, 16, 60, 0.42);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 26px 60px hsl(calc(227 + var(--hue)) 88% 12.5% / 0.42);
 }
 [data-theme='light'] .b-top {
-  background: radial-gradient(110% 80% at 88% -8%, rgba(70, 150, 255, 0.8) 0%, rgba(70, 150, 255, 0) 62%), linear-gradient(168deg, rgba(26, 92, 224, 0.8) 0%, rgba(18, 70, 190, 0.78) 52%, rgba(12, 52, 150, 0.82) 100%);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 26px 60px rgba(20, 70, 170, 0.3);
+  background: radial-gradient(110% 80% at 88% -8%, hsl(calc(214 + var(--hue)) 100% 63.7% / 0.8) 0%, hsl(calc(214 + var(--hue)) 100% 63.7% / 0) 62%), linear-gradient(168deg, hsl(calc(220 + var(--hue)) 79% 49.0% / 0.8) 0%, hsl(calc(222 + var(--hue)) 83% 40.8% / 0.78) 52%, hsl(calc(223 + var(--hue)) 85% 31.8% / 0.82) 100%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 26px 60px hsl(calc(220 + var(--hue)) 79% 37.3% / 0.3);
 }
 .b-total {
   display: grid;
@@ -1017,7 +1017,7 @@ a {
   overflow: hidden;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 1px rgba(10, 30, 80, 0.08);
+  box-shadow: 0 0 0 1px hsl(calc(223 + var(--hue)) 78% 17.6% / 0.08);
 }
 .logo img {
   display: block;
@@ -1026,7 +1026,7 @@ a {
   object-fit: cover;
 }
 .logo--letters {
-  background: linear-gradient(150deg, #2f7bf0, #123f9e);
+  background: linear-gradient(150deg, hsl(calc(216 + var(--hue)) 87% 56.3%), hsl(calc(221 + var(--hue)) 80% 34.5%));
   color: #fff;
   font-weight: 600;
 }
@@ -1488,7 +1488,7 @@ a {
   right: 0;
   top: 0;
   height: 34%;
-  background: linear-gradient(180deg, transparent, rgba(90, 170, 255, 0.5) 92%, #fff);
+  background: linear-gradient(180deg, transparent, hsl(calc(211 + var(--hue)) 100% 67.6% / 0.5) 92%, #fff);
   animation: scan-sweep 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
 }
 @keyframes scan-sweep {
@@ -1536,7 +1536,7 @@ a {
  * stuck to the screen and taking no room, and it only fades in. So no edge ever crosses the screen.
  */
 .dreamx-back {
-  --tint: #070b16;
+  --tint: hsl(calc(224 + var(--hue)) 52% 5.7%);
   position: sticky;
   z-index: 0;
   top: 0;
@@ -1892,7 +1892,7 @@ a {
   position: relative;
   container-type: inline-size;
   overflow: hidden;
-  background: #06070b;
+  background: hsl(calc(228 + var(--hue)) 29% 3.3%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   color: #fff;
   text-align: left;
@@ -1928,7 +1928,7 @@ a {
 .buy-card-fog {
   position: absolute;
   inset: 40% 0 0;
-  background: linear-gradient(180deg, transparent, rgba(6, 7, 11, 0.62) 42%, rgba(6, 7, 11, 0.82));
+  background: linear-gradient(180deg, transparent, hsl(calc(228 + var(--hue)) 29% 3.3% / 0.62) 42%, hsl(calc(228 + var(--hue)) 29% 3.3% / 0.82));
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
   backdrop-filter: blur(14px) saturate(1.2);
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 34%);
@@ -1990,7 +1990,7 @@ a {
   height: 52px;
   overflow: hidden;
   border-radius: 14px;
-  background: #06070b;
+  background: hsl(calc(228 + var(--hue)) 29% 3.3%);
   color: rgba(255, 255, 255, 0.5);
 }
 .buy-row-pic .buy-photo.is-cut {
@@ -2129,8 +2129,8 @@ a {
   height: 100%;
   overflow: hidden;
   border-radius: 50%;
-  background: radial-gradient(circle at 34% 28%, #5aa2ff, #1a54d6 72%);
-  box-shadow: 0 10px 34px rgba(36, 104, 236, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: radial-gradient(circle at 34% 28%, hsl(calc(214 + var(--hue)) 100% 67.6%), hsl(calc(221 + var(--hue)) 78% 47.1%) 72%);
+  box-shadow: 0 10px 34px hsl(calc(220 + var(--hue)) 84% 53.3% / 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 /* The light running round the edge. */
 .add-plus-core::before {
@@ -2224,7 +2224,7 @@ a {
   height: 220px;
   overflow: hidden;
   border-radius: 24px;
-  background: #06070b;
+  background: hsl(calc(228 + var(--hue)) 29% 3.3%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .buy-stage .buy-photo.is-cut {
@@ -2476,7 +2476,7 @@ a {
   animation: cal-pick 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .cal-num.is-today {
-  background: #2d6df6;
+  background: hsl(calc(221 + var(--hue)) 92% 57.1%);
   color: #fff;
   font-weight: 600;
 }
@@ -2486,7 +2486,7 @@ a {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 2px #2d6df6;
+  box-shadow: 0 0 0 2px hsl(calc(221 + var(--hue)) 92% 57.1%);
   animation: cal-today 3s ease-out infinite;
   pointer-events: none;
 }
@@ -2862,7 +2862,7 @@ a {
   font-feature-settings: 'tnum' 1;
 }
 .tl-date strong.is-today {
-  background: #2d6df6;
+  background: hsl(calc(221 + var(--hue)) 92% 57.1%);
   color: #fff;
 }
 /* Priorities as TickTick colours them. */
@@ -2871,8 +2871,8 @@ a {
   --ring: var(--ink-3);
 }
 .p1 {
-  --pri: #5aa7ff;
-  --ring: #5aa7ff;
+  --pri: hsl(calc(212 + var(--hue)) 100% 67.6%);
+  --ring: hsl(calc(212 + var(--hue)) 100% 67.6%);
 }
 .p2 {
   --pri: #f5b301;
@@ -3132,8 +3132,8 @@ a {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #2d6df6;
-  box-shadow: 0 10px 28px rgba(45, 109, 246, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  background: hsl(calc(221 + var(--hue)) 92% 57.1%);
+  box-shadow: 0 10px 28px hsl(calc(221 + var(--hue)) 92% 57.1% / 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   color: #fff;
   pointer-events: auto;
 }
@@ -3194,7 +3194,7 @@ a {
   border-radius: 50%;
 }
 .quick-go {
-  background: #2d6df6;
+  background: hsl(calc(221 + var(--hue)) 92% 57.1%);
   color: #fff;
 }
 .quick-mic {
@@ -3400,8 +3400,8 @@ a {
   stroke: var(--fill-2);
 }
 .focus-fill {
-  stroke: #5aa7ff;
-  filter: drop-shadow(0 0 5px rgba(90, 167, 255, 0.6));
+  stroke: hsl(calc(212 + var(--hue)) 100% 67.6%);
+  filter: drop-shadow(0 0 5px hsl(calc(212 + var(--hue)) 100% 67.6% / 0.6));
   transition: stroke-dashoffset 0.5s linear;
 }
 .focus-ring > strong {
@@ -3441,7 +3441,7 @@ a {
   border-radius: 50%;
 }
 .focus-ring-done {
-  color: #5aa7ff;
+  color: hsl(calc(212 + var(--hue)) 100% 67.6%);
   animation: cal-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .focus-words {
@@ -3591,14 +3591,14 @@ a {
 /* All one colour: white, or dark where white would not show. */
 .wx-icon {
   --wx: #fff;
-  --wx-cloud: #0a1424;
+  --wx-cloud: hsl(calc(217 + var(--hue)) 57% 9.0%);
   flex: none;
   overflow: visible;
   stroke: var(--wx);
 }
 [data-theme='light'] .wx-icon {
   --wx: var(--ink);
-  --wx-cloud: #eef3fb;
+  --wx-cloud: hsl(calc(217 + var(--hue)) 62% 95.9%);
 }
 .wx-sun-disc {
   fill: var(--wx);
@@ -3906,7 +3906,7 @@ a {
 }
 .lnav-svg {
   overflow: visible;
-  filter: drop-shadow(0 16px 26px rgba(0, 10, 40, 0.28));
+  filter: drop-shadow(0 16px 26px hsl(calc(225 + var(--hue)) 100% 7.8% / 0.28));
 }
 .lnav-tint-a {
   stop-color: var(--nav-hill);
@@ -4246,5 +4246,539 @@ a {
   }
   .reminder-text {
     background-position: 0 0;
+  }
+}
+
+/* ─────────── One look across the screens ─────────── */
+
+:root {
+  --top: calc(64px + var(--safe-t)); /* where every scrolling screen starts, under the top bar */
+  --title: clamp(24px, 6.8vw, 28px); /* the head of a screen */
+  --subtitle: 22px; /* the head of a section, a sheet or a window */
+  --caption: 13px; /* a group inside a list */
+  --r-card: 24px;
+  --r-window: 32px;
+  --h-control: 52px; /* fields and main buttons are all the same pill */
+  --kb: 0px; /* how much of the screen the keyboard has taken */
+}
+html {
+  /* Scrolling only: no pinch and no double tap to enlarge the page. */
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Heads of screens and sections. */
+.cal-month,
+.tl-top h2,
+.mains h2 {
+  font-size: var(--title);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.buys-title,
+.b-list h2,
+.cards-head h2,
+.sheet-head h2,
+.day-panel-head h2 {
+  font-size: var(--subtitle);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.b-list h3,
+.tgroup h3,
+.mbox h3 {
+  font-size: var(--caption);
+  font-weight: 600;
+}
+.tasks-col,
+.buys-scroll {
+  padding-top: var(--top);
+}
+
+/* Cards and windows. */
+.mbox,
+.b-tile,
+.goal-card,
+.p-row,
+.buy-row,
+.buy-card,
+.buy-free {
+  border-radius: var(--r-card);
+}
+.day-shift,
+.form-note {
+  border-radius: 18px;
+}
+.sheet,
+.day-panel {
+  border-radius: var(--r-window) var(--r-window) 0 0;
+}
+.cards-win,
+.p-win {
+  border-radius: var(--r-window);
+}
+
+/* Fields and buttons. */
+.field,
+.date-field,
+.quick-bar,
+.primary-btn,
+.scan-link {
+  height: var(--h-control);
+  border-radius: calc(var(--h-control) / 2);
+}
+.field.buy-text,
+.field.share-script {
+  height: auto;
+}
+.field.buy-text {
+  min-height: var(--h-control);
+}
+.seg-opt,
+.tasks-seg .seg-opt {
+  height: 36px;
+  border-radius: 18px;
+  font-size: 14px;
+}
+.seg-pill {
+  border-radius: 18px;
+}
+.seg {
+  border-radius: 22px;
+}
+.card-chip {
+  height: 44px;
+}
+
+/* ─────────── The hours ─────────── */
+
+.tl,
+.tl * {
+  touch-action: pan-y;
+}
+.tl {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.tl-view {
+  overflow: hidden;
+}
+.tl-track {
+  will-change: transform;
+}
+.tl-top {
+  gap: 8px;
+}
+.tl-title {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.tl-spans {
+  flex: none;
+  width: 192px;
+}
+.tl-spans .seg-opt {
+  height: 32px;
+  border-radius: 16px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tl-spans .seg-pill {
+  border-radius: 16px;
+}
+/* All days keep the same height whichever of them slides past, and a very full one does not push the hours away. */
+.tl-head {
+  max-height: 104px;
+  overflow: hidden;
+}
+.tl-shift {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  height: 16px;
+}
+.tl-shift button {
+  display: grid;
+  place-items: center;
+  height: 16px;
+  padding: 0 4px;
+}
+.tl.is-single .tl-block,
+.tl.is-single .tl-chip,
+.tl.is-single .tl-ghost {
+  padding: 5px 10px;
+  font-size: 14px;
+}
+
+/* ─────────── Shifts: right above the number, solid ─────────── */
+
+.cal-day {
+  height: 46px;
+  align-content: end;
+  padding-bottom: 4px;
+}
+.cal-num {
+  width: 30px;
+  height: 30px;
+}
+.cal-dot {
+  bottom: 0;
+}
+.cal-strip {
+  height: 46px;
+}
+.cal-shift {
+  top: 0;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  gap: 2px;
+  height: 13px;
+}
+svg.glyph-sun {
+  color: #ffb300;
+}
+svg.glyph-moon {
+  color: #c3ceff;
+}
+[data-theme='light'] svg.glyph-sun {
+  color: #e68600;
+}
+[data-theme='light'] svg.glyph-moon {
+  color: #4a55c9;
+}
+
+/* ─────────── Links between the screens ─────────── */
+
+.b-links {
+  display: grid;
+  gap: 8px;
+  margin: 0 var(--edge);
+}
+.b-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px;
+  border-radius: var(--r-card);
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--glass-line), inset 0 1px 0 var(--glass-top);
+  text-align: left;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.b-link:active {
+  transform: scale(0.98);
+}
+.b-link > svg {
+  flex: none;
+  color: var(--ink-3);
+}
+.b-link-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--accent);
+}
+.b-link-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.b-link-text strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.b-link-text span {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.b-link-sum {
+  flex: none;
+  font-size: 15px;
+  font-weight: 600;
+  font-feature-settings: 'tnum' 1;
+}
+.day-money {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+}
+.day-money button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 12px;
+  border-radius: 18px;
+  background: var(--fill);
+  font-size: 14px;
+  text-align: left;
+}
+.day-money svg {
+  flex: none;
+  color: var(--accent);
+}
+.day-money span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.day-money strong {
+  flex: none;
+  font-weight: 600;
+  font-feature-settings: 'tnum' 1;
+}
+.suggest-wish {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--fill-2);
+  color: var(--accent);
+}
+
+/* ─────────── Purchases and the dream: two pages, one swipe apart ─────────── */
+
+.shop {
+  scroll-snap-type: y mandatory;
+}
+.buys {
+  display: block;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.buys-scroll {
+  height: 100%;
+  overflow: hidden auto;
+  padding-right: var(--edge);
+  padding-bottom: calc(var(--nav-space) + 48px);
+  padding-left: var(--edge);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.buys-scroll::-webkit-scrollbar {
+  display: none;
+}
+.dreamx {
+  height: 100vh;
+  height: 100dvh;
+  scroll-snap-stop: always;
+}
+.dreamx-back {
+  height: 100vh;
+  height: 100dvh;
+  margin-bottom: -100vh;
+  margin-bottom: -100dvh;
+}
+.buys-hint {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(var(--nav-space) - 8px);
+  width: auto;
+  height: 32px;
+  margin: 0;
+  padding: 0 14px 0 10px;
+  border-radius: 16px;
+  background: var(--control);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  transform: translateX(-50%);
+  font-weight: 600;
+}
+.buys-hint span {
+  animation: hint-nudge 1.8s ease-in-out infinite;
+}
+@keyframes hint-nudge {
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+/* ─────────── Colours and the account, in the profile ─────────── */
+
+.accent-pick {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+}
+.accent-dot {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--dot);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+  color: #fff;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.accent-dot[aria-checked='true'] {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--dot);
+}
+.accent-dot:active {
+  transform: scale(0.88);
+}
+.accent-dot span {
+  display: grid;
+}
+.sync {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 20px;
+  box-shadow: inset 0 1px 0 var(--glass-line);
+}
+.sync h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.sync-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.sync-steps a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.primary-btn--quiet {
+  margin-top: 0;
+  background: var(--fill-2);
+  color: var(--ink);
+  box-shadow: none;
+}
+.sync-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+.sync-state span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.sync-state small {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+.sync-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #29c469;
+}
+.sync-dot.is-busy {
+  background: #f5b301;
+  animation: tick 1.2s steps(2) infinite;
+}
+.sync-dot.is-error {
+  background: #ff5a52;
+}
+.sync .form-two .scan-link:disabled {
+  opacity: 0.5;
+}
+
+/* ─────────── With the keyboard up ─────────── */
+
+.sheet {
+  bottom: calc(-60px + var(--kb));
+  max-height: calc(88dvh + 60px - var(--kb));
+}
+.p-win-place {
+  bottom: var(--kb);
+}
+.buy-add {
+  margin-bottom: var(--kb);
+}
+
+/* ─────────── A phone: the same look, a lot less work for it ─────────── */
+
+@media (hover: none) {
+  [data-theme='dark'],
+  [data-theme='light'] {
+    --glass-blur: blur(12px) saturate(140%);
+  }
+  [data-theme='dark'] {
+    --control: rgba(6, 12, 24, 0.62);
+  }
+  [data-theme='light'] {
+    --control: rgba(255, 255, 255, 0.78);
+  }
+  /* Blur over a line that never stops moving is redone on every frame, so only the few big panels keep it. */
+  .theme-pill,
+  .round-btn,
+  .mbox,
+  .buy-row,
+  .b-tile,
+  .goal-card,
+  .b-top,
+  .sheet-scrim,
+  .p-scrim {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .dreamx-plate,
+  .dreamx-pill {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .morph-ch {
+    will-change: auto;
+  }
+  .hero-float {
+    animation: none;
+  }
+  .lnav-svg {
+    filter: none;
+  }
+  .dreamx-haze {
+    filter: blur(18px) brightness(0.72) saturate(1.2);
+  }
+  /* A field smaller than this makes an iPhone enlarge the page when it gets the focus. */
+  input:not(.buy-price):not(.buy-name),
+  textarea {
+    font-size: 16px;
   }
 }
