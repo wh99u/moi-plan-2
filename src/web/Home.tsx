@@ -56,7 +56,7 @@ export function Home() {
   return (
     <div className="home">
       <Recede
-        from={2.6}
+        from={5}
         panel
         className="glass hero-card"
         style={{ rotateX, rotateY, transformPerspective: 1100 }}
@@ -88,13 +88,13 @@ export function Home() {
 function Hello({ onOpen }: { onOpen: () => void }) {
   return (
     <div className="hello">
-      <Recede from={1.5} delay={0.04} className="hello-part">
+      <Recede from={2.2} delay={0.02} className="hello-part">
         <NowChip />
       </Recede>
-      <Recede from={1.4} delay={0.1} className="hello-part">
+      <Recede from={1.9} delay={0.06} className="hello-part">
         <Greeting />
       </Recede>
-      <Recede from={1.32} delay={0.2} className="hello-part">
+      <Recede from={1.7} delay={0.12} className="hello-part">
         <motion.button
           type="button"
           className="cta"
@@ -106,13 +106,13 @@ function Hello({ onOpen }: { onOpen: () => void }) {
           whileTap={{ scale: 0.96 }}
         >
           <span className="cta-shine" aria-hidden="true" />
-          <span>Смотреть задачи на сегодня</span>
+          <span>Задачи на сегодня</span>
           <span className="cta-arrow">
             <Icon name="arrowRight" size={18} stroke={2} />
           </span>
         </motion.button>
       </Recede>
-      <Recede from={1.22} delay={0.3} className="hello-part">
+      <Recede from={1.45} delay={0.18} className="hello-part">
         <Reminder />
       </Recede>
     </div>

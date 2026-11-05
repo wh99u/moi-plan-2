@@ -14,7 +14,7 @@ import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
 import { Seg } from '../Seg';
-import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, missingCards, type Span } from './data';
+import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, missingCards, type CardView, type Span } from './data';
 import { Logo } from './Logo';
 import { SpendWindow } from './SpendWindow';
 
@@ -93,7 +93,7 @@ function TopPanel() {
   };
 
   return (
-    <Recede from={1.9} panel className={`b-top${smear ? ' is-smearing' : ''}`}>
+    <Recede from={3.4} panel className={`b-top${smear ? ' is-smearing' : ''}`}>
       <div className="b-cur">
         <Seg
           value={cur}
@@ -105,12 +105,12 @@ function TopPanel() {
           label="Валюта"
         />
       </div>
-      <button type="button" className="b-total" aria-expanded={cardsOpen} onClick={() => setCardsOpen(!cardsOpen)}>
+      <button type="button" className="b-total" aria-haspopup="dialog" aria-expanded={cardsOpen} onClick={() => setCardsOpen(true)}>
         <span className="b-label">
           Общий бюджет
-          <motion.span className="b-chev" animate={{ rotate: cardsOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 380, damping: 26 }}>
-            <Icon name="down" size={15} stroke={2.2} />
-          </motion.span>
+          <span className="b-chev">
+            <Icon name="chevron" size={15} stroke={2.2} />
+          </span>
         </span>
         <span className="b-sum">
           <Amt rub={total} delay={0.25} />
@@ -121,27 +121,7 @@ function TopPanel() {
         {noRate ? 'Курс не загрузился. Проверь интернет и попробуй снова' : cur === 'USD' && rate ? `1 $ = ${rate.value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽ по курсу ЦБ` : ' '}
       </p>
 
-      <AnimatePresence initial={false}>
-        {cardsOpen && (
-          <motion.ul
-            className="b-cards"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ height: { type: 'spring', stiffness: 220, damping: 28 }, opacity: { duration: 0.25 } }}
-          >
-            {cards.map((c, i) => (
-              <motion.li key={c.code} initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ delay: 0.05 + i * 0.045, duration: 0.55, ease: EASE }}>
-                <button type="button" className="b-card" disabled={!c.id} onClick={() => openSheet('balance', { id: c.id })}>
-                  <Logo title={c.label} domain={c.domain} size={36} />
-                  <span className="b-card-name">{c.label}</span>
-                  <span className="b-card-sum">{formatMoney(c.sum, cur, rate)}</span>
-                </button>
-              </motion.li>
-            ))}
-          </motion.ul>
-        )}
-      </AnimatePresence>
+      {createPortal(<AnimatePresence>{cardsOpen && <CardsWindow total={total} cards={cards} onClose={() => setCardsOpen(false)} />}</AnimatePresence>, document.body)}
 
       <div className="b-income">
         <p className="b-label">
@@ -198,6 +178,67 @@ function TopPanel() {
   );
 }
 
+/** Every bank and what is on it, in a clear window of its own over the page. */
+function CardsWindow({ total, cards, onClose }: { total: number; cards: CardView[]; onClose: () => void }) {
+  const { cur, rate } = useCurrency();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
+      <div className="p-win-place">
+        <motion.div
+          className="cards-win"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Карты"
+          initial={{ opacity: 0, scale: 0.82, y: -40 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: -20, transition: { duration: 0.2, ease: 'easeIn' } }}
+          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        >
+          <header className="cards-head">
+            <div>
+              <h2>Карты</h2>
+              <p>{formatMoney(total, cur, rate)}</p>
+            </div>
+            <motion.button type="button" className="round-btn" aria-label="Закрыть" onClick={onClose} whileTap={{ scale: 0.86 }}>
+              <Icon name="close" size={18} />
+            </motion.button>
+          </header>
+          <ul>
+            {cards.map((c, i) => (
+              <motion.li key={c.code} initial={{ opacity: 0, x: -16, filter: 'blur(6px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} transition={{ delay: 0.08 + i * 0.05, duration: 0.55, ease: EASE }}>
+                <button
+                  type="button"
+                  className="cards-row"
+                  disabled={!c.id}
+                  onClick={() => {
+                    onClose();
+                    openSheet('balance', { id: c.id });
+                  }}
+                >
+                  <Logo title={c.label} domain={c.domain} size={44} />
+                  <span className="cards-name">{c.label}</span>
+                  <span className="cards-sum">{formatMoney(c.sum, cur, rate)}</span>
+                  <span className="p-chev">
+                    <Icon name="chevron" size={16} stroke={2} />
+                  </span>
+                </button>
+              </motion.li>
+            ))}
+          </ul>
+        </motion.div>
+      </div>
+    </>
+  );
+}
+
 function Tiles() {
   const tiles = [
     { label: 'Покупка', icon: 'plus', tx: 'out', wide: true },
@@ -206,7 +247,7 @@ function Tiles() {
   return (
     <div className="b-tiles">
       {tiles.map((t, i) => (
-        <Recede key={t.label} from={1.6} delay={0.06 + i * 0.05} panel className={`b-tile-wrap${t.wide ? ' is-wide' : ''}`}>
+        <Recede key={t.label} from={2.6} delay={0.04 + i * 0.04} panel className={`b-tile-wrap${t.wide ? ' is-wide' : ''}`}>
           <motion.button type="button" className="b-tile glass" onClick={() => openSheet('tx', { tx: t.tx })} whileHover={{ y: -3 }} whileTap={{ scale: 0.93 }}>
             <span className="b-tile-icon">
               <Icon name={t.icon} size={21} stroke={2} />
@@ -235,7 +276,7 @@ function Purchases({ spends, openedId, onOpen }: { spends: Spend[]; openedId: st
   let row = 0;
 
   return (
-    <Recede from={1.35} delay={0.14} panel className="b-list">
+    <Recede from={2} delay={0.1} panel className="b-list">
       <h2>Покупки</h2>
       {!spends.length && <p className="b-empty">Здесь появятся ваши покупки</p>}
       {part.map((g) => (

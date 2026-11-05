@@ -196,6 +196,15 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
       ctx.globalCompositeOperation = 'destination-out';
       ctx.fillStyle = melt;
       ctx.fillRect(0, 0, width, H);
+      // And towards both ends, so the light area has no straight edge at its sides.
+      const ends = ctx.createLinearGradient(PAD_LEFT, 0, headX, 0);
+      const soft = Math.min(0.32, 56 / Math.max(1, headX - PAD_LEFT));
+      ends.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      ends.addColorStop(soft, 'rgba(0, 0, 0, 0)');
+      ends.addColorStop(1 - soft, 'rgba(0, 0, 0, 0)');
+      ends.addColorStop(1, 'rgba(0, 0, 0, 1)');
+      ctx.fillStyle = ends;
+      ctx.fillRect(0, 0, width, H);
       ctx.globalCompositeOperation = 'source-over';
 
       // The glow is drawn as wide soft strokes: a canvas shadow would be too slow on a phone.

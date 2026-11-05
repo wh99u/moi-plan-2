@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { takeBankLink } from '../app/money/auto';
 import { useProfile } from '../app/profile';
 import { closeSheet, openSheet } from '../app/sheet';
@@ -9,14 +9,39 @@ import { Home } from './Home';
 import { Mark } from './Mark';
 import { Budget } from './money/Budget';
 import { Nav } from './Nav';
-import { Recede } from './Recede';
+import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
 import { Sheets } from './Sheets';
 import { Soon } from './Soon';
 import { Wave } from './Wave';
 
+/** The loading screen stays at least this long, counted from the start of the page: long enough for the cap to fill. */
+const SPLASH_MS = 2600;
+
 export function App() {
   const route = useRoute();
+  const [ready, setReady] = useState(false);
+
+  // The site mounts the moment the loading screen starts to go, so the opening shot plays out from behind it.
+  useEffect(() => {
+    const splash = document.getElementById('splash');
+    if (!splash) {
+      startEntry();
+      setReady(true);
+      return;
+    }
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t = setTimeout(
+      () => {
+        startEntry();
+        splash.classList.add('is-leaving');
+        setReady(true);
+        setTimeout(() => splash.remove(), 800);
+      },
+      Math.max(0, (calm ? 600 : SPLASH_MS) - performance.now()),
+    );
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => closeSheet(), [route]);
 
@@ -26,6 +51,8 @@ export function App() {
     addEventListener('hashchange', takeBankLink);
     return () => removeEventListener('hashchange', takeBankLink);
   }, []);
+
+  if (!ready) return null;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -49,11 +76,11 @@ function TopBar({ route }: { route: Route }) {
   return (
     <div className="topbar">
       {/* The budget scrolls under this bar, and plain text over a list would be unreadable. */}
-      <Recede from={2} delay={0.12} className={`brand${route === 'money' ? ' is-away' : ''}`}>
+      <Recede from={3.6} delay={0.04} className={`brand${route === 'money' ? ' is-away' : ''}`}>
         <Mark size={28} />
         <span>Мой план</span>
       </Recede>
-      <Recede from={2} delay={0.16} solid className="top-actions">
+      <Recede from={3.6} delay={0.06} solid className="top-actions">
         <motion.button
           type="button"
           className="theme-pill"

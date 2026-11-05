@@ -15,7 +15,7 @@ export function Soon({ route }: { route: Route }) {
   const s = section(route);
   return (
     <div className="soon">
-      <Recede from={2.2} panel className="glass soon-card">
+      <Recede from={4.5} panel className="glass soon-card">
         <motion.span className="soon-icon" {...part(0.08)}>
           <Icon name={s.icon} size={26} />
         </motion.span>

@@ -281,19 +281,7 @@ function PurchaseForm() {
 
   return (
     <form className="form" onSubmit={submit}>
-      {hint ? (
-        <p className="form-note">{hint}</p>
-      ) : (
-        <button
-          type="button"
-          className="scan-link"
-          // The picker has to open right inside the tap, or the browser blocks it.
-          onClick={() => void pickReceipt().then((f) => f && setFile(f))}
-        >
-          <Icon name="scan" size={18} />
-          Заполнить по фото чека
-        </button>
-      )}
+      {hint && <p className="form-note">{hint}</p>}
       <div className="field-logo">
         <Logo title={title || '?'} size={36} />
         <input
@@ -347,6 +335,17 @@ function PurchaseForm() {
         }}
       />
       <input className="field" value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Описание: что и зачем купил" aria-label="Описание" maxLength={140} />
+      {!hint && (
+        <button
+          type="button"
+          className="scan-link"
+          // The picker has to open right inside the tap, or the browser blocks it.
+          onClick={() => void pickReceipt().then((f) => f && setFile(f))}
+        >
+          <Icon name="scan" size={18} />
+          Заполнить по фото чека
+        </button>
+      )}
       <CardPick cards={cards} value={bankId} onChange={setBankId} />
 
       {items.length > 0 && (

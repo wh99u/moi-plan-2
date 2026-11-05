@@ -1,13 +1,17 @@
 import { motion, type HTMLMotionProps } from 'motion/react';
 import { useLayoutEffect, useRef } from 'react';
 
-/** Quick at the start, a long soft landing: sharp and very smooth at once. */
-export const PULL_EASE = [0.12, 0.7, 0.1, 1] as const;
-const PULL = 2;
+/** Very quick at the start, a long soft landing: sharp and very smooth at once. */
+export const PULL_EASE = [0.04, 0.86, 0.1, 1] as const;
+const PULL = 1.9;
 
-const bootAt = performance.now();
-/** True only while the page is loading, so the pull-back happens once per visit. */
-const entering = () => performance.now() - bootAt < 1200;
+let entryAt = performance.now();
+/** The opening shot starts now: called as the loading screen gets out of the way. */
+export const startEntry = () => {
+  entryAt = performance.now();
+};
+/** True only just after that, so the pull-back happens once per visit. */
+const entering = () => performance.now() - entryAt < 1200;
 
 interface Props extends HTMLMotionProps<'div'> {
   /** How close to the viewer it starts: 2.4 is 2.4 times its size. */
@@ -39,16 +43,22 @@ export function Recede({ from, delay = 0, solid = false, panel = false, onAnimat
     node.style.transformOrigin = `${innerWidth / 2 - box.left}px ${innerHeight / 2 - box.top}px`;
   }, []);
 
-  const initial = play.current ? { scale: from, opacity: solid ? 1 : 0 } : panel ? { scale: 1.14, opacity: 0 } : false;
+  // Out of focus while it is that close, as things near a lens are. A blur on a solid one would cut its glass children off too.
+  const near = !solid && play.current;
+  const initial = play.current ? { scale: from, opacity: solid ? 1 : 0, ...(near ? { filter: 'blur(16px)' } : {}) } : panel ? { scale: 1.14, opacity: 0 } : false;
   const pull = play.current ? PULL : 1;
 
   return (
     <motion.div
       ref={el}
       initial={initial}
-      animate={{ scale: 1, opacity: 1 }}
+      animate={{ scale: 1, opacity: 1, ...(near ? { filter: 'blur(0px)', transitionEnd: { filter: 'none' } } : {}) }}
       exit={panel ? { scale: 0.92, opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } } : undefined}
-      transition={{ scale: { delay, duration: pull, ease: PULL_EASE }, opacity: { delay, duration: play.current ? 0.5 : 0.3, ease: 'easeOut' } }}
+      transition={{
+        scale: { delay, duration: pull, ease: PULL_EASE },
+        opacity: { delay, duration: play.current ? 0.28 : 0.3, ease: 'easeOut' },
+        filter: { delay, duration: 0.7, ease: 'easeOut' },
+      }}
       onAnimationComplete={(def) => {
         if (el.current) el.current.style.transformOrigin = '';
         onAnimationComplete?.(def);

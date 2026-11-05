@@ -11,7 +11,7 @@ const ITEMS = [...TABS.map((t) => ({ key: t.id, label: t.label, icon: t.icon }))
 const MORE = ITEMS.length - 1;
 const SWITCH_MS = 860;
 /** The circle first grows out of the bar as the opening pull-back is landing. */
-const FIRST_DELAY = 620;
+const FIRST_DELAY = 420;
 /**
  * Where in a switch the tab's own animation starts: the circle is out of the bar by now and nearly
  * full size, so the whole of it is seen.
@@ -126,7 +126,7 @@ export function Nav({ route }: { route: Route }) {
   }, [active, start]);
 
   return (
-    <Recede from={1.7} delay={0.08} solid className="lnav-wrap">
+    <Recede from={3} delay={0.05} solid className="lnav-wrap">
       <nav ref={root} className="lnav" aria-label="Разделы">
         <div ref={glass} className="lnav-glass" />
         <svg ref={svg} className="lnav-svg" preserveAspectRatio="none" aria-hidden="true">

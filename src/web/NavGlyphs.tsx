@@ -5,7 +5,8 @@ import { Mark } from './Mark';
 
 /**
  * What each tab does inside the raised circle once it has landed. Before `run` turns on, every
- * glyph is its plain icon, so nothing pops when the circle first comes out of the bar.
+ * glyph is its plain icon, so nothing pops when the circle first comes out of the bar, and each
+ * one comes back to that plain icon when it has finished.
  */
 interface GlyphProps {
   run: boolean;
@@ -22,52 +23,65 @@ function Home({ run, size }: GlyphProps) {
   );
 }
 
-/** Apple Pay: a card rises out of the wallet, a tick confirms the payment, the card goes back. */
+/** Face ID, as when paying: corners close in, a face is scanned, it turns into a tick, the wallet comes back. */
 function Wallet({ run, size }: GlyphProps) {
-  const clip = useId();
-  const d = 1.5;
+  const d = 2;
+  const once = { duration: d, ease: 'easeInOut' } as const;
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} overflow="visible" aria-hidden="true" {...stroke}>
-      <defs>
-        <clipPath id={clip}>
-          <rect x="0" y="-10" width="24" height="16" />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${clip})`}>
-        <motion.rect
-          x="6.5"
-          y="1"
-          width="11"
-          height="9"
-          rx="1.6"
-          initial={false}
-          animate={run ? { y: [6, -2.5, -2.5, 6] } : { y: 6 }}
-          transition={{ duration: d, times: [0, 0.3, 0.72, 1], ease: 'easeInOut' }}
-        />
-      </g>
-      <motion.g initial={false} animate={run ? { y: [0, 1.2, 0, 0, 0] } : { y: 0 }} transition={{ duration: d, times: [0, 0.15, 0.3, 0.9, 1] }}>
+      <motion.g initial={false} animate={run ? { opacity: [1, 0, 0, 1], scale: [1, 0.7, 0.7, 1] } : { opacity: 1, scale: 1 }} transition={{ ...once, times: [0, 0.1, 0.88, 1] }} style={{ originX: '50%', originY: '50%' }}>
         <rect x="3" y="6" width="18" height="13" rx="3.5" />
-        <motion.path d="M3 10.5h18M15.5 15h2" initial={false} animate={run ? { opacity: [1, 0, 0, 1] } : { opacity: 1 }} transition={{ duration: d, times: [0, 0.2, 0.85, 1] }} />
-        <motion.path
-          d="M8.2 12.6l2.7 2.7 4.9-5"
-          strokeWidth="2.2"
-          initial={false}
-          animate={run ? { pathLength: [0, 0, 1, 1, 1], opacity: [0, 1, 1, 1, 0] } : { pathLength: 0, opacity: 0 }}
-          transition={{ duration: d, times: [0, 0.22, 0.48, 0.85, 1], ease: 'easeOut' }}
-        />
+        <path d="M3 10.5h18M15.5 15h2" />
       </motion.g>
+
+      <motion.g
+        initial={false}
+        animate={run ? { opacity: [0, 1, 1, 1, 0], scale: [1.35, 1, 1, 1.06, 0.8] } : { opacity: 0, scale: 1 }}
+        transition={{ ...once, times: [0, 0.14, 0.56, 0.68, 0.9] }}
+        style={{ originX: '50%', originY: '50%' }}
+      >
+        <path d="M3.5 8V6.5a3 3 0 0 1 3-3H8M16 3.5h1.5a3 3 0 0 1 3 3V8M20.5 16v1.5a3 3 0 0 1-3 3H16M8 20.5H6.5a3 3 0 0 1-3-3V16" />
+      </motion.g>
+
+      <motion.g initial={false} animate={run ? { opacity: [0, 0, 1, 1, 0] } : { opacity: 0 }} transition={{ ...once, times: [0, 0.12, 0.2, 0.52, 0.6] }}>
+        <path d="M9 9v1.2M15 9v1.2M12.2 9v3.4h-.9M9 15.2a4.2 4.2 0 0 0 6 0" />
+      </motion.g>
+
+      <motion.path
+        d="M5.5 7H18.5"
+        strokeWidth="1.4"
+        initial={false}
+        animate={run ? { y: [0, 0, 10, 0, 10], opacity: [0, 0, 1, 1, 0] } : { y: 0, opacity: 0 }}
+        transition={{ ...once, times: [0, 0.14, 0.3, 0.46, 0.56] }}
+      />
+
+      <motion.path
+        d="M7.2 12.4l3.3 3.3 6.3-6.8"
+        strokeWidth="2.4"
+        initial={false}
+        animate={run ? { pathLength: [0, 0, 1, 1, 1], opacity: [0, 0, 1, 1, 0] } : { pathLength: 0, opacity: 0 }}
+        transition={{ ...once, ease: 'easeOut', times: [0, 0.56, 0.72, 0.84, 0.92] }}
+      />
     </svg>
   );
 }
 
-/** Things drop into the bag one by one, it gives under each, and it stays full. */
+/** Things drop into the bag one by one, it gives under each and fills up, then it empties back to the plain icon. */
 function Bag({ run, size }: GlyphProps) {
   const clip = useId();
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} overflow="visible" aria-hidden="true" {...stroke}>
       <defs>
         <clipPath id={clip}>
-          <motion.rect x="0" y="0" width="24" height="24" initial={false} animate={run ? { y: [21, 21, 16, 12, 9] } : { y: 21 }} transition={{ duration: 1, times: [0, 0.25, 0.5, 0.75, 1], ease: 'easeOut' }} />
+          <motion.rect
+            x="0"
+            y="0"
+            width="24"
+            height="24"
+            initial={false}
+            animate={run ? { y: [21, 21, 16, 12, 9, 9, 21] } : { y: 21 }}
+            transition={{ duration: 1.9, times: [0, 0.14, 0.27, 0.4, 0.53, 0.78, 1], ease: 'easeOut' }}
+          />
         </clipPath>
       </defs>
       {[9.2, 14.8, 12].map((cx, i) => (
@@ -96,20 +110,20 @@ function Bag({ run, size }: GlyphProps) {
   );
 }
 
-/** One big tick across the whole page of the calendar; it stays while the section is open. */
+/** One big tick across the whole page of the calendar, then the plain calendar again. */
 function Calendar({ run, size }: GlyphProps) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} overflow="visible" aria-hidden="true" {...stroke}>
       <motion.g initial={false} animate={run ? { scale: [1, 0.92, 1.06, 1] } : { scale: 1 }} transition={{ duration: 0.7, times: [0, 0.2, 0.65, 1] }} style={{ originX: '50%', originY: '50%' }}>
         <rect x="3" y="5" width="18" height="16" rx="3.5" />
         <path d="M8 3v4M16 3v4" />
-        <motion.path d="M3 10h18" initial={false} animate={{ opacity: run ? 0 : 1 }} transition={{ duration: 0.2 }} />
+        <motion.path d="M3 10h18" initial={false} animate={run ? { opacity: [1, 0, 0, 1] } : { opacity: 1 }} transition={{ duration: 1.7, times: [0, 0.1, 0.82, 1] }} />
         <motion.path
           d="M6.6 13.4l3.8 3.9 7-8.3"
           strokeWidth="2.5"
           initial={false}
-          animate={run ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
-          transition={run ? { pathLength: { delay: 0.12, duration: 0.5, ease: 'easeOut' }, opacity: { delay: 0.12, duration: 0.05 } } : { duration: 0 }}
+          animate={run ? { pathLength: [0, 0, 1, 1, 1], opacity: [0, 1, 1, 1, 0] } : { pathLength: 0, opacity: 0 }}
+          transition={{ duration: 1.7, times: [0, 0.08, 0.38, 0.82, 1], ease: 'easeOut' }}
         />
       </motion.g>
     </svg>

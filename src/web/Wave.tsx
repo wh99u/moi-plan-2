@@ -145,8 +145,8 @@ function lieOf(route: Route, tall: boolean): Lie {
 }
 
 /** Length of the opening pull-back, seconds, and how close to the line it starts. */
-const ENTRY = 2.2;
-const ENTRY_ZOOM = 6;
+const ENTRY = 2;
+const ENTRY_ZOOM = 16;
 /** Rows of the mesh the line is computed on. */
 const ROWS = 140;
 
@@ -249,7 +249,7 @@ export function Wave({ route }: { route: Route }) {
       ptr.k += (ptr.tk - ptr.k) * (1 - Math.exp(-dt * 1.2));
 
       const still = calm.matches;
-      const pull = still ? 1 : 1 - Math.pow(2, (-9 * age) / ENTRY);
+      const pull = still ? 1 : 1 - Math.pow(2, (-15 * age) / ENTRY);
       gl.uniform2f(at.res, el.width, el.height);
       gl.uniform1f(at.t, still ? 40 : 40 + age);
       gl.uniform1f(at.zoom, 1 + (ENTRY_ZOOM - 1) * (1 - pull));

@@ -26,7 +26,6 @@ export function Logo({ title, domain, size = 44 }: Props) {
           key={src}
           src={src}
           alt=""
-          loading="lazy"
           referrerPolicy="no-referrer"
           onError={next}
           // A service that has no logo answers with an empty pixel rather than an error.
