@@ -10,8 +10,8 @@ export interface ChartPoint {
 
 const H = 158;
 const SAMPLES = 90;
-const PAD_LEFT = 14;
-const PAD_RIGHT = 20;
+const PAD_LEFT = 24;
+const PAD_RIGHT = 24;
 const TOP = 34;
 const BOTTOM = 18;
 /** How long a chosen point stays marked after the finger is gone. */

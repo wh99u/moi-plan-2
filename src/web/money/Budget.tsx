@@ -320,11 +320,10 @@ function SpendRow({ spend, card, index, hidden, onOpen }: { spend: Spend; card?:
           {details && <span>{details}</span>}
         </span>
         <span className="p-sum">−{formatMoney(spend.amount, cur, rate)}</span>
-        {count > 0 && (
-          <span className="p-chev">
-            <Icon name="chevron" size={16} stroke={2} />
-          </span>
-        )}
+        {/* The place is kept on every row, so the sums stay in one column. */}
+        <span className="p-chev" style={count > 0 ? undefined : { visibility: 'hidden' }}>
+          <Icon name="chevron" size={16} stroke={2} />
+        </span>
       </motion.button>
     </motion.li>
   );
