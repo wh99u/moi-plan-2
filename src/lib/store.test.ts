@@ -249,3 +249,12 @@ describe('spend items', () => {
     expect(store.get().shared.spends[0]).toMatchObject({ title: 'Магазин', amount: 200, items: [{ name: 'Хлеб', price: 100 }, { name: 'Молоко', price: 100 }] });
   });
 });
+
+test('a shift can be corrected and removed', () => {
+  const store = createStore(localStorage, KEY, { now });
+  const shift = store.actions.addShift({ date: '2026-10-17', type: 'n', h: 12, pay: 5000 });
+  store.actions.updateShift(shift.id, { h: 11.5, pay: 6500, type: 'd' });
+  expect(visible(store.get().personal.shifts)[0]).toMatchObject({ h: 11.5, pay: 6500, type: 'd', date: '2026-10-17' });
+  store.actions.deleteShift(shift.id);
+  expect(visible(store.get().personal.shifts)).toEqual([]);
+});

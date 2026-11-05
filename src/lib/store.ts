@@ -245,6 +245,9 @@ export function createStore(storage: Storage, key: string, opts: StoreOptions = 
       personal({ shifts: [...state.personal.shifts, shift] });
       return shift;
     },
+    updateShift(id: string, patch: Partial<Omit<Shift, 'id' | 'updatedAt'>>) {
+      personal({ shifts: patchIn(state.personal.shifts, id, patch) });
+    },
     deleteShift(id: string) {
       personal({ shifts: removeIn(state.personal.shifts, id) });
     },

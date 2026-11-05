@@ -1,5 +1,5 @@
 import { addDays, addMonthsKeepDay, dayKey, parseDay } from '../../lib/dates';
-import type { Priority, Repeat, Task } from '../../lib/types';
+import type { Priority, Repeat, Shift, Task } from '../../lib/types';
 
 /*
  * What makes the tasks screen TickTick-like and has no screen in it: reading a date out of a typed
@@ -158,6 +158,19 @@ export function quadrantOf(task: Task, today: Date): Quadrant {
 }
 
 export const DEFAULT_MINUTES = 60;
+
+export const shiftName = (type: Shift['type']) => (type === 'n' ? 'Ночная' : 'Дневная');
+/** «12», «11,5». */
+export const hoursText = (h: number) => String(Math.round(h * 10) / 10).replace('.', ',');
+
+/** The month's shifts in order of days, and what they add up to. */
+export function monthShifts(shifts: Shift[], ym: string) {
+  const list = shifts.filter((s) => s.date.startsWith(ym)).sort((a, b) => a.date.localeCompare(b.date));
+  return { list, hours: list.reduce((t, s) => t + s.h, 0), pay: list.reduce((t, s) => t + s.pay, 0) };
+}
+
+/** The latest shift of this kind. */
+export const lastShift = (shifts: Shift[], type: Shift['type']) => shifts.filter((s) => s.type === type).reduce<Shift | undefined>((last, s) => (!last || s.date > last.date ? s : last), undefined);
 
 export interface Placed {
   task: Task;

@@ -1,9 +1,11 @@
 import { animate, AnimatePresence, motion, useMotionValue, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { openSheet } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
-import { addDays, addMonths, dayKey, daysBetween, monthName, parseDay, ymKey } from '../../lib/dates';
+import { addDays, addMonths, dayKey, daysBetween, fmtDay, monthIn, monthName, parseDay, ymKey } from '../../lib/dates';
+import { rub } from '../../lib/money';
 import { visible } from '../../lib/records';
 import type { Goal, Shift, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
@@ -15,7 +17,7 @@ import { pulseWave } from '../Wave';
 import { openFocus } from './focusTimer';
 import { GoalAdd, GoalWindow, Goals, type OpenedGoal } from './Goals';
 import { activeGoals, leftWords } from './goalLogic';
-import { DEFAULT_MINUTES, layoutDay, monthCells, parseQuick, quadrantOf, smartGroups, toMinutes, type Quadrant } from './logic';
+import { DEFAULT_MINUTES, hoursText, layoutDay, monthCells, monthShifts, parseQuick, quadrantOf, shiftName, smartGroups, toMinutes, type Quadrant } from './logic';
 import { Mic } from './Speech';
 import { completeTask, TaskWindow } from './TaskWindow';
 
@@ -127,6 +129,7 @@ export function Tasks() {
                   <Month
                     tasks={tasks}
                     goals={goals}
+                    shifts={shifts}
                     now={now}
                     start={start}
                     span={span}
@@ -190,7 +193,7 @@ export function Tasks() {
 
 /* ─────────── The month ─────────── */
 
-function Month({ tasks, goals, now, start, span, opacity, scale, onStart, onPick }: { tasks: Task[]; goals: Goal[]; now: Date; start: string; span: number; opacity: MotionValue<number>; scale: MotionValue<number>; onStart: (key: string) => void; onPick: (key: string) => void }) {
+function Month({ tasks, goals, shifts, now, start, span, opacity, scale, onStart, onPick }: { tasks: Task[]; goals: Goal[]; shifts: Shift[]; now: Date; start: string; span: number; opacity: MotionValue<number>; scale: MotionValue<number>; onStart: (key: string) => void; onPick: (key: string) => void }) {
   const today = dayKey(now);
   const [ym, setYm] = useState(start.slice(0, 7));
   const [shift, setShift] = useState(0);
@@ -198,6 +201,8 @@ function Month({ tasks, goals, now, start, span, opacity, scale, onStart, onPick
   const cells = monthCells(ym);
   const busy = useMemo(() => new Set(tasks.filter((t) => !t.done && t.due).map((t) => t.due)), [tasks]);
   const goalEnds = useMemo(() => new Set(activeGoals(goals).map((g) => g.end)), [goals]);
+  const worked = monthShifts(shifts, ym);
+  const [showShifts, setShowShifts] = useState(false);
   // Each cell comes up later the further it is from today, or from the middle of a month without it.
   const origin = Math.max(0, cells.indexOf(today)) || 17;
   const strips = days.reduce<{ row: number; col: number; span: number }[]>((all, key) => {
@@ -289,6 +294,15 @@ function Month({ tasks, goals, now, start, span, opacity, scale, onStart, onPick
               <button key={key} type="button" className={cls} style={{ animationDelay: `${far * 0.035}s` }} aria-label={`${parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}, открыть по часам`} onClick={() => onPick(key)}>
                 <span className={key === today ? 'cal-num is-today' : 'cal-num'}>{Number(key.slice(8))}</span>
                 {busy.has(key) && <i className="cal-dot" />}
+                {shifts.some((s) => s.date === key) && (
+                  <i className="cal-shift">
+                    {shifts
+                      .filter((s) => s.date === key)
+                      .map((s) => (
+                        <Icon key={s.id} name={s.type === 'n' ? 'moon' : 'sun'} size={10} />
+                      ))}
+                  </i>
+                )}
                 {goalEnds.has(key) && (
                   <i className="cal-flag">
                     <Icon name="flag" size={10} stroke={2.4} />
@@ -298,6 +312,34 @@ function Month({ tasks, goals, now, start, span, opacity, scale, onStart, onPick
             );
           })}
         </motion.div>
+      </AnimatePresence>
+      <div className="shifts">
+        <button type="button" className="shifts-sum" aria-expanded={showShifts} disabled={!worked.list.length} onClick={() => setShowShifts(!showShifts)}>
+          <strong>Смены в {monthIn(ym)}</strong>
+          <span>{worked.list.length ? `${worked.list.length} · ${hoursText(worked.hours)} ч · ${rub(worked.pay)}` : 'Пока нет'}</span>
+        </button>
+        <motion.button type="button" className="shifts-add" whileTap={{ scale: 0.92 }} onClick={() => openSheet('shift', { date: start.startsWith(ym) ? start : `${ym}-01` })}>
+          <Icon name="plus" size={16} stroke={2} />
+          Смена
+        </motion.button>
+      </div>
+      <AnimatePresence initial={false}>
+        {showShifts && worked.list.length > 0 && (
+          <motion.ul className="shift-list" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.32, ease: EASE }}>
+            {worked.list.map((s) => (
+              <li key={s.id}>
+                <button type="button" className="shift-row" onClick={() => openSheet('shift', { id: s.id })}>
+                  <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={15} />
+                  <span>
+                    {fmtDay(s.date).replace('.', '')}, {shiftName(s.type).toLowerCase()}
+                  </span>
+                  <small>{hoursText(s.h)} ч</small>
+                  <strong>{rub(s.pay)}</strong>
+                </button>
+              </li>
+            ))}
+          </motion.ul>
+        )}
       </AnimatePresence>
     </motion.section>
   );
@@ -540,7 +582,6 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
           <motion.div className="tl-track" style={{ x, opacity: fade }}>
             {ribbon.map((key) => {
               const d = parseDay(key);
-              const day = shifts.find((s) => s.date === key);
               const off = !days.includes(key);
               return (
                 <div key={key} className={`tl-head${off ? ' is-off' : ''}`} aria-hidden={off || undefined}>
@@ -548,7 +589,14 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, dr
                     <span>{d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase()}</span>
                     <strong className={key === today ? 'is-today' : undefined}>{d.getDate()}</strong>
                   </div>
-                  {day && <span className="tl-chip tl-chip--shift">{day.type === 'n' ? 'Ночная смена' : 'Дневная смена'}</span>}
+                  {shifts
+                    .filter((s) => s.date === key)
+                    .map((s) => (
+                      <button key={s.id} type="button" tabIndex={off ? -1 : undefined} className="tl-chip tl-chip--shift" aria-label={`${shiftName(s.type)} смена, ${hoursText(s.h)} ч, изменить`} onClick={unlessPanned(() => openSheet('shift', { id: s.id }))}>
+                        <Icon name={s.type === 'n' ? 'moon' : 'sun'} size={11} />
+                        <span>{hoursText(s.h)} ч</span>
+                      </button>
+                    ))}
                   {inDay(key)
                     .filter((t) => !t.time)
                     .map((t) => {

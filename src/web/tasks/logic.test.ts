@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Task } from '../../lib/types';
-import { layoutDay, monthCells, nextRepeat, parseQuick, quadrantOf, smartGroups } from './logic';
+import type { Shift, Task } from '../../lib/types';
+import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nextRepeat, parseQuick, quadrantOf, smartGroups } from './logic';
 
 // Thursday, 5 November 2026, 12:30.
 const NOW = new Date(2026, 10, 5, 12, 30);
@@ -136,5 +136,31 @@ describe('monthCells', () => {
 
   it('takes five weeks when they are enough', () => {
     expect(monthCells('2026-10')).toHaveLength(35);
+  });
+});
+
+describe('shifts', () => {
+  const shift = (date: string, type: Shift['type'], h: number, pay: number): Shift => ({ id: date + type, date, type, h, pay, updatedAt: 0 });
+  const all = [shift('2026-11-07', 'n', 12, 6000), shift('2026-11-02', 'd', 11.5, 5000), shift('2026-10-30', 'n', 8, 4000)];
+
+  it('adds up one month, in order of days', () => {
+    const m = monthShifts(all, '2026-11');
+    expect(m.list.map((s) => s.date)).toEqual(['2026-11-02', '2026-11-07']);
+    expect(m.hours).toBe(23.5);
+    expect(m.pay).toBe(11000);
+  });
+
+  it('has nothing in an empty month', () => {
+    expect(monthShifts(all, '2026-12')).toEqual({ list: [], hours: 0, pay: 0 });
+  });
+
+  it('finds the latest of a kind', () => {
+    expect(lastShift(all, 'n')?.date).toBe('2026-11-07');
+    expect(lastShift([], 'd')).toBeUndefined();
+  });
+
+  it('writes hours the Russian way', () => {
+    expect(hoursText(12)).toBe('12');
+    expect(hoursText(11.5)).toBe('11,5');
   });
 });
