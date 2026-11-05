@@ -29,15 +29,11 @@
       /* The loading screen lives here so it shows at once, before any of the site has arrived. */
       html, body { margin: 0; height: 100%; }
       html[data-theme='dark'] {
-        background: #030918;
-        --sp-bg: linear-gradient(170deg, #0b1f52 0%, #06123a 48%, #030918 100%);
-        --sp-form: #4f7fd8;
-        --sp-disc: radial-gradient(circle at 36% 30%, #2f6be0, #0c2a78 58%, #040f33);
-        --sp-rim: rgba(150, 195, 255, 0.5);
-        --sp-glow: rgba(58, 170, 240, 0.55);
-        --sp-pane: linear-gradient(150deg, rgba(120, 165, 245, 0.22), rgba(60, 100, 190, 0.1) 55%, rgba(120, 165, 245, 0.16));
-        --sp-edge: rgba(190, 220, 255, 0.55);
-        --sp-edge-low: rgba(2, 10, 40, 0.75);
+        background: #02040a;
+        --sp-bg: #02040a;
+        --sp-video: grayscale(1) brightness(0.72) contrast(1.35) blur(1.5px);
+        --sp-tint: linear-gradient(170deg, #2f74ea 0%, #174aba 55%, #0d3290 100%);
+        --sp-shade: radial-gradient(90% 70% at 50% 46%, rgba(2, 4, 10, 0.3) 0%, rgba(2, 4, 10, 0.68) 100%);
         --sp-ink: #fff;
         --sp-ink-2: rgba(205, 225, 255, 0.72);
         --sp-empty: rgba(170, 205, 255, 0.16);
@@ -47,15 +43,11 @@
         --sp-shine: rgba(60, 130, 240, 0.8);
       }
       html[data-theme='light'] {
-        background: #dbe5f6;
-        --sp-bg: linear-gradient(170deg, #b6c8ec 0%, #d6e2f6 50%, #eef3fc 100%);
-        --sp-form: #fbfdff;
-        --sp-disc: radial-gradient(circle at 36% 30%, #4d8df5, #1a4cc0 58%, #0d2c80);
-        --sp-rim: rgba(255, 255, 255, 0.85);
-        --sp-glow: rgba(70, 190, 245, 0.6);
-        --sp-pane: linear-gradient(150deg, rgba(255, 255, 255, 0.5), rgba(160, 190, 240, 0.28) 55%, rgba(255, 255, 255, 0.4));
-        --sp-edge: rgba(255, 255, 255, 0.95);
-        --sp-edge-low: rgba(25, 60, 150, 0.55);
+        background: #ecf3fc;
+        --sp-bg: #ecf3fc;
+        --sp-video: grayscale(1) brightness(1.18) contrast(1.05) blur(1.5px);
+        --sp-tint: linear-gradient(170deg, #84adff 0%, #a4c4ff 55%, #c2d9ff 100%);
+        --sp-shade: radial-gradient(90% 70% at 50% 46%, rgba(236, 243, 252, 0.62) 0%, rgba(236, 243, 252, 0.2) 100%);
         --sp-ink: #06183c;
         --sp-ink-2: rgba(6, 30, 80, 0.68);
         --sp-empty: rgba(20, 80, 200, 0.12);
@@ -79,82 +71,36 @@
         background: var(--sp-bg);
         transition: opacity 0.5s ease-out;
       }
-      .sp-form,
-      .sp-disc,
-      .sp-glow,
-      .sp-pane {
+      /*
+       * The owner's video: grey by itself, so it is washed of colour, darkened and tinted with the
+       * site's blue, and shaded towards the edges. It fades in once it really plays; until then, or
+       * if a phone refuses to play it, the plain background of the theme stays.
+       */
+      .sp-video,
+      .sp-tint,
+      .sp-shade {
         position: absolute;
-        will-change: transform;
+        inset: 0;
       }
-      /* What lies behind the glass, as in the reference: a pale rounded form, a dark lens, a cold glow. */
-      .sp-form {
-        right: -6vmin;
-        top: 12%;
-        width: 66vmin;
-        height: 86vmin;
-        border-radius: 50% 50% 34% 34%;
-        background: var(--sp-form);
-        filter: blur(9px);
-        opacity: 0.72;
-        animation: sp-form 6.8s ease-in-out infinite alternate;
+      .sp-video {
+        /* A little oversized: the blur would otherwise show soft edges. */
+        inset: -3%;
+        width: 106%;
+        height: 106%;
+        object-fit: cover;
+        filter: var(--sp-video);
+        opacity: 0;
+        transition: opacity 0.5s ease-out;
       }
-      .sp-disc {
-        right: 4vmin;
-        top: 6%;
-        width: 34vmin;
-        height: 34vmin;
-        border-radius: 50%;
-        background: var(--sp-disc);
-        box-shadow: inset 0 0 0 1.5px var(--sp-rim), 0 18px 40px rgba(0, 10, 50, 0.4);
-        animation: sp-disc 3.4s ease-in-out infinite;
+      .sp-video.is-on {
+        opacity: 1;
       }
-      .sp-glow {
-        left: -14vmin;
-        bottom: -18vmin;
-        width: 90vmin;
-        height: 74vmin;
-        border-radius: 50%;
-        background: radial-gradient(closest-side, var(--sp-glow), transparent);
-        animation: sp-glow 3.4s ease-in-out infinite;
+      .sp-tint {
+        background: var(--sp-tint);
+        mix-blend-mode: multiply;
       }
-      /* The big frosted slabs that keep swinging past, thin bright and dark edges and all. */
-      .sp-pane {
-        left: -40%;
-        top: 22%;
-        width: 180%;
-        height: 58%;
-        background: var(--sp-pane);
-        -webkit-backdrop-filter: blur(20px) saturate(135%);
-        backdrop-filter: blur(20px) saturate(135%);
-        border-top: 1.5px solid var(--sp-edge-low);
-        border-bottom: 2.5px solid var(--sp-edge-low);
-        box-shadow: inset 0 1.5px 0 var(--sp-edge), inset 0 -1.5px 0 var(--sp-edge);
-        animation: sp-swing 3.4s cubic-bezier(0.55, 0, 0.25, 1) infinite;
-      }
-      .sp-pane--b {
-        top: 30%;
-        height: 44%;
-        animation-delay: -1.7s;
-        animation-direction: reverse;
-      }
-      @keyframes sp-swing {
-        0% { transform: perspective(1000px) translateY(46%) rotateX(32deg) rotate(-30deg); opacity: 0; }
-        16% { opacity: 1; }
-        55% { transform: perspective(1000px) translateY(-4%) rotateX(10deg) rotate(14deg); opacity: 1; }
-        84% { opacity: 0.85; }
-        100% { transform: perspective(1000px) translateY(-46%) rotateX(-26deg) rotate(36deg); opacity: 0; }
-      }
-      @keyframes sp-form {
-        from { transform: translate(-6vmin, 4vmin) rotate(-7deg); }
-        to { transform: translate(5vmin, -5vmin) rotate(8deg); }
-      }
-      @keyframes sp-disc {
-        0%, 100% { transform: translate(0, 0) scaleX(1) rotate(-14deg); }
-        50% { transform: translate(-7vmin, 6vmin) scaleX(0.62) rotate(14deg); }
-      }
-      @keyframes sp-glow {
-        0%, 100% { transform: scale(0.86); opacity: 0.55; }
-        50% { transform: scale(1.14); opacity: 1; }
+      .sp-shade {
+        background: var(--sp-shade);
       }
 
       .sp-center {
@@ -266,8 +212,7 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .sp-form, .sp-disc, .sp-glow, .sp-pane, .sp-cap, .sp-liquid-a, .sp-liquid-b, .sp-bubble, .sp-ch { animation: none; }
-        .sp-pane--b { display: none; }
+        .sp-cap, .sp-liquid-a, .sp-liquid-b, .sp-bubble, .sp-ch { animation: none; }
         .sp-cap-line { animation: none; stroke-dashoffset: 0; }
       }
     </style>
@@ -275,11 +220,10 @@
   <body>
     <div id="splash" role="status" aria-label="Загрузка">
       <div class="sp-world" aria-hidden="true">
-        <div class="sp-form"></div>
-        <div class="sp-glow"></div>
-        <div class="sp-disc"></div>
-        <div class="sp-pane sp-pane--b"></div>
-        <div class="sp-pane"></div>
+        <!-- From 0.3 s: the very first frames of the file have black bars at the sides. -->
+        <video class="sp-video" src="./splash.mp4#t=0.3" muted loop playsinline preload="auto"></video>
+        <div class="sp-tint"></div>
+        <div class="sp-shade"></div>
       </div>
       <div class="sp-center">
         <svg class="sp-cap" viewBox="0 0 24 24" aria-hidden="true">
@@ -307,6 +251,14 @@
     <script>
       // A new line on every load, and both lines write themselves in letter by letter.
       (function () {
+        var video = document.querySelector('.sp-video');
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          video.addEventListener('playing', function () { video.classList.add('is-on'); });
+          var played = video.play();
+          // Low-power mode can refuse: the plain background then stays, which is fine.
+          if (played) played.catch(function () {});
+        }
+
         var lines = [
           'Наливаем планы до краёв',
           'Поправляем козырёк',
