@@ -1,8 +1,8 @@
-import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { closeSheet, toggleSheet, useSheet } from '../app/sheet';
 import { Icon } from '../ui/Icon';
 import { Mark } from './Mark';
+import { NavGlyph } from './NavGlyphs';
 import { CIRCLE_R, FULL_H, HEAD, barPath, itemX, navFrame } from './navShape';
 import { Recede } from './Recede';
 import { TABS, href, tabIndex, type Route } from './route';
@@ -12,9 +12,15 @@ const MORE = ITEMS.length - 1;
 const SWITCH_MS = 860;
 /** The circle first grows out of the bar as the opening pull-back is landing. */
 const FIRST_DELAY = 620;
+/**
+ * Where in a switch the tab's own animation starts: the circle is out of the bar by now and nearly
+ * full size, so the whole of it is seen.
+ */
+const PLAY_AT = 0.7;
+/** The icon in the bar stays until the new circle is about to appear, so the place is never empty. */
+const ICON_LEAVES_AT = 0.4;
 
-const glyph = (i: number, open: boolean, size: number) =>
-  i === 0 ? <Mark size={size + 2} /> : <Icon name={i === MORE && open ? 'close' : ITEMS[i].icon} size={size} stroke={1.9} />;
+const glyph = (i: number, size: number) => (i === 0 ? <Mark size={size + 2} /> : <Icon name={ITEMS[i].icon} size={size} stroke={1.9} />);
 
 /**
  * Tab bar from the reference video on frosted glass. The active item is a circle raised out of a
@@ -36,8 +42,9 @@ export function Nav({ route }: { route: Route }) {
   const circle = useRef<HTMLDivElement>(null);
   const icons = useRef<(HTMLElement | null)[]>([]);
 
-  const anim = useRef({ from: null as number | null, to: active, t: 0.3, width: 0, raf: 0 });
+  const anim = useRef({ from: null as number | null, to: active, t: 0.3, width: 0, raf: 0, played: false });
   const [inCircle, setInCircle] = useState(active);
+  const [run, setRun] = useState(false);
 
   const draw = useCallback(() => {
     const s = anim.current;
@@ -57,21 +64,22 @@ export function Nav({ route }: { route: Route }) {
     c.style.transform = `translate(${f.circle.x - CIRCLE_R}px, ${f.circle.y - CIRCLE_R}px) scale(${f.circle.scale})`;
     c.style.opacity = String(f.circle.opacity);
 
-    // A bar icon steps aside as the circle takes its place, and comes back once it has left.
     icons.current.forEach((icon, i) => {
-      const hidden = (i === s.to && s.t > 0.1) || (i === s.from && s.t < 0.34);
+      const hidden = (i === s.to && s.t > ICON_LEAVES_AT) || (i === s.from && s.t < 0.34);
       icon?.classList.toggle('is-away', hidden);
     });
-    const shown = f.circle.which === 'from' ? s.from! : s.to;
-    setInCircle(shown);
+    setInCircle(f.circle.which === 'from' ? s.from! : s.to);
+    if (!s.played && s.t >= PLAY_AT) {
+      s.played = true;
+      setRun(true);
+    }
   }, []);
 
-  const run = useCallback(
+  const start = useCallback(
     (delay: number) => {
       const s = anim.current;
       cancelAnimationFrame(s.raf);
-      const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (calm) {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
         s.t = 1;
         draw();
         return;
@@ -91,21 +99,20 @@ export function Nav({ route }: { route: Route }) {
   useEffect(() => {
     const s = anim.current;
     const node = root.current!;
-    const ro = new ResizeObserver(() => {
+    const size = () => {
       s.width = node.clientWidth;
       svg.current!.setAttribute('viewBox', `0 0 ${s.width} ${FULL_H}`);
       draw();
-    });
+    };
+    const ro = new ResizeObserver(size);
     ro.observe(node);
-    s.width = node.clientWidth;
-    svg.current!.setAttribute('viewBox', `0 0 ${s.width} ${FULL_H}`);
-    draw();
-    run(FIRST_DELAY);
+    size();
+    start(FIRST_DELAY);
     return () => {
       ro.disconnect();
       cancelAnimationFrame(s.raf);
     };
-  }, [draw, run]);
+  }, [draw, start]);
 
   useEffect(() => {
     const s = anim.current;
@@ -113,8 +120,10 @@ export function Nav({ route }: { route: Route }) {
     s.from = s.to;
     s.to = active;
     s.t = 0;
-    run(0);
-  }, [active, run]);
+    s.played = false;
+    setRun(false);
+    start(0);
+  }, [active, start]);
 
   return (
     <Recede from={1.7} delay={0.08} solid className="lnav-wrap">
@@ -136,18 +145,7 @@ export function Nav({ route }: { route: Route }) {
         </svg>
 
         <div ref={circle} className="lnav-circle" aria-hidden="true">
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={`${inCircle}${inCircle === MORE && moreOpen ? 'x' : ''}`}
-              className="lnav-circle-icon"
-              initial={{ scale: 0.3, opacity: 0, rotate: -40 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              exit={{ scale: 0.3, opacity: 0, rotate: 40 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-            >
-              {glyph(inCircle, moreOpen, 22)}
-            </motion.span>
-          </AnimatePresence>
+          <NavGlyph key={inCircle} index={inCircle} run={run && inCircle === anim.current.to} size={22} />
         </div>
 
         <div className="lnav-tabs">
@@ -160,29 +158,15 @@ export function Nav({ route }: { route: Route }) {
                 }}
                 className="lnav-icon"
               >
-                {glyph(i, false, 23)}
+                {glyph(i, 23)}
               </span>
             );
             return i === MORE ? (
-              <button
-                key={item.key}
-                type="button"
-                className={`lnav-tab${on ? ' is-on' : ''}`}
-                aria-label={moreOpen ? 'Закрыть' : 'Ещё разделы'}
-                aria-expanded={moreOpen}
-                onClick={() => toggleSheet('more')}
-              >
+              <button key={item.key} type="button" className={`lnav-tab${on ? ' is-on' : ''}`} aria-label={moreOpen ? 'Закрыть' : 'Ещё разделы'} aria-expanded={moreOpen} onClick={() => toggleSheet('more')}>
                 {inner}
               </button>
             ) : (
-              <a
-                key={item.key}
-                href={href(TABS[i].id)}
-                className={`lnav-tab${on ? ' is-on' : ''}`}
-                aria-label={item.label}
-                aria-current={on ? 'page' : undefined}
-                onClick={closeSheet}
-              >
+              <a key={item.key} href={href(TABS[i].id)} className={`lnav-tab${on ? ' is-on' : ''}`} aria-label={item.label} aria-current={on ? 'page' : undefined} onClick={closeSheet}>
                 {inner}
               </a>
             );

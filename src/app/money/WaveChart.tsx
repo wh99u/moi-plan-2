@@ -16,6 +16,9 @@ const TOP = 34;
 const BOTTOM = 18;
 /** How long a chosen point stays marked after the finger is gone. */
 const PICK_MS = 3500;
+/** Seconds between two runs of the glint along the line. */
+const GLINT_EVERY = 7;
+const GLINT_RUN = 2.2;
 
 const norm = (values: number[]) => {
   const min = Math.min(...values);
@@ -37,7 +40,8 @@ export interface ChartPalette {
   head: string;
   /** The thin line from a chosen point to the axis. */
   pick: string;
-  soft: string;
+  /** The soft light that drifts under the line. */
+  light: string;
 }
 
 const BRAND_RED: ChartPalette = {
@@ -47,7 +51,7 @@ const BRAND_RED: ChartPalette = {
   headGlow: 'rgba(255, 150, 165, 0.45)',
   head: '#fff',
   pick: 'rgba(255, 255, 255, 0.55)',
-  soft: 'rgba(255, 77, 102, 0.2)',
+  light: 'rgba(255, 110, 130, 0.3)',
 };
 
 interface Props {
@@ -60,8 +64,8 @@ interface Props {
 }
 
 /**
- * One glowing line that holds still, and two softer waves that roll inside the area under it in
- * opposite directions. Canvas keeps this cheap on a phone, and it rests while off screen.
+ * One glowing line that holds still. Under it a soft light drifts from side to side, and now and
+ * then a glint runs along the line. Canvas keeps this cheap on a phone, and it rests while off screen.
  */
 export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -72,9 +76,6 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
   const live = useRef({
     target: new Float32Array(SAMPLES),
     cur: new Float32Array(SAMPLES),
-    // A much softer copy of the line, for the waves under it.
-    softTarget: new Float32Array(SAMPLES),
-    soft: new Float32Array(SAMPLES),
     w: 0,
     picked: null as number | null,
     count: 0,
@@ -104,12 +105,8 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
     const s = sampleCurve(norm(points.map((p) => p.value)), SAMPLES);
     const l = live.current;
     l.target.set(blurCurve(s, 2));
-    l.softTarget.set(blurCurve(s, 11));
     l.count = points.length;
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      l.cur.set(l.target);
-      l.soft.set(l.softTarget);
-    }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) l.cur.set(l.target);
     l.wake();
     // `key` stands for the values
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,57 +142,54 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
       ctx.clearRect(0, 0, width, H);
       const span = width - PAD_LEFT - PAD_RIGHT;
       const xAt = (i: number) => PAD_LEFT + (i / (SAMPLES - 1)) * span;
-      const base = (i: number) => yOf(l.cur[i]);
-      const wave = (x: number, length: number, speed: number, amp: number) => amp * Math.sin((x / length) * Math.PI * 2 + time * speed);
-      const trace = (y: (i: number) => number) => {
+      const lineY = (i: number) => yOf(l.cur[i]);
+      // Between two samples, so the head glides instead of stepping.
+      const yAt = (f: number) => {
+        const a = Math.min(SAMPLES - 1, Math.floor(f));
+        const b = Math.min(SAMPLES - 1, a + 1);
+        return lineY(a) + (lineY(b) - lineY(a)) * (f - a);
+      };
+      const trace = (from = 0, to = SAMPLES - 1) => {
         ctx.beginPath();
-        for (let i = 0; i < SAMPLES; i++) {
-          if (i) ctx.lineTo(xAt(i), y(i));
-          else ctx.moveTo(xAt(i), y(i));
+        for (let i = from; i <= to; i++) {
+          if (i > from) ctx.lineTo(xAt(i), lineY(i));
+          else ctx.moveTo(xAt(i), lineY(i));
         }
       };
-      const close = () => {
-        ctx.lineTo(xAt(SAMPLES - 1), H);
-        ctx.lineTo(xAt(0), H);
-        ctx.closePath();
-      };
+      const pal = l.palette;
+      // The line ends exactly where its head is, so the head leads it and never falls behind.
+      const headF = (SAMPLES - 1) * reveal;
+      const headX = PAD_LEFT + span * reveal;
 
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, 0, PAD_LEFT + span * reveal + 16, H);
+      ctx.rect(0, 0, headX, H);
       ctx.clip();
 
-      // Two waves underneath, rolling their own ways; brighter on the right, as the line is.
-      const soft = (i: number) => yOf(l.soft[i]);
-      const pal = l.palette;
-      const rise = ctx.createLinearGradient(PAD_LEFT, H, width, TOP);
-      rise.addColorStop(0, pal.fill[0]);
-      rise.addColorStop(1, pal.soft);
-      ctx.fillStyle = rise;
-      // They stay under the line: the area below it is all they can draw on.
       ctx.save();
-      trace(base);
-      close();
+      trace();
+      ctx.lineTo(xAt(SAMPLES - 1), H);
+      ctx.lineTo(xAt(0), H);
+      ctx.closePath();
       ctx.clip();
-      trace((i) => Math.min(H, soft(i) + 30 + wave(xAt(i), 170, 0.9, 7)));
-      close();
-      ctx.fill();
-      trace((i) => Math.min(H, soft(i) + 14 + wave(xAt(i), 115, -1.2, 5.5)));
-      close();
-      ctx.fill();
-      ctx.restore();
 
-      const lineY = base;
       const fill = ctx.createLinearGradient(PAD_LEFT, H, width, TOP);
       fill.addColorStop(0, pal.fill[0]);
       fill.addColorStop(0.55, pal.fill[1]);
       fill.addColorStop(1, pal.fill[2]);
-      trace(lineY);
-      close();
       ctx.fillStyle = fill;
-      ctx.fill();
+      ctx.fillRect(0, 0, width, H);
 
-      // Everything under the line melts into the dark panel towards the bottom.
+      // A soft light wandering from side to side under the line.
+      const lightX = width * (0.5 + 0.42 * Math.sin(time * 0.38));
+      const light = ctx.createRadialGradient(lightX, H * 0.5, 0, lightX, H * 0.5, width * 0.34);
+      light.addColorStop(0, pal.light);
+      light.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = light;
+      ctx.fillRect(0, 0, width, H);
+      ctx.restore();
+
+      // Everything under the line melts into the panel towards the bottom.
       const melt = ctx.createLinearGradient(0, H * 0.45, 0, H);
       melt.addColorStop(0, 'rgba(0, 0, 0, 0)');
       melt.addColorStop(1, 'rgba(0, 0, 0, 1)');
@@ -217,19 +211,33 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
         [5, 0.2],
         [2, 1],
       ]) {
-        trace(lineY);
+        trace();
         ctx.lineWidth = lw;
         ctx.globalAlpha = alpha;
         ctx.stroke();
+      }
+
+      // A short glint running along the line, left to right, every few seconds.
+      const phase = (time % GLINT_EVERY) / GLINT_RUN;
+      if (phase < 1) {
+        const at = phase * (SAMPLES + 14) - 7;
+        ctx.strokeStyle = pal.head;
+        ctx.lineWidth = 3;
+        for (let k = 0; k < 14; k++) {
+          const i = Math.round(at) - 7 + k;
+          if (i < 0 || i >= SAMPLES - 1) continue;
+          ctx.globalAlpha = Math.sin((k / 13) * Math.PI) * 0.85;
+          trace(i, i + 1);
+          ctx.stroke();
+        }
       }
       ctx.globalAlpha = 1;
       ctx.restore();
 
       // The head of the line, breathing; or the point the finger is on.
-      const headI = Math.round((SAMPLES - 1) * reveal);
-      const at = l.picked !== null && l.count > 1 ? Math.round((l.picked / (l.count - 1)) * (SAMPLES - 1)) : headI;
-      const hx = xAt(at);
-      const hy = lineY(at);
+      const f = l.picked !== null && l.count > 1 ? (l.picked / (l.count - 1)) * (SAMPLES - 1) : headF;
+      const hx = PAD_LEFT + (f / (SAMPLES - 1)) * span;
+      const hy = yAt(f);
       if (l.picked !== null) {
         const fall = ctx.createLinearGradient(0, hy, 0, H);
         fall.addColorStop(0, pal.pick);
@@ -259,15 +267,11 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
         last = now;
         // The line starts flat along the bottom, so its first move is a rising swell.
         l.cur.fill(0.08);
-        l.soft.fill(0.08);
       }
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const flow = 1 - Math.exp(-dt * 5);
-      for (let i = 0; i < SAMPLES; i++) {
-        l.cur[i] += (l.target[i] - l.cur[i]) * flow;
-        l.soft[i] += (l.softTarget[i] - l.soft[i]) * flow;
-      }
+      for (let i = 0; i < SAMPLES; i++) l.cur[i] += (l.target[i] - l.cur[i]) * flow;
       const since = (now - first) / 1000 - delay;
       const p = Math.max(0, Math.min(1, since / 1.25));
       const reveal = 1 - (1 - p) ** 3;
@@ -277,7 +281,6 @@ export function WaveChart({ points, palette = BRAND_RED, delay, format, onPick }
 
     const paintStill = () => {
       l.cur.set(l.target);
-      l.soft.set(l.softTarget);
       draw(0, 1);
     };
     const wake = () => {

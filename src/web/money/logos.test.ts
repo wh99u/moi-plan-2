@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { logoDomain, logoSources, monogram } from './logos';
+import { logoDomain, logoSources, monogram, suggestTitles } from './logos';
 
 describe('logoDomain', () => {
   it.each([
@@ -26,6 +26,42 @@ describe('logoDomain', () => {
     expect(logoDomain('Рулет к чаю')).toBeNull();
     expect(logoDomain('Изолента')).toBeNull();
     expect(logoDomain('Рынок')).toBeNull();
+  });
+});
+
+describe('suggestTitles', () => {
+  it('finds a brand by the start of its name, with or without «ё»', () => {
+    expect(suggestTitles('пятё', [])[0]).toEqual({ title: 'Пятёрочка', cat: 'Еда' });
+    expect(suggestTitles('пяте', [])[0].title).toBe('Пятёрочка');
+    expect(suggestTitles('ПЯТ', [])[0].title).toBe('Пятёрочка');
+  });
+
+  it('finds a brand by its other spelling', () => {
+    expect(suggestTitles('спот', [])[0].title).toBe('Spotify');
+    expect(suggestTitles('spot', [])[0].title).toBe('Spotify');
+  });
+
+  it('puts the owner’s own purchases first and uses their category', () => {
+    const past = [{ title: 'Пятёрочка у дома', cat: 'Продукты' }, { title: 'Рынок' }];
+    expect(suggestTitles('пят', past)[0]).toEqual({ title: 'Пятёрочка у дома', cat: 'Продукты' });
+    expect(suggestTitles('рын', past)).toEqual([{ title: 'Рынок' }]);
+  });
+
+  it('matches any word of a name, not its middle', () => {
+    expect(suggestTitles('вкусв', []).map((s) => s.title)).toContain('ВкусВилл');
+    expect(suggestTitles('точка', []).map((s) => s.title)).toContain('Вкусно — и точка');
+    expect(suggestTitles('ерочка', [])).toEqual([]);
+  });
+
+  it('stays quiet until there is something to go on, and after the name is complete', () => {
+    expect(suggestTitles('п', [])).toEqual([]);
+    expect(suggestTitles('Пятёрочка', [])).toEqual([]);
+  });
+
+  it('never repeats a name and respects the limit', () => {
+    const past = [{ title: 'Spotify' }, { title: 'spotify' }];
+    expect(suggestTitles('spo', past)).toEqual([{ title: 'Spotify' }]);
+    expect(suggestTitles('ма', [], 2)).toHaveLength(2);
   });
 });
 

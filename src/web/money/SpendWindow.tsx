@@ -7,6 +7,7 @@ import { actions, useStore } from '../../lib/appStore';
 import { visible } from '../../lib/records';
 import type { Spend } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
+import { catIcon } from './categories';
 import { cardLabel, fullDate } from './data';
 import { Logo } from './Logo';
 
@@ -49,6 +50,18 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
                 <Icon name="close" size={18} />
               </motion.button>
             </header>
+
+            {(spend.cat || spend.note) && (
+              <div className="p-about">
+                {spend.cat && (
+                  <span className="p-cat">
+                    <Icon name={catIcon(spend.cat)} size={15} />
+                    {spend.cat}
+                  </span>
+                )}
+                {spend.note && <p>{spend.note}</p>}
+              </div>
+            )}
 
             {items.length > 0 && (
               <ul className="p-items">

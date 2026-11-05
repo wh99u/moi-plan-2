@@ -19,7 +19,7 @@ export interface ReminderInput {
   due: DueSub[];
 }
 
-/** What is worth saying right now, most urgent first; a tip for the hour when nothing is. */
+/** Everything worth saying right now: what is urgent first, then a tip for the hour, then everyday ones. */
 export function buildReminders({ hour, open, late, tomorrow, due }: ReminderInput): string[] {
   const out: string[] = [];
   for (const d of due.slice(0, 2)) {
@@ -32,10 +32,41 @@ export function buildReminders({ hour, open, late, tomorrow, due }: ReminderInpu
   const fresh = open.filter((t) => !late.includes(t));
   if (fresh.length) out.push(`Не забудь: ${fresh[0].title}`);
   if (tomorrow.length) out.push(`Завтра: ${tomorrow[0].title}${tomorrow.length > 1 ? ` и ещё ${tomorrow.length - 1}` : ''}`);
-  if (out.length) return out;
 
-  if (hour >= 23 || hour < 5) return ['Хороший сон — половина завтрашних дел'];
-  if (hour < 12) return ['Запиши три главных дела, остальное подождёт'];
-  if (hour < 18) return ['Сделай паузу: вода и пара минут без телефона'];
-  return ['Что сегодня получилось? Перенеси остальное на завтра'];
+  const forHour =
+    hour >= 23 || hour < 5
+      ? 'Хороший сон — половина завтрашних дел'
+      : hour < 12
+        ? 'Запиши три главных дела, остальное подождёт'
+        : hour < 18
+          ? 'Сделай паузу: вода и пара минут без телефона'
+          : 'Что сегодня получилось? Перенеси остальное на завтра';
+  return [...out, forHour, ...EVERYDAY];
+}
+
+/** Small things that are always true, so the line has something new to say on every visit. */
+const EVERYDAY = [
+  'Выпей стакан воды',
+  'Разомни плечи и спину',
+  'Проветри комнату',
+  'Запиши сегодняшние покупки, пока помнишь',
+  'Посмотри, что запланировано на завтра',
+  'Напиши тому, кому давно собирался',
+  'Убери одну мелочь, которая давно мешает',
+  'Отложи телефон на пять минут',
+];
+
+const TURN_KEY = 'reminder_turn';
+
+/** A number that grows with every look at the home screen, across visits too. */
+export function nextReminderTurn() {
+  let turn = Math.floor(Math.random() * 1000);
+  try {
+    const saved = Number(localStorage.getItem(TURN_KEY));
+    if (saved) turn = saved + 1;
+    localStorage.setItem(TURN_KEY, String(turn));
+  } catch {
+    /* private mode: the random start still gives a different line */
+  }
+  return turn;
 }

@@ -4,13 +4,13 @@ import { GOOGLE_CLIENT_ID, renderGoogleButton } from '../app/google';
 import { setProfile, useProfile } from '../app/profile';
 import { closeSheet, useSheet } from '../app/sheet';
 import { setThemePref, useTheme, type ThemePref } from '../app/theme';
-import { Segmented } from '../app/ui/Segmented';
 import { Sheet } from '../app/ui/Sheet';
 import { actions } from '../lib/appStore';
 import { addDays, dayKey } from '../lib/dates';
 import { Icon } from '../ui/Icon';
 import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
+import { Seg } from './Seg';
 import { pulseWave } from './Wave';
 
 export function Sheets() {
@@ -94,14 +94,14 @@ function TaskForm() {
         maxLength={120}
         enterKeyHint="done"
       />
-      <Segmented
+      <Seg
         value={when}
         onChange={setWhen}
         options={[
           { id: 'today', label: 'Сегодня' },
           { id: 'tomorrow', label: 'Завтра' },
         ]}
-        name="when"
+        label="Когда"
       />
       <motion.button type="submit" className="primary-btn" disabled={!title.trim()} whileTap={{ scale: 0.96 }}>
         Добавить
@@ -143,7 +143,7 @@ function ProfileForm() {
         </div>
       )}
       <span className="form-label">Тема</span>
-      <Segmented
+      <Seg
         value={pref}
         onChange={(p: ThemePref) => setThemePref(p)}
         options={[
@@ -151,7 +151,7 @@ function ProfileForm() {
           { id: 'light', label: 'Светлая' },
           { id: 'dark', label: 'Тёмная' },
         ]}
-        name="theme"
+        label="Тема"
       />
       <motion.button type="submit" className="primary-btn" whileTap={{ scale: 0.96 }}>
         Сохранить

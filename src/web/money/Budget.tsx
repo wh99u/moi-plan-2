@@ -6,7 +6,6 @@ import { setNotice, useNotice } from '../../app/money/auto';
 import { formatMoney, loadRate, setCurrency, useCurrency, type Cur } from '../../app/money/currency';
 import { WaveChart, type ChartPalette } from '../../app/money/WaveChart';
 import { openSheet } from '../../app/sheet';
-import { Segmented } from '../../app/ui/Segmented';
 import { EASE, MorphText } from '../../app/ui/text';
 import { actions, appStore, useStore } from '../../lib/appStore';
 import { visible } from '../../lib/records';
@@ -14,6 +13,7 @@ import type { Spend } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
+import { Seg } from '../Seg';
 import { byDay, cardLabel, cardViews, dayTitle, incomeSeries, incomeTitle, incomeTotals, missingCards, type Span } from './data';
 import { Logo } from './Logo';
 import { SpendWindow } from './SpendWindow';
@@ -26,7 +26,7 @@ const PALETTE: ChartPalette = {
   headGlow: 'rgba(220, 238, 255, 0.55)',
   head: '#fff',
   pick: 'rgba(255, 255, 255, 0.6)',
-  soft: 'rgba(170, 215, 255, 0.3)',
+  light: 'rgba(190, 228, 255, 0.34)',
 };
 
 /** How many purchases appear at first, and how many more each tap brings. */
@@ -94,32 +94,32 @@ function TopPanel() {
 
   return (
     <Recede from={1.9} panel className={`b-top${smear ? ' is-smearing' : ''}`}>
-      <div className="b-head">
-        <button type="button" className="b-total" aria-expanded={cardsOpen} onClick={() => setCardsOpen(!cardsOpen)}>
-          <span className="b-label">
-            Общий бюджет
-            <motion.span className="b-chev" animate={{ rotate: cardsOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 380, damping: 26 }}>
-              <Icon name="down" size={15} stroke={2.2} />
-            </motion.span>
-          </span>
-          <span className="b-sum">
-            <Amt rub={total} delay={0.25} />
-          </span>
-        </button>
-        <div className="b-cur">
-          <Segmented
-            value={cur}
-            onChange={switchCurrency}
-            options={[
-              { id: 'RUB', label: '₽' },
-              { id: 'USD', label: '$' },
-            ]}
-            name="budget-cur"
-          />
-        </div>
+      <div className="b-cur">
+        <Seg
+          value={cur}
+          onChange={switchCurrency}
+          options={[
+            { id: 'RUB', label: '₽' },
+            { id: 'USD', label: '$' },
+          ]}
+          label="Валюта"
+        />
       </div>
-      {noRate && <p className="b-note">Курс не загрузился. Проверь интернет и попробуй снова</p>}
-      {cur === 'USD' && rate && <p className="b-note">1 $ = {rate.value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽ по курсу ЦБ</p>}
+      <button type="button" className="b-total" aria-expanded={cardsOpen} onClick={() => setCardsOpen(!cardsOpen)}>
+        <span className="b-label">
+          Общий бюджет
+          <motion.span className="b-chev" animate={{ rotate: cardsOpen ? 180 : 0 }} transition={{ type: 'spring', stiffness: 380, damping: 26 }}>
+            <Icon name="down" size={15} stroke={2.2} />
+          </motion.span>
+        </span>
+        <span className="b-sum">
+          <Amt rub={total} delay={0.25} />
+        </span>
+      </button>
+      {/* One line in height: without it the whole panel would jump when the note comes and goes. */}
+      <p className="b-note" aria-live="polite">
+        {noRate ? 'Курс не загрузился. Проверь интернет и попробуй снова' : cur === 'USD' && rate ? `1 $ = ${rate.value.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽ по курсу ЦБ` : ' '}
+      </p>
 
       <AnimatePresence initial={false}>
         {cardsOpen && (
@@ -144,10 +144,10 @@ function TopPanel() {
       </AnimatePresence>
 
       <div className="b-income">
-        <div>
-          <p className="b-label">
-            <MorphText text={incomeTitle(span, now)} delay={0.1} />
-          </p>
+        <p className="b-label">
+          <MorphText text={incomeTitle(span, now)} delay={0.1} />
+        </p>
+        <div className="b-income-row">
           <AnimatePresence mode="wait" initial={false}>
             <motion.p
               key={span}
@@ -160,38 +160,38 @@ function TopPanel() {
               {formatMoney(sum, cur, rate)}
             </motion.p>
           </AnimatePresence>
+          <AnimatePresence mode="wait" initial={false}>
+            {change !== null && (
+              <motion.span
+                key={`${span}${change}`}
+                className={`b-change${change < 0 ? ' is-down' : ''}`}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.28, ease: EASE }}
+              >
+                <span style={{ display: 'grid', rotate: change < 0 ? '90deg' : '-90deg' }}>
+                  <Icon name="arrowRight" size={13} stroke={2.4} />
+                </span>
+                {Math.abs(change)}%
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
-        <AnimatePresence mode="wait" initial={false}>
-          {change !== null && (
-            <motion.span
-              key={`${span}${change}`}
-              className={`b-change${change < 0 ? ' is-down' : ''}`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.28, ease: EASE }}
-            >
-              <span style={{ display: 'grid', rotate: change < 0 ? '90deg' : '-90deg' }}>
-                <Icon name="arrowRight" size={13} stroke={2.4} />
-              </span>
-              {Math.abs(change)}%
-            </motion.span>
-          )}
-        </AnimatePresence>
       </div>
 
       <WaveChart points={points} palette={PALETTE} delay={0.35} format={(v) => formatMoney(v, cur, rate)} />
       {!sum && <p className="b-chart-empty">Доходов за это время нет</p>}
 
       <div className="b-span">
-        <Segmented
+        <Seg
           value={span}
           onChange={setSpan}
           options={[
             { id: 'days', label: 'По дням' },
             { id: 'months', label: 'По месяцам' },
           ]}
-          name="budget-span"
+          label="Период"
         />
       </div>
     </Recede>
@@ -235,9 +235,9 @@ function Purchases({ spends, openedId, onOpen }: { spends: Spend[]; openedId: st
   let row = 0;
 
   return (
-    <Recede from={1.35} delay={0.14} panel className="glass b-list">
+    <Recede from={1.35} delay={0.14} panel className="b-list">
       <h2>Покупки</h2>
-      {!spends.length && <p className="b-empty">Здесь появятся покупки. Отсканируй чек или добавь покупку вручную</p>}
+      {!spends.length && <p className="b-empty">Здесь появятся ваши покупки</p>}
       {part.map((g) => (
         <section key={g.day}>
           <h3>{dayTitle(g.day, now)}</h3>
@@ -261,7 +261,7 @@ function SpendRow({ spend, card, index, hidden, onOpen }: { spend: Spend; card?:
   const { cur, rate } = useCurrency();
   const title = spend.title || 'Покупка';
   const count = spend.items?.length ?? 0;
-  const details = [count ? `${count} ${plural(count, ['позиция', 'позиции', 'позиций'])}` : null, card].filter(Boolean).join(', ');
+  const details = [spend.cat, count ? `${count} ${plural(count, ['позиция', 'позиции', 'позиций'])}` : null, card].filter(Boolean).join(', ');
 
   return (
     <motion.li

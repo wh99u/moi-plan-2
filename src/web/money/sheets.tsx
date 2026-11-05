@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { pickReceipt, scanReceipt, type ScanStage } from '../../app/money/scan';
 import { closeSheet, useSheet, useSheetData } from '../../app/sheet';
 import { Sheet } from '../../app/ui/Sheet';
@@ -10,8 +10,10 @@ import { visible } from '../../lib/records';
 import type { SpendItem } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { pulseWave } from '../Wave';
+import { allCats, catIcon, existingCat } from './categories';
 import { cardViews, fullDate, parseAmount, type CardView } from './data';
 import { Logo } from './Logo';
+import { brandOf, suggestTitles, type Suggestion } from './logos';
 
 export function MoneySheets() {
   const open = useSheet();
@@ -48,11 +50,65 @@ function CardPick({ cards, value, onChange }: { cards: CardView[]; value?: strin
         (c) =>
           c.id && (
             <button key={c.code} type="button" role="radio" aria-checked={value === c.id} className="card-chip" onClick={() => onChange(c.id!)}>
-              {value === c.id && <motion.span layoutId="card-chip-pill" className="card-chip-pill" transition={{ type: 'spring', stiffness: 460, damping: 36 }} />}
               <Logo title={c.label} domain={c.domain} size={24} />
               <span>{c.label}</span>
             </button>
           ),
+      )}
+    </div>
+  );
+}
+
+/** Built-in categories and the owner's own in one row; a new one is typed once and stays for next time. */
+function CatPick({ value, onChange }: { value: string; onChange: (cat: string) => void }) {
+  const custom = useStore((s) => s.personal.settings.spendCats);
+  const spends = visible(useStore((s) => s.shared.spends));
+  const cats = allCats(custom, spends.map((s) => s.cat));
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const add = () => {
+    const name = draft.trim();
+    setAdding(false);
+    setDraft('');
+    if (!name) return;
+    const known = existingCat(cats, name);
+    if (!known) actions.setSettings({ spendCats: [...(custom ?? []), name] });
+    onChange(known ?? name);
+  };
+
+  return (
+    <div className="cat-pick" role="radiogroup" aria-label="Категория">
+      {cats.map((c) => (
+        // A second tap takes the category off: it is not required.
+        <button key={c} type="button" role="radio" aria-checked={value === c} className="cat-chip" onClick={() => onChange(value === c ? '' : c)}>
+          <Icon name={catIcon(c)} size={16} />
+          {c}
+        </button>
+      ))}
+      {adding ? (
+        <input
+          className="cat-input"
+          autoFocus
+          value={draft}
+          maxLength={24}
+          placeholder="Своя категория"
+          aria-label="Название новой категории"
+          enterKeyHint="done"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={add}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+      ) : (
+        <button type="button" className="cat-chip cat-chip--add" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={16} />
+          Своя
+        </button>
       )}
     </div>
   );
@@ -116,11 +172,36 @@ function PurchaseForm() {
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(() => dayKey(new Date()));
   const [items, setItems] = useState<Line[]>([]);
+  const [cat, setCat] = useState('');
+  const [about, setAbout] = useState('');
   const [scan, setScan] = useState<{ stage: ScanStage; share: number } | null>(null);
-  const [note, setNote] = useState('');
+  const [hint, setHint] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [titleFocus, setTitleFocus] = useState(false);
   const amountTouched = useRef(false);
+  // A category picked by hand is not overwritten by what the name suggests.
+  const catTouched = useRef(false);
   const input = useRef<HTMLInputElement>(null);
+
+  const spends = visible(useStore((s) => s.shared.spends));
+  const past = useMemo(
+    () => [...spends].sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt).flatMap((s) => (s.title ? [{ title: s.title, cat: s.cat }] : [])),
+    [spends],
+  );
+  const suggestions = titleFocus ? suggestTitles(title, past) : [];
+
+  const suggestCat = (name?: string) => {
+    if (!catTouched.current) setCat(name ?? '');
+  };
+  const changeTitle = (next: string) => {
+    setTitle(next);
+    suggestCat(past.find((p) => p.title.toLowerCase() === next.trim().toLowerCase())?.cat ?? brandOf(next)?.cat);
+  };
+  const pickTitle = (s: Suggestion) => {
+    setTitle(s.title);
+    suggestCat(s.cat);
+    setTitleFocus(false);
+  };
 
   useEffect(() => {
     // After the sheet has sprung up, so the keyboard does not fight the animation.
@@ -138,13 +219,14 @@ function PurchaseForm() {
       .then((r) => {
         if (gone) return;
         if (r.store) setTitle(r.store);
+        if (r.catName && !catTouched.current) setCat(r.catName);
         if (r.date) setDate(r.date);
         setItems(r.items.map((x) => ({ ...x, key: lineKey++ })));
         if (r.total) setAmount(String(r.total));
-        setNote(r.items.length || r.total ? 'Проверь позиции: распознавание иногда ошибается' : 'На фото не нашлось позиций. Заполни вручную или сними чек ровнее и ближе');
+        setHint(r.items.length || r.total ? 'Проверь позиции: распознавание иногда ошибается' : 'На фото не нашлось позиций. Заполни вручную или сними чек ровнее и ближе');
       })
       .catch(() => {
-        if (!gone) setNote('Не удалось прочитать чек. Заполни вручную или попробуй другое фото');
+        if (!gone) setHint('Не удалось прочитать чек. Заполни вручную или попробуй другое фото');
       })
       .finally(() => {
         if (!gone) setScan(null);
@@ -166,7 +248,17 @@ function PurchaseForm() {
     e.preventDefault();
     if (!bankId || value <= 0) return;
     const clean = items.filter((x) => x.name.trim()).map(({ name, price }) => ({ name, price }));
-    actions.spendFrom(bankId, value, { title: title.trim() || 'Покупка', ...(clean.length ? { items: clean } : {}) }, date);
+    actions.spendFrom(
+      bankId,
+      value,
+      {
+        title: title.trim() || 'Покупка',
+        ...(clean.length ? { items: clean } : {}),
+        ...(cat ? { cat } : {}),
+        ...(about.trim() ? { note: about.trim() } : {}),
+      },
+      date,
+    );
     actions.setSettings({ lastTopUpBankId: bankId });
     pulseWave();
     closeSheet();
@@ -189,8 +281,8 @@ function PurchaseForm() {
 
   return (
     <form className="form" onSubmit={submit}>
-      {note ? (
-        <p className="form-note">{note}</p>
+      {hint ? (
+        <p className="form-note">{hint}</p>
       ) : (
         <button
           type="button"
@@ -204,12 +296,57 @@ function PurchaseForm() {
       )}
       <div className="field-logo">
         <Logo title={title || '?'} size={36} />
-        <input ref={input} className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Где: Пятёрочка, Spotify, plati.ru" aria-label="Название" maxLength={80} />
+        <input
+          ref={input}
+          className="field"
+          value={title}
+          onChange={(e) => {
+            changeTitle(e.target.value);
+            setTitleFocus(true);
+          }}
+          onFocus={() => setTitleFocus(true)}
+          // Later than the tap on a suggestion, which would otherwise vanish under the finger.
+          onBlur={() => setTimeout(() => setTitleFocus(false), 160)}
+          placeholder="Где: Пятёрочка, Spotify, plati.ru"
+          aria-label="Название"
+          autoComplete="off"
+          maxLength={80}
+        />
       </div>
+      <AnimatePresence initial={false}>
+        {suggestions.length > 0 && (
+          <motion.ul
+            className="suggest"
+            aria-label="Подсказки"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: EASE }}
+          >
+            {suggestions.map((s) => (
+              <li key={s.title}>
+                <button type="button" onClick={() => pickTitle(s)}>
+                  <Logo title={s.title} size={28} />
+                  <span>{s.title}</span>
+                  {s.cat && <em>{s.cat}</em>}
+                </button>
+              </li>
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
       <div className="form-two">
         <input className="field" value={amount} onChange={(e) => { amountTouched.current = true; setAmount(e.target.value); }} placeholder="Сумма, ₽" aria-label="Сумма в рублях" inputMode="decimal" />
         <DateField value={date} onChange={setDate} />
       </div>
+      <CatPick
+        value={cat}
+        onChange={(c) => {
+          catTouched.current = true;
+          setCat(c);
+        }}
+      />
+      <input className="field" value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Описание: что и зачем купил" aria-label="Описание" maxLength={140} />
       <CardPick cards={cards} value={bankId} onChange={setBankId} />
 
       {items.length > 0 && (

@@ -97,6 +97,8 @@ export interface Spend extends Rec {
   note?: string;
   /** Where the money went: «Магазин», «Пятёрочка». */
   title?: string;
+  /** What kind of purchase it is, by name: «Еда», «Электроника». */
+  cat?: string;
   /** What exactly was bought; their sum is the amount when present. */
   items?: SpendItem[];
   /** Set when the spend is a paid subscription. */
@@ -138,6 +140,8 @@ export interface Task extends Rec {
 export interface Settings {
   botLink: string;
   lastTopUpBankId?: string;
+  /** Purchase categories the owner added to the built-in ones. */
+  spendCats?: string[];
 }
 
 export interface StateV4 {

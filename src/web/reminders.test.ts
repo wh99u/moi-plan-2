@@ -18,11 +18,18 @@ describe('buildReminders', () => {
 
   it('does not repeat a late task as a fresh one', () => {
     const late = task('Отчёт');
-    expect(buildReminders({ ...none, hour: 10, open: [late], late: [late] })).toHaveLength(1);
+    const out = buildReminders({ ...none, hour: 10, open: [late], late: [late] });
+    expect(out.filter((r) => r.includes('Отчёт'))).toHaveLength(1);
   });
 
   it('counts what is left for tomorrow', () => {
-    expect(buildReminders({ ...none, hour: 10, tomorrow: [task('Врач'), task('Почта')] })).toEqual(['Завтра: Врач и ещё 1']);
+    expect(buildReminders({ ...none, hour: 10, tomorrow: [task('Врач'), task('Почта')] })[0]).toBe('Завтра: Врач и ещё 1');
+  });
+
+  it('always has several things to say, so a new visit can show a new one', () => {
+    const out = buildReminders({ ...none, hour: 10 });
+    expect(new Set(out).size).toBe(out.length);
+    expect(out.length).toBeGreaterThan(5);
   });
 
   it('gives a tip for the hour when the day is empty', () => {

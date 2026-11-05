@@ -66,7 +66,7 @@ void main() {
 const FRAG = `
 precision highp float;
 uniform vec2 uRes;
-uniform float uT, uZoom, uIn, uTheme, uDim, uGlow, uRib;
+uniform float uT, uZoom, uIn, uTheme, uDim, uGlow;
 varying float vCenter, vSlope, vWidth, vOffset, vWidth2, vLobe, vFocus, vY;
 ${NOISE}
 
@@ -77,9 +77,7 @@ void main() {
   vec2 uv = gl_FragCoord.xy / uRes.y;
   uv.y = 1. - uv.y;
 
-  // Fluted glass in front of the light: thin vertical ribs that bend it a little.
-  float rib = fract(uv.x * uRib);
-  float x = (uv.x - vFocus) / uZoom + vFocus + (rib - .5) * .0016;
+  float x = (uv.x - vFocus) / uZoom + vFocus;
   float d = (x - vCenter) / sqrt(1. + vSlope * vSlope);
 
   // Two strands that drift over each other, with streaks running along them like folds of silk.
@@ -103,14 +101,12 @@ void main() {
   dark = mix(dark, vec3(.16, .36, .60), smoothstep(.2, .5, v));
   dark = mix(dark, vec3(.66, .82, .96), smoothstep(.44, .72, v));
   dark = mix(dark, vec3(.975, .988, 1.), smoothstep(.76, .96, v));
-  dark *= 1. + .02 * sin(rib * 6.2832) * (1. - v);
 
   vec3 light = vec3(.925, .953, .99) + vec3(-.05, -.025, 0.) * left * (.5 + .5 * top);
   light = mix(light, vec3(.70, .84, 1.), smoothstep(.0, .24, v));
   light = mix(light, vec3(.24, .56, 1.), smoothstep(.18, .5, v));
   light = mix(light, vec3(.05, .31, .95), smoothstep(.45, .76, v));
   light = mix(light, vec3(.20, .72, 1.), smoothstep(.8, .98, v));
-  light *= 1. + .008 * sin(rib * 6.2832) * (1. - v);
 
   vec3 col = mix(dark, light, uTheme);
   vec3 bg = mix(vec3(.004, .009, .016), vec3(.925, .953, .99), uTheme);
@@ -120,10 +116,33 @@ void main() {
   gl_FragColor = vec4(col, 1.);
 }`;
 
-/** Portrait: the line comes down from the top right and leaves through the left side, above the card. */
 const PORTRAIT = '(max-aspect-ratio: 21/20)';
+
+/** How the line lies: its place across the screen as a share of the width, the rest in screen heights. */
+interface Lie {
+  x: number;
+  amp: number;
+  bulge: number;
+  sweep: number;
+  sweepAt: number;
+  thick: number;
+}
+
+const WIDE: Lie = { x: 0.44, amp: 1, bulge: 0.12, sweep: 0.3, sweepAt: 0.62, thick: 1 };
+/** Portrait: the line comes down from the top right and leaves through the left side, above the card. */
+const TALL: Lie = { x: 0.66, amp: 0.6, bulge: 0.05, sweep: 0.95, sweepAt: 0.04, thick: 0.8 };
+
+/** On the budget it only crosses the lower right corner, out of the way of the numbers. */
+const CORNER_WIDE: Lie = { x: 1.03, amp: 0.55, bulge: 0, sweep: 0.8, sweepAt: 0.42, thick: 0.9 };
+const CORNER_TALL: Lie = { x: 1.12, amp: 0.3, bulge: 0, sweep: 0.42, sweepAt: 0.5, thick: 0.75 };
+
 const DESKTOP_X = [0.44, 0.27, 0.66, 0.16, 0.8];
 const PHONE_X = [0.66, 0.34, 0.82, 0.2, 0.5];
+
+function lieOf(route: Route, tall: boolean): Lie {
+  if (route === 'money') return tall ? CORNER_TALL : CORNER_WIDE;
+  return { ...(tall ? TALL : WIDE), x: (tall ? PHONE_X : DESKTOP_X)[tabIndex(route)] };
+}
 
 /** Length of the opening pull-back, seconds, and how close to the line it starts. */
 const ENTRY = 2.2;
@@ -182,7 +201,7 @@ export function Wave({ route }: { route: Route }) {
     const u = (n: string) => gl.getUniformLocation(program, n);
     const at = {
       res: u('uRes'), t: u('uT'), zoom: u('uZoom'), in: u('uIn'), theme: u('uTheme'), base: u('uBase'), amp: u('uAmp'), bulge: u('uBulge'),
-      sweep: u('uSweep'), sweepAt: u('uSweepAt'), thick: u('uThick'), dim: u('uDim'), glow: u('uGlow'), rib: u('uRib'), ptr: u('uPtr'),
+      sweep: u('uSweep'), sweepAt: u('uSweepAt'), thick: u('uThick'), dim: u('uDim'), glow: u('uGlow'), ptr: u('uPtr'),
     };
 
     const portrait = matchMedia(PORTRAIT);
@@ -192,8 +211,6 @@ export function Wave({ route }: { route: Route }) {
       el.width = Math.round(innerWidth * scale);
       el.height = Math.round(innerHeight * scale);
       gl.viewport(0, 0, el.width, el.height);
-      // Ribs stay about 15 CSS pixels wide on any screen.
-      gl.uniform1f(at.rib, innerHeight / 15);
     };
     resize();
     addEventListener('resize', resize);
@@ -210,7 +227,7 @@ export function Wave({ route }: { route: Route }) {
     let raf = 0;
     let start = 0;
     let last = 0;
-    let base = -1;
+    let lie: Lie | null = null;
     let dim = live.current.route === 'home' ? 0 : 1;
 
     const frame = (ms: number) => {
@@ -220,11 +237,12 @@ export function Wave({ route }: { route: Route }) {
       const dt = Math.min((ms - last) / 1000, 0.05);
       last = ms;
 
-      const tall = portrait.matches;
-      const i = tabIndex(live.current.route);
-      const target = (tall ? PHONE_X : DESKTOP_X)[i];
-      base = base < 0 ? target : base + (target - base) * (1 - Math.exp(-dt * 2.4));
-      dim += ((live.current.route === 'home' ? 0 : 1) - dim) * (1 - Math.exp(-dt * 2.4));
+      const target = lieOf(live.current.route, portrait.matches);
+      // The line glides to where the new section wants it; the first frame starts there.
+      const glide = 1 - Math.exp(-dt * 2.4);
+      if (!lie) lie = { ...target };
+      for (const k of Object.keys(target) as (keyof Lie)[]) lie[k] += (target[k] - lie[k]) * glide;
+      dim += ((live.current.route === 'home' ? 0 : 1) - dim) * glide;
       glow *= Math.exp(-dt * 2.2);
       ptr.x += (ptr.tx - ptr.x) * (1 - Math.exp(-dt * 1.6));
       ptr.y += (ptr.ty - ptr.y) * (1 - Math.exp(-dt * 1.6));
@@ -237,12 +255,12 @@ export function Wave({ route }: { route: Route }) {
       gl.uniform1f(at.zoom, 1 + (ENTRY_ZOOM - 1) * (1 - pull));
       gl.uniform1f(at.in, Math.min(1, age / 0.3));
       gl.uniform1f(at.theme, live.current.theme === 'light' ? 1 : 0);
-      gl.uniform1f(at.base, base);
-      gl.uniform1f(at.amp, tall ? 0.6 : 1);
-      gl.uniform1f(at.bulge, tall ? 0.05 : 0.12);
-      gl.uniform1f(at.sweep, tall ? 0.95 : 0.3);
-      gl.uniform1f(at.sweepAt, tall ? 0.04 : 0.62);
-      gl.uniform1f(at.thick, tall ? 0.8 : 1);
+      gl.uniform1f(at.base, lie.x);
+      gl.uniform1f(at.amp, lie.amp);
+      gl.uniform1f(at.bulge, lie.bulge);
+      gl.uniform1f(at.sweep, lie.sweep);
+      gl.uniform1f(at.sweepAt, lie.sweepAt);
+      gl.uniform1f(at.thick, lie.thick);
       gl.uniform1f(at.dim, dim);
       gl.uniform1f(at.glow, glow);
       gl.uniform3f(at.ptr, ptr.x, ptr.y, ptr.k);

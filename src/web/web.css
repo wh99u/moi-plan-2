@@ -451,7 +451,7 @@ a {
   margin-top: 20px;
   color: var(--ink-3);
 }
-.reminder-bell {
+.reminder-icon {
   display: grid;
   flex: none;
   margin-top: 3px;
@@ -679,7 +679,10 @@ a {
   margin: 0 auto;
   padding-bottom: calc(var(--nav-space) + 8px);
 }
-/* From the very top edge of the screen, rounded only below. Dark blue with white text in either theme. */
+/*
+ * From the very top edge of the screen, rounded only below. Blue glass with white text in either
+ * theme, but a different blue in each: the circular theme change has to be seen passing over it too.
+ */
 .b-top {
   --ink: #fff;
   --ink-2: rgba(255, 255, 255, 0.74);
@@ -691,26 +694,29 @@ a {
   --glass-line: rgba(255, 255, 255, 0.16);
   --sheet: rgba(7, 26, 74, 0.94);
   position: relative;
-  padding: calc(72px + var(--safe-t)) 22px 16px;
+  padding: calc(66px + var(--safe-t)) 22px 16px;
   border-radius: 0 0 38px 38px;
   color: var(--ink);
-  background: radial-gradient(110% 80% at 88% -8%, #2c6fdc 0%, rgba(44, 111, 220, 0) 62%), linear-gradient(168deg, #123c92 0%, #0b2869 52%, #071b4d 100%);
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.14), 0 26px 60px rgba(4, 16, 60, 0.42);
+  background: radial-gradient(110% 80% at 88% -8%, rgba(44, 111, 220, 0.72) 0%, rgba(44, 111, 220, 0) 62%), linear-gradient(168deg, rgba(18, 60, 146, 0.74) 0%, rgba(11, 40, 105, 0.72) 52%, rgba(7, 27, 77, 0.76) 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 26px 60px rgba(4, 16, 60, 0.42);
 }
-.b-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+[data-theme='light'] .b-top {
+  background: radial-gradient(110% 80% at 88% -8%, rgba(70, 150, 255, 0.8) 0%, rgba(70, 150, 255, 0) 62%), linear-gradient(168deg, rgba(26, 92, 224, 0.8) 0%, rgba(18, 70, 190, 0.78) 52%, rgba(12, 52, 150, 0.82) 100%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.3), 0 26px 60px rgba(20, 70, 170, 0.3);
 }
 .b-total {
-  min-width: 0;
-  text-align: left;
-  border-radius: 12px;
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  text-align: center;
+  border-radius: 16px;
 }
 .b-label {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   font-size: 14px;
   color: var(--ink-2);
@@ -721,10 +727,10 @@ a {
 .b-sum {
   display: block;
   margin-top: 2px;
-  font-size: clamp(38px, 11vw, 50px);
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: clamp(50px, 15vw, 66px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
 }
 .b-amt {
   display: inline-flex;
@@ -757,17 +763,20 @@ a {
     transform: scaleX(1);
   }
 }
+/* Level with the theme and profile buttons, on the other side. */
 .b-cur {
-  flex: none;
-  width: 84px;
-  margin-bottom: 6px;
+  position: absolute;
+  left: 16px;
+  top: calc(18px + var(--safe-t));
+  width: 88px;
 }
-.b-cur .segmented-opt {
+.b-cur .seg-opt {
   height: 32px;
 }
 .b-note {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 13px;
+  text-align: center;
   color: var(--ink-2);
 }
 .b-cards {
@@ -810,10 +819,16 @@ a {
   font-feature-settings: 'tnum' 1;
 }
 .b-income {
+  display: grid;
+  justify-items: center;
+  margin-top: 14px;
+  text-align: center;
+}
+.b-income-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 18px;
+  justify-content: center;
+  gap: 8px;
 }
 .b-income-sum {
   font-size: 20px;
@@ -873,7 +888,7 @@ a {
   max-width: 260px;
   margin: 6px auto 0;
 }
-.b-span .segmented-opt {
+.b-span .seg-opt {
   height: 34px;
   font-size: 13px;
 }
@@ -913,14 +928,13 @@ a {
 
 .b-list {
   margin: 0 14px;
-  padding: 20px 10px 12px;
-  border-radius: 34px;
+  padding: 16px 0 12px;
 }
 .b-list h2 {
-  padding: 0 10px;
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  text-align: center;
 }
 .b-list h3 {
   margin: 16px 0 2px;
@@ -930,7 +944,8 @@ a {
   color: var(--ink-2);
 }
 .b-empty {
-  padding: 14px 10px 10px;
+  padding-top: 6px;
+  text-align: center;
   color: var(--ink-2);
 }
 .b-more {
@@ -990,6 +1005,9 @@ a {
   font-weight: 500;
 }
 .p-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   color: var(--ink-2);
 }
@@ -1059,6 +1077,27 @@ a {
 .p-win-title p {
   font-size: 13px;
   color: var(--ink-2);
+}
+.p-about {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-top: 14px;
+}
+.p-about p {
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.p-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  background: var(--fill);
+  font-size: 13px;
+  font-weight: 500;
 }
 .p-items {
   flex: 1;
@@ -1217,7 +1256,6 @@ a {
   gap: 6px;
 }
 .card-chip {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1228,22 +1266,101 @@ a {
   background: var(--fill);
   font-size: 13px;
   font-weight: 500;
+  transition: background 0.25s, box-shadow 0.25s;
 }
 .card-chip > span:last-child {
-  position: relative;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.card-chip .logo {
-  position: relative;
-}
-.card-chip-pill {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
+.card-chip[aria-checked='true'] {
   background: var(--fill-2);
   box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+/* One scrolling row, so a long list of categories does not push the rest of the form away. */
+.cat-pick {
+  display: flex;
+  gap: 6px;
+  margin: 0 -22px;
+  padding: 2px 22px;
+  overflow: auto hidden;
+  scrollbar-width: none;
+}
+.cat-pick::-webkit-scrollbar {
+  display: none;
+}
+.cat-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px 0 11px;
+  border-radius: 19px;
+  background: var(--fill);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.25s, box-shadow 0.25s, transform 0.3s;
+}
+.cat-chip:active {
+  transform: scale(0.94);
+}
+.cat-chip[aria-checked='true'] {
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.cat-chip--add {
+  color: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+  background: none;
+}
+.cat-input {
+  flex: none;
+  width: 160px;
+  height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 19px;
+  outline: 0;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  font-size: 13px;
+}
+.suggest {
+  overflow: hidden;
+  margin-top: -6px;
+}
+.suggest li {
+  padding-top: 4px;
+}
+.suggest button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 14px 6px 10px;
+  border-radius: 20px;
+  background: var(--fill);
+  text-align: left;
+  font-size: 15px;
+  transition: background 0.2s;
+}
+.suggest button:hover {
+  background: var(--fill-2);
+}
+.suggest span:not(.logo) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggest em {
+  flex: none;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--ink-2);
 }
 .edit-items {
   display: grid;
@@ -1400,7 +1517,7 @@ a {
   pointer-events: none;
   will-change: transform;
 }
-.lnav-circle-icon {
+.glyph {
   display: grid;
 }
 /* Five equal slots with half a slot to spare at each end: the same space around every item (navShape.ts). */
@@ -1573,15 +1690,28 @@ a {
 .field::placeholder {
   color: var(--ink-3);
 }
-.segmented {
-  display: flex;
+.seg {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   padding: 4px;
   border-radius: 24px;
   background: var(--fill);
 }
-.segmented-opt {
+.seg-pill {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: calc((100% - 8px) / var(--n));
+  border-radius: 20px;
+  background: var(--fill-2);
+  transform: translateX(calc(var(--i) * 100%));
+  transition: transform 0.42s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+.seg-opt {
   position: relative;
-  flex: 1;
   height: 40px;
   border-radius: 20px;
   font-size: 14px;
@@ -1589,17 +1719,8 @@ a {
   color: var(--ink-2);
   transition: color 0.25s;
 }
-.segmented-opt[aria-checked='true'] {
+.seg-opt[aria-checked='true'] {
   color: var(--ink);
-}
-.segmented-pill {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--fill-2);
-}
-.segmented-label {
-  position: relative;
 }
 .primary-btn {
   height: 56px;

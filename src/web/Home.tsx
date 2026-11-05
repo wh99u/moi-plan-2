@@ -1,10 +1,11 @@
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'motion/react';
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { firstName, greeting, useProfile } from '../app/profile';
 import { openSheet } from '../app/sheet';
 import { EASE, MorphText, RollingText } from '../app/ui/text';
 import { Icon } from '../ui/Icon';
 import { Recede } from './Recede';
+import { nextReminderTurn } from './reminders';
 import { Today, useNow, useToday } from './Today';
 import { pulseWave } from './Wave';
 
@@ -154,26 +155,16 @@ function Greeting() {
   );
 }
 
-/** One small line that takes turns when there is more than one thing to say. */
+/** One small line, a different one each time the home screen comes into view. */
 function Reminder() {
   const { reminders } = useToday();
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (reminders.length < 2) return;
-    const t = setInterval(() => setI((n) => n + 1), 6500);
-    return () => clearInterval(t);
-  }, [reminders.length]);
-  const text = reminders[i % reminders.length];
+  const [turn] = useState(nextReminderTurn);
+  const text = reminders[turn % reminders.length];
 
   return (
     <div className="reminder">
-      <motion.span
-        className="reminder-bell"
-        style={{ transformOrigin: '50% 12%' }}
-        animate={{ rotate: [0, -18, 14, -10, 6, -3, 0] }}
-        transition={{ delay: 1.5, duration: 1.1, ease: 'easeInOut' }}
-      >
-        <Icon name="bell" size={15} stroke={1.9} />
+      <motion.span className="reminder-icon" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5, type: 'spring', stiffness: 380, damping: 20 }}>
+        <Icon name="list" size={15} stroke={2} />
       </motion.span>
       <AnimatePresence mode="wait" initial={false}>
         <motion.p
