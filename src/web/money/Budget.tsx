@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { hued, hueOf, useAccent } from '../../app/accent';
 import { Amt } from '../../app/money/Amt';
-import { setNotice, useNotice } from '../../app/money/auto';
 import { formatMoney, loadRate, setCurrency, useCurrency, type Cur } from '../../app/money/currency';
 import { WaveChart, type ChartPalette } from '../../app/money/WaveChart';
 import { openSheet } from '../../app/sheet';
@@ -59,7 +58,6 @@ export function Budget() {
           <Purchases spends={spends} openedId={opened} onOpen={setOpened} />
         </div>
       </motion.div>
-      <BankNotice />
       {createPortal(
         <AnimatePresence>{open && <SpendWindow key={open.id} spend={open} onClose={() => setOpened(null)} />}</AnimatePresence>,
         document.body,
@@ -349,7 +347,7 @@ function SpendRow({ spend, card, index, hidden, onOpen }: { spend: Spend; card?:
     <motion.li
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
+      // No exit of its own: with the arrival's delay it held the whole page on screen for a second after leaving it.
       transition={{ delay: Math.min(index, 12) * 0.035 + 0.28, duration: 0.6, ease: EASE }}
     >
       <motion.button layoutId={`spend-${spend.id}`} type="button" className="p-row" style={{ borderRadius: 22, visibility: hidden ? 'hidden' : undefined }} onClick={onOpen} whileTap={{ scale: 0.98 }}>
@@ -367,35 +365,5 @@ function SpendRow({ spend, card, index, hidden, onOpen }: { spend: Spend; card?:
         </span>
       </motion.button>
     </motion.li>
-  );
-}
-
-/** What came from a bank's message: the amount, and a way to take it back. */
-function BankNotice() {
-  const notice = useNotice();
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 7000);
-    return () => clearTimeout(t);
-  }, [notice]);
-  return (
-    <AnimatePresence>
-      {notice && (
-        <motion.div className="glass b-notice" role="status" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }} transition={{ type: 'spring', stiffness: 360, damping: 30 }}>
-          <span>{notice.text}</span>
-          {notice.undo && (
-            <button
-              type="button"
-              onClick={() => {
-                notice.undo?.();
-                setNotice(null);
-              }}
-            >
-              Отменить
-            </button>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }

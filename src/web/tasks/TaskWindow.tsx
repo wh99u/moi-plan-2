@@ -13,6 +13,7 @@ import { pulseWave } from '../Wave';
 import { activeGoals } from './goalLogic';
 import { DEFAULT_MINUTES, nextRepeat } from './logic';
 import { blur } from '../../app/ui/device';
+import { useGone } from '../gone';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -82,6 +83,7 @@ const REPEATS: { id: Repeat | 'no'; label: string }[] = [
 /** The line or block grows into this window; all of it is saved as it is typed. */
 export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morph: string; onClose: () => void; onFocus: () => void }) {
   const [sure, setSure] = useState(false);
+  const gone = useGone(morph);
   const [sub, setSub] = useState('');
   const [tag, setTag] = useState('');
   const set = (patch: Partial<Task>) => actions.updateTask(task.id, patch);
@@ -113,7 +115,7 @@ export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morp
       <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
       <div className="p-win-place buy-place" onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="buy-holder task-holder">
-          <motion.div layoutId={morph} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={task.title} transition={MORPH}>
+          <motion.div layoutId={gone.layoutId} exit={gone.exit} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={task.title} transition={MORPH}>
             <motion.div className={`buy-in task-win p${task.priority ?? 0}${task.done ? ' is-done' : ''}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ delay: 0.1, duration: 0.3 }}>
               <button type="button" className="round-btn buy-close" aria-label="Закрыть" onClick={onClose}>
                 <Icon name="close" size={18} />
@@ -215,8 +217,10 @@ export function TaskWindow({ task, morph, onClose, onFocus }: { task: Task; morp
                 className={`p-delete${sure ? ' is-sure' : ''}`}
                 onClick={() => {
                   if (!sure) return setSure(true);
-                  actions.deleteTask(task.id);
-                  onClose();
+                  gone.leave(() => {
+                    actions.deleteTask(task.id);
+                    onClose();
+                  });
                 }}
               >
                 {sure ? 'Точно удалить' : 'Удалить'}

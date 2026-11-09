@@ -11,6 +11,7 @@ import { catIcon } from './categories';
 import { cardLabel, fullDate } from './data';
 import { Logo } from './Logo';
 import { blur } from '../../app/ui/device';
+import { useGone } from '../gone';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -23,6 +24,7 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
   const { cur, rate } = useCurrency();
   const banks = visible(useStore((s) => s.shared.banks));
   const [sure, setSure] = useState(false);
+  const gone = useGone(`spend-${spend.id}`);
   const title = spend.title || 'Покупка';
   const card = cardLabel(banks, spend.bankId);
   const items = spend.items ?? [];
@@ -37,10 +39,10 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
     <>
       <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
       <div className="p-win-place">
-        <motion.div layoutId={`spend-${spend.id}`} className="p-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={title} transition={MORPH}>
+        <motion.div layoutId={gone.layoutId} exit={gone.exit} className="p-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={title} transition={MORPH}>
           <motion.div className="p-win-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ delay: 0.12, duration: 0.3 }}>
             <header className="p-win-head">
-              <motion.span layoutId={`spend-logo-${spend.id}`} className="p-logo" transition={MORPH}>
+              <motion.span layoutId={gone.layoutId && `spend-logo-${spend.id}`} className="p-logo" transition={MORPH}>
                 <Logo title={title} size={52} />
               </motion.span>
               <div className="p-win-title">
@@ -93,8 +95,10 @@ export function SpendWindow({ spend, onClose }: { spend: Spend; onClose: () => v
                   setSure(true);
                   return;
                 }
-                actions.revertSpend(spend.id);
-                onClose();
+                gone.leave(() => {
+                  actions.revertSpend(spend.id);
+                  onClose();
+                });
               }}
             >
               {sure ? (card ? `Удалить и вернуть деньги на ${card}` : 'Точно удалить') : 'Удалить покупку'}

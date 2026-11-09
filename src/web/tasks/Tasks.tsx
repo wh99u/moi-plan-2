@@ -121,9 +121,9 @@ export function Tasks() {
               ]}
             />
           </Recede>
+          {/* No initial={false} here: it would silence every entrance inside, the matrix's among them, on arrival at the screen. */}
           <AnimatePresence
             mode="wait"
-            initial={false}
             onExitComplete={() => {
               if (scroller.current) scroller.current.scrollTop = 0;
             }}
@@ -147,7 +147,7 @@ export function Tasks() {
                     }}
                   />
                   {/* The day comes up over the matrix and goes back down to show it again. */}
-                  <AnimatePresence mode="wait" initial={false}>
+                  <AnimatePresence mode="wait">
                     {day ? (
                       <DayPanel
                         key="day"

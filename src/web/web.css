@@ -1968,7 +1968,48 @@ a {
 }
 .buy-list {
   display: grid;
+}
+/* Space under each row rather than a gap: a deleted row closes its own space as it goes. */
+.buy-list > li {
+  padding-bottom: 8px;
+}
+
+/* ───────── swipe: right «Купил», left «Удалить» ───────── */
+.swipe {
+  position: relative;
+  isolation: isolate;
+}
+.swipe-top {
+  position: relative;
+  z-index: 1;
+}
+.swipe-under {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  pointer-events: none;
+}
+.swipe-under.is-buy {
+  justify-content: flex-start;
+  background: linear-gradient(90deg, #1fa463, #36c47f);
+}
+.swipe-under.is-del {
+  justify-content: flex-end;
+  background: linear-gradient(270deg, #d8324a, #ec5068);
+}
+.swipe-mark {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+}
+.swipe.is-compact .swipe-under {
+  align-items: flex-start;
+  padding: 18px 12px;
 }
 .buy-row {
   display: flex;

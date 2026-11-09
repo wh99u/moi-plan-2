@@ -13,6 +13,7 @@ import { Home } from './Home';
 import { Mark } from './Mark';
 import { Budget } from './money/Budget';
 import { Nav } from './Nav';
+import { Notice } from './Notice';
 import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
 import { Shop } from './shop/Shop';
@@ -86,6 +87,7 @@ export function App() {
       </AnimatePresence>
       <TopBar route={route} />
       <Nav route={route} />
+      <Notice />
       <Sheets />
       <FocusWindow />
     </MotionConfig>

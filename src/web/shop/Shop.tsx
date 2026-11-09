@@ -15,6 +15,8 @@ import { BuyWindow } from './BuyWindow';
 import { Dream, DreamBackdrop, useImage } from './Dream';
 import { autoPicture, takeShopLink, useImporting, wantsPicture } from './importer';
 import { activeBuys, flickReachesDream, isBlankBuy, MAIN_COUNT, splitBuys } from './logic';
+import { buyNow, buysAtOnce, deleteBuyUndoable } from './buyActions';
+import { Swipe } from './Swipe';
 
 /** Which purchase is open, and the thing on screen its window grows out of and returns to. */
 interface Opened {
@@ -104,9 +106,11 @@ export function Shop() {
           <Recede from={2.2} className="mains">
             <h2>Важные покупки</h2>
             <ul className="mains-row">
-              {main.map((b, i) => (
-                <BuyCard key={b.id} buy={b} index={i} morph={`main-${b.id}`} openMorph={opened?.morph} onOpen={setOpened} />
-              ))}
+              <AnimatePresence>
+                {main.map((b, i) => (
+                  <BuyCard key={b.id} buy={b} index={i} morph={`main-${b.id}`} openMorph={opened?.morph} onOpen={setOpened} />
+                ))}
+              </AnimatePresence>
               {Array.from({ length: MAIN_COUNT - main.length }, (_, i) => (
                 <li key={i} className="buy-cell">
                   <motion.button layoutId={`free-${i}`} type="button" className="buy-free" style={{ borderRadius: 24, visibility: opened?.morph === `free-${i}` ? 'hidden' : undefined }} aria-label="Добавить покупку" onClick={() => addNew(`free-${i}`)} whileTap={{ scale: 0.95 }}>
@@ -119,13 +123,13 @@ export function Shop() {
 
           <h2 className="buys-title">Покупки</h2>
           <AddPlus hidden={opened?.morph === PLUS} onAdd={() => addNew(PLUS)} />
-          {rest.length > 0 && (
-            <ul className="buy-list">
+          <ul className="buy-list">
+            <AnimatePresence initial={false}>
               {rest.map((b) => (
                 <BuyRow key={b.id} buy={b} morph={`row-${b.id}`} openMorph={opened?.morph} onOpen={setOpened} />
               ))}
-            </ul>
-          )}
+            </AnimatePresence>
+          </ul>
 
           <button type="button" className="buys-how" onClick={() => openSheet('shopShare')}>
             Добавлять из магазинов через «Поделиться»
@@ -196,9 +200,11 @@ function BuyCard({ buy, index, inView = false, morph, openMorph, onOpen }: CardP
       layout="position"
       initial={{ opacity: 0, y: 26, scale: 0.94 }}
       {...(inView ? { whileInView: show, viewport: { once: true, amount: 0.2 } } : { animate: show })}
+      exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.18 } }}
       transition={{ delay: inView ? 0.04 : 0.2 + index * 0.06, duration: 0.7, ease: EASE }}
       className="buy-cell"
     >
+      <Swipe compact radius={24} buysAtOnce={buysAtOnce(buy)} onBuy={() => buyNow(buy)} onDelete={() => deleteBuyUndoable(buy)}>
       <motion.button layoutId={morph} type="button" className={`buy-card${importing ? ' is-loading' : ''}`} style={{ borderRadius: 24, visibility: openMorph === morph ? 'hidden' : undefined }} onClick={() => onOpen({ id: buy.id, morph })} whileTap={{ scale: 0.97 }}>
         {url ? <img className={`buy-photo${buy.cut ? ' is-cut' : ''}`} src={url} alt="" loading="lazy" /> : <span className="buy-card-empty"><Icon name={icon === 'flag' ? 'bag' : icon} size={36} stroke={1.2} /></span>}
         <span className="buy-card-fog" />
@@ -208,6 +214,7 @@ function BuyCard({ buy, index, inView = false, morph, openMorph, onOpen }: CardP
           {buy.category && <span className="buy-card-cat">{buy.category}</span>}
         </span>
       </motion.button>
+      </Swipe>
     </motion.li>
   );
 }
@@ -220,7 +227,16 @@ function BuyRow({ buy, morph, openMorph, onOpen }: Omit<CardProps, 'index' | 'in
   const icon = catIcon(buy.category ?? '');
 
   return (
-    <motion.li layout="position" initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, ease: EASE }}>
+    <motion.li
+      layout="position"
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      // It has already slid away; the place it leaves closes up.
+      exit={{ height: 0, paddingBottom: 0, opacity: 0, transition: { duration: 0.26, ease: EASE } }}
+      transition={{ duration: 0.5, ease: EASE }}
+    >
+      <Swipe radius={20} buysAtOnce={buysAtOnce(buy)} onBuy={() => buyNow(buy)} onDelete={() => deleteBuyUndoable(buy)}>
       <motion.button layoutId={morph} type="button" className={`glass buy-row${importing ? ' is-loading' : ''}`} style={{ borderRadius: 20, visibility: openMorph === morph ? 'hidden' : undefined }} onClick={() => onOpen({ id: buy.id, morph })} whileTap={{ scale: 0.98 }}>
         <span className="buy-row-pic">{url ? <img className={`buy-photo${buy.cut ? ' is-cut' : ''}`} src={url} alt="" loading="lazy" /> : <Icon name={icon === 'flag' ? 'bag' : icon} size={22} stroke={1.5} />}</span>
         <span className="buy-row-words">
@@ -229,6 +245,7 @@ function BuyRow({ buy, morph, openMorph, onOpen }: Omit<CardProps, 'index' | 'in
         </span>
         {buy.price > 0 && <span className="buy-row-price">{formatMoney(buy.price, cur, rate)}</span>}
       </motion.button>
+      </Swipe>
     </motion.li>
   );
 }

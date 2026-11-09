@@ -12,6 +12,7 @@ import { activeGoals, goalMarks, goalState, leftWords, type GoalState, type Pace
 import { DEFAULT_MINUTES, parseQuick } from './logic';
 import { completeTask } from './TaskWindow';
 import { blur } from '../../app/ui/device';
+import { useGone } from '../gone';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 const PACE: Record<Pace, string> = { ahead: 'С опережением', on: 'По плану', behind: 'Отстаёшь' };
@@ -72,12 +73,12 @@ export function Goals({ goals, tasks, now, opened, onOpen }: { goals: Goal[]; ta
   return (
     <div className="goals">
       <ul>
-        <AnimatePresence initial={false}>
+        <AnimatePresence>
           {active.map((g, i) => {
             const morph = `goal-${g.id}`;
             const state = goalState(g, tasks, now);
             return (
-              <motion.li key={g.id} layout="position" initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }} transition={{ delay: i * 0.06, duration: 0.55, ease: EASE }}>
+              <motion.li key={g.id} layout="position" initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.22, ease: 'easeIn' } }} transition={{ delay: i * 0.06, duration: 0.55, ease: EASE }}>
                 <motion.button layoutId={morph} type="button" className="glass goal-card" style={{ borderRadius: 26, visibility: opened?.morph === morph ? 'hidden' : undefined }} onClick={() => onOpen({ id: g.id, morph })} whileTap={{ scale: 0.98 }}>
                   <span className="goal-head">
                     <strong>{g.title}</strong>
@@ -132,6 +133,7 @@ const TERMS: { label: string; end: (start: string) => string }[] = [
 export function GoalWindow({ goal, tasks, now, morph, onClose, onOpenTask }: { goal: Goal; tasks: Task[]; now: Date; morph: string; onClose: () => void; onOpenTask: (t: Task) => void }) {
   const [sure, setSure] = useState(false);
   const [step, setStep] = useState('');
+  const gone = useGone(morph);
   const set = (patch: Partial<Goal>) => actions.updateGoal(goal.id, patch);
   const state = goalState(goal, tasks, now);
 
@@ -154,7 +156,7 @@ export function GoalWindow({ goal, tasks, now, morph, onClose, onOpenTask }: { g
       <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
       <div className="p-win-place buy-place" onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="buy-holder task-holder">
-          <motion.div layoutId={morph} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={goal.title} transition={MORPH}>
+          <motion.div layoutId={gone.layoutId} exit={gone.exit} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={goal.title} transition={MORPH}>
             <motion.div className="buy-in task-win" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ delay: 0.1, duration: 0.3 }}>
               <button type="button" className="round-btn buy-close" aria-label="Закрыть" onClick={onClose}>
                 <Icon name="close" size={18} />
@@ -225,8 +227,10 @@ export function GoalWindow({ goal, tasks, now, morph, onClose, onOpenTask }: { g
                 className={`p-delete${sure ? ' is-sure' : ''}`}
                 onClick={() => {
                   if (!sure) return setSure(true);
-                  actions.deleteGoal(goal.id);
-                  onClose();
+                  gone.leave(() => {
+                    actions.deleteGoal(goal.id);
+                    onClose();
+                  });
                 }}
               >
                 {sure ? 'Точно удалить' : 'Удалить'}

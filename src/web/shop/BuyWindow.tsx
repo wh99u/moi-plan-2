@@ -1,6 +1,5 @@
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
-import { openSheet } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { actions } from '../../lib/appStore';
 import type { Buy } from '../../lib/types';
@@ -15,6 +14,8 @@ import { firstUrl } from './link';
 import { isBlankBuy } from './logic';
 import { pulseWave } from '../Wave';
 import { blur } from '../../app/ui/device';
+import { useGone } from '../gone';
+import { deleteBuyUndoable } from './buyActions';
 
 const MORPH = { type: 'spring', stiffness: 260, damping: 30, mass: 0.9 } as const;
 
@@ -44,7 +45,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
   const url = useImage(buy.imgId);
   const importing = useImporting(buy.id);
   const [price, setPrice] = useState(buy.price ? typedAmount(String(buy.price)) : '');
-  const [sure, setSure] = useState(false);
+  const gone = useGone(morph);
   const [cutting, setCutting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
@@ -110,7 +111,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
       <div className={`p-win-place buy-place${isNew ? ' is-new' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="buy-holder">
           <Badge3D shop={buy.shop} />
-          <motion.div layoutId={morph} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={buy.title || 'Покупка'} transition={MORPH}>
+          <motion.div layoutId={gone.layoutId} exit={gone.exit} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={buy.title || 'Покупка'} transition={MORPH}>
             <motion.div className="buy-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ delay: 0.1, duration: 0.3 }}>
               <button type="button" className="round-btn buy-close" aria-label="Закрыть" onClick={onClose}>
                 <Icon name="close" size={18} />
@@ -212,37 +213,18 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               )}
 
               <motion.div className="buy-actions" {...part(8)}>
-                {!isNew && !blank && (
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    onClick={() => {
-                      onClose();
-                      openSheet('bought', { id: buy.id });
-                    }}
-                  >
-                    Купил
-                  </button>
-                )}
                 <button type="button" className={`scan-link${buy.pinned ? ' is-on' : ''}`} onClick={() => set({ pinned: buy.pinned ? undefined : Date.now() })}>
                   <Icon name="flag" size={18} />
                   {buy.pinned ? 'Убрать из важных' : 'В важные'}
                 </button>
               </motion.div>
 
-              <button
-                type="button"
-                className={`p-delete${sure ? ' is-sure' : ''}`}
-                onClick={() => {
-                  if (!sure) {
-                    setSure(true);
-                    return;
-                  }
-                  actions.deleteBuy(buy.id);
-                  onClose();
-                }}
-              >
-                {sure ? 'Точно удалить' : 'Удалить'}
+              {/* One tap: «Отменить» comes up over the tab bar instead of asking twice. */}
+              <button type="button" className="p-delete" onClick={() => gone.leave(() => {
+                deleteBuyUndoable(buy);
+                onClose();
+              })}>
+                Удалить
               </button>
             </motion.div>
           </motion.div>
