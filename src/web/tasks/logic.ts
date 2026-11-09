@@ -251,3 +251,25 @@ export function turnPages(offset: number, width: number, speed: number): -1 | 0 
   if (Math.abs(offset) < width * TURN_SHARE) return 0;
   return offset < 0 ? 1 : -1;
 }
+
+/** «08:00 – 09:30», or just the start for a task with no length. */
+export function timeRange(task: Pick<Task, 'time' | 'minutes'>): string {
+  if (!task.time) return '';
+  if (!task.minutes) return task.time;
+  const end = (toMinutes(task.time) + task.minutes) % (24 * 60);
+  return `${task.time} – ${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
+
+/** How many of the tasks due between two days, both included, are done. */
+export function progressBetween(tasks: Task[], from: string, to: string): { done: number; all: number } {
+  const inside = tasks.filter((t) => t.due && t.due >= from && t.due <= to);
+  return { done: inside.filter((t) => t.done).length, all: inside.length };
+}
+
+/** The four tiles over today's plan; urgent is the top priority today and anything overdue. */
+export function todayStats(tasks: Task[], today: string) {
+  const mine = tasks.filter((t) => t.due === today);
+  const done = mine.filter((t) => t.done).length;
+  const urgent = tasks.filter((t) => !t.done && t.due && (t.due < today || (t.due === today && (t.priority ?? 0) >= 3))).length;
+  return { all: mine.length, done, left: mine.length - done, urgent };
+}

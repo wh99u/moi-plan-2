@@ -4,7 +4,7 @@ import { uid } from './ids';
 import { migrateV3 } from './migrate';
 import { visible } from './records';
 import { templateCategories } from './template';
-import type { Bank, BankCode, BudgetMonth, Buy, Car, Category, Goal, Income, Rec, Settings, Shift, Spend, StateV4, Sub, Task } from './types';
+import type { Bank, BankCode, BudgetMonth, Buy, Car, Category, Goal, Habit, Income, Rec, Settings, Shift, Spend, StateV4, Sub, Task } from './types';
 
 export { visible };
 
@@ -76,6 +76,7 @@ function load(storage: Storage, key: string, opts: StoreOptions, now: number): {
         // Lists added after v4 shipped start empty in older saves.
         parsed.shared.subs ??= [];
         parsed.personal.goals ??= [];
+        parsed.personal.habits ??= [];
         return { state: parsed, error: false };
       }
     } catch {
@@ -346,6 +347,26 @@ export function createStore(storage: Storage, key: string, opts: StoreOptions = 
         goals: removeIn(state.personal.goals, id),
         tasks: state.personal.tasks.map((t) => (t.goalId === id ? { ...t, goalId: undefined, updatedAt: Date.now() } : t)),
       });
+    },
+    addHabit(h: Omit<Habit, 'id' | 'updatedAt' | 'marks'>): Habit {
+      const habit = stamp({ ...h, marks: {}, id: uid() });
+      personal({ habits: [...state.personal.habits, habit] });
+      return habit;
+    },
+    updateHabit(id: string, patch: Partial<Omit<Habit, 'id' | 'updatedAt'>>) {
+      personal({ habits: patchIn(state.personal.habits, id, patch) });
+    },
+    /** How much of it was done on that day; nought clears the day. */
+    markHabit(id: string, day: string, value: number) {
+      const h = state.personal.habits.find((x) => x.id === id);
+      if (!h) return;
+      const marks = { ...h.marks };
+      if (value > 0) marks[day] = value;
+      else delete marks[day];
+      personal({ habits: patchIn(state.personal.habits, id, { marks }) });
+    },
+    deleteHabit(id: string) {
+      personal({ habits: removeIn(state.personal.habits, id) });
     },
     setPlan(n: number) {
       personal({ plan: n });

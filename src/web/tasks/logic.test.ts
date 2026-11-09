@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Shift, Task } from '../../lib/types';
-import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nearestSpan, nextRepeat, pageStart, parseQuick, quadrantOf, smartGroups, turnPages, weekStart } from './logic';
+import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nearestSpan, nextRepeat, pageStart, parseQuick, quadrantOf, smartGroups, progressBetween, timeRange, todayStats, turnPages, weekStart } from './logic';
 
 // Thursday, 5 November 2026, 12:30.
 const NOW = new Date(2026, 10, 5, 12, 30);
@@ -200,5 +200,24 @@ describe('pages of the hours', () => {
     expect(turnPages(-290, 300, -5)).toBe(1);
     // Dragged left, flicked back right: the page stays.
     expect(turnPages(-100, 300, 1)).toBe(0);
+  });
+});
+
+describe('progress of the day', () => {
+  const t = (due: string, done = false, priority?: 0 | 1 | 2 | 3) => ({ id: due + done + priority, updatedAt: 0, title: 'x', desc: '', due, done, priority });
+
+  it('writes a time with its end', () => {
+    expect(timeRange({ time: '08:00', minutes: 90 })).toBe('08:00 – 09:30');
+    expect(timeRange({ time: '23:30', minutes: 60 })).toBe('23:30 – 00:30');
+    expect(timeRange({ time: '10:00' })).toBe('10:00');
+    expect(timeRange({})).toBe('');
+  });
+
+  it('counts the done ones between two days', () => {
+    expect(progressBetween([t('2026-11-01', true), t('2026-11-30'), t('2026-12-01', true), t('')], '2026-11-01', '2026-11-30')).toEqual({ done: 1, all: 2 });
+  });
+
+  it('counts the urgent: the top priority today and everything late', () => {
+    expect(todayStats([t('2026-11-09', true), t('2026-11-09', false, 3), t('2026-11-08'), t('2026-11-10', false, 3)], '2026-11-09')).toEqual({ all: 2, done: 1, left: 1, urgent: 2 });
   });
 });

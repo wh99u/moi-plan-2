@@ -191,6 +191,22 @@ export interface Goal extends Rec {
   doneAt?: string;
 }
 
+/** Part of the day a habit belongs to; none is any time. */
+export type HabitPart = 'morning' | 'day' | 'evening';
+
+/** Something done a little every day: glasses of water, pages, minutes. */
+export interface Habit extends Rec {
+  title: string;
+  /** A name from the icon set. */
+  icon: string;
+  /** How much makes the day: 5 glasses, 20 pages, 30 minutes. */
+  target: number;
+  unit: string;
+  part?: HabitPart;
+  /** Day key → how much of it was done that day. */
+  marks: Record<string, number>;
+}
+
 export interface Settings {
   botLink: string;
   lastTopUpBankId?: string;
@@ -213,6 +229,7 @@ export interface StateV4 {
     shifts: Shift[];
     tasks: Task[];
     goals: Goal[];
+    habits: Habit[];
     plan: number;
     settings: Settings;
     processedLaunches: string[];

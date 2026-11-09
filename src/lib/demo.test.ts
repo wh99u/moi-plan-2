@@ -13,7 +13,8 @@ test('demo state is a lively current month', () => {
   expect(s.shared.buys.map((b) => b.title)).toContain('Стол');
   expect(s.shared.buys.find((b) => b.title === 'Куртка зимняя')).toMatchObject({ category: 'Одежда', due: '2026-11-06' });
   expect(s.shared.buys.filter((b) => b.boughtAt).map((b) => b.title)).toEqual(['Кресло']);
-  expect(s.personal.tasks.length).toBe(5);
+  expect(s.personal.tasks.length).toBe(8);
+  expect(s.personal.habits.length).toBe(3);
   expect(s.personal.tasks.every((t) => t.desc.length > 0)).toBe(true);
   expect(s.personal.shifts.length).toBe(8);
   expect(s.personal.shifts.every((x) => x.date.startsWith('2026-10'))).toBe(true);

@@ -5,5 +5,5 @@ export const defaultCar = (now: number): Car => ({ name: 'Porsche Panamera', pri
 export const emptyState = (now = Date.now()): StateV4 => ({
   v: 4,
   shared: { banks: [], incomes: [], car: defaultCar(now), buys: [], budgets: [], spends: [], subs: [] },
-  personal: { shifts: [], tasks: [], goals: [], plan: 15, settings: { botLink: '' }, processedLaunches: [] },
+  personal: { shifts: [], tasks: [], goals: [], habits: [], plan: 15, settings: { botLink: '' }, processedLaunches: [] },
 });

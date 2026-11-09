@@ -97,6 +97,21 @@ export function demoState(today = new Date()): StateV4 {
     task(1, 'Позвонить в автосалон', 'Узнать про тест-драйв Panamera и условия трейд-ина'),
     task(3, 'Отложить на мечту', 'Перевести 15 000 ₽ на накопительный счёт после смены'),
     task(-2, 'Сдать отчёт по сменам', 'Отправить табель за первую половину месяца бригадиру'),
+    { ...task(0, 'Тренировка', 'Спина и плечи'), time: '08:00', minutes: 90, priority: 1 as const },
+    { ...task(0, 'Созвон с бригадиром', 'Обсудить график на декабрь'), time: '12:30', minutes: 45, priority: 3 as const, tags: ['работа'] },
+    { ...task(0, 'Записаться к стоматологу', 'Пломба слева сверху, лучше после смены'), time: '17:00', minutes: 30, priority: 2 as const, subtasks: [{ id: 's1', title: 'Найти клинику', done: true }, { id: 's2', title: 'Позвонить', done: false }] },
+  ];
+
+  // The last three weeks of habits, more of them kept the nearer it is to today.
+  const marks = (target: number, every: number) => {
+    const m: Record<string, number> = {};
+    for (let i = 1; i <= 20; i++) if (i % every) m[dayKey(addDays(today, -i))] = target;
+    return m;
+  };
+  s.personal.habits = [
+    { ...rec({ title: 'Пить воду', icon: 'heart', target: 5, unit: 'стаканов', marks: { ...marks(5, 4), [dayKey(today)]: 2 } }) },
+    { ...rec({ title: 'Зарядка', icon: 'bolt', target: 20, unit: 'минут', part: 'morning' as const, marks: marks(20, 3) }) },
+    { ...rec({ title: 'Читать', icon: 'book', target: 20, unit: 'страниц', part: 'evening' as const, marks: marks(20, 5) }) },
   ];
   s.personal.plan = 15;
   s.personal.settings = { botLink: '' };

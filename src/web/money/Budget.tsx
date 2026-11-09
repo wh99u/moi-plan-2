@@ -272,7 +272,8 @@ function Links() {
   const wishes = activeBuys(buys).filter((b) => !isBlankBuy(b));
   const wanted = wishes.reduce((t, b) => t + b.price, 0);
   return (
-    <div className="b-links">
+    // A panel like the tiles above: it leaves with the page instead of staying behind for a moment.
+    <Recede from={2.2} delay={0.08} panel className="b-links">
       <button type="button" className="b-link" onClick={() => openTasks('month')}>
         <span className="b-link-icon">
           <Icon name="calendar" size={18} stroke={2} />
@@ -295,7 +296,7 @@ function Links() {
         {wanted > 0 && <span className="b-link-sum">{formatMoney(wanted, cur, rate)}</span>}
         <Icon name="chevron" size={16} stroke={2} />
       </button>
-    </div>
+    </Recede>
   );
 }
 

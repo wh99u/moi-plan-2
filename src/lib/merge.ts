@@ -18,7 +18,7 @@ export function mergeRecords<T extends Rec>(a: T[], b: T[]): T[] {
  */
 export function mergeStates(ours: StateV4, theirs: StateV4): StateV4 {
   const s = (k: Exclude<keyof StateV4['shared'], 'car'>) => mergeRecords<Rec>(ours.shared[k], theirs.shared[k] ?? []);
-  const p = (k: 'shifts' | 'tasks' | 'goals') => mergeRecords<Rec>(ours.personal[k], theirs.personal[k] ?? []);
+  const p = (k: 'shifts' | 'tasks' | 'goals' | 'habits') => mergeRecords<Rec>(ours.personal[k], theirs.personal[k] ?? []);
   const cats = [...new Set([...(theirs.personal.settings?.spendCats ?? []), ...(ours.personal.settings.spendCats ?? [])])];
   return {
     v: 4,
@@ -35,6 +35,7 @@ export function mergeStates(ours: StateV4, theirs: StateV4): StateV4 {
       shifts: p('shifts'),
       tasks: p('tasks'),
       goals: p('goals'),
+      habits: p('habits'),
       plan: theirs.personal.plan ?? ours.personal.plan,
       settings: { ...ours.personal.settings, ...theirs.personal.settings, ...(cats.length ? { spendCats: cats } : {}) },
       processedLaunches: [...new Set([...(theirs.personal.processedLaunches ?? []), ...ours.personal.processedLaunches])].slice(-50),

@@ -17,7 +17,7 @@ import { Notice } from './Notice';
 import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
 import { Shop } from './shop/Shop';
-import { FocusWindow } from './tasks/Focus';
+import { FocusPill } from './tasks/FocusPill';
 import { Tasks } from './tasks/Tasks';
 import { Sheets } from './Sheets';
 import { sync } from './sync/site';
@@ -89,7 +89,7 @@ export function App() {
       <Nav route={route} />
       <Notice />
       <Sheets />
-      <FocusWindow />
+      <FocusPill route={route} />
     </MotionConfig>
   );
 }
