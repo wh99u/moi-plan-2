@@ -5646,3 +5646,490 @@ svg.glyph-moon {
   font-size: 15px;
   font-weight: 600;
 }
+
+/* ═══════════ Without glass: the same shapes, solid and matte ═══════════ */
+:root[data-look='flat'] {
+  --glass: hsl(calc(222 + var(--hue)) 24% 10%);
+  --glass-line: hsl(calc(217 + var(--hue)) 60% 80% / 0.08);
+  --glass-top: transparent;
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --glass-blur: none;
+  --glass-light: transparent;
+  --sheet: hsl(calc(222 + var(--hue)) 24% 9%);
+  --nav-glass: hsl(calc(222 + var(--hue)) 24% 11%);
+  --cards-glass: hsl(calc(222 + var(--hue)) 24% 11%);
+  --control: hsl(calc(222 + var(--hue)) 22% 13%);
+  --tcard: hsl(calc(222 + var(--hue)) 22% 11%);
+  --tcard-line: hsl(calc(217 + var(--hue)) 60% 80% / 0.07);
+  --plate: hsl(calc(222 + var(--hue)) 24% 10%);
+}
+:root[data-look='flat'][data-theme='light'] {
+  --glass: #fff;
+  --glass-line: hsl(calc(219 + var(--hue)) 40% 45% / 0.1);
+  --glass-shadow: 0 8px 24px hsl(calc(220 + var(--hue)) 50% 30% / 0.08);
+  --sheet: #fff;
+  --nav-glass: #fff;
+  --cards-glass: #fff;
+  --control: #fff;
+  --tcard: #fff;
+  --tcard-line: hsl(calc(219 + var(--hue)) 40% 45% / 0.1);
+  --plate: #fff;
+}
+/* Nothing blurs what is behind it, except the veil under a window. */
+:root[data-look='flat'] *:not(.plate-scrim) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ═══════════ No neon: coloured light around things is off until data-glow="on" ═══════════ */
+:root:not([data-glow='on']) {
+  --cta-glow: none;
+  --nav-circle-glow: none;
+}
+:root:not([data-glow='on']) .fab-plus,
+:root:not([data-glow='on']) .add-plus-core {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+:root:not([data-glow='on']) .add-plus-wave {
+  display: none;
+}
+:root:not([data-glow='on']) .plate-go,
+:root:not([data-glow='on']) .wday-light,
+:root:not([data-glow='on']) .mcell.is-picked,
+:root:not([data-glow='on']) .tl-now {
+  box-shadow: none;
+}
+:root:not([data-glow='on']) .hcell {
+  box-shadow: none;
+}
+:root:not([data-glow='on']) .fpill.is-done {
+  box-shadow: none;
+  animation: none;
+}
+:root:not([data-glow='on']) .tl-now::before {
+  animation: none;
+}
+
+/* ═══════════ Tasks section, one look (Nov 10): the same sizes, gaps and pieces everywhere ═══════════ */
+.tasks {
+  --t-gap: 14px; /* between the blocks of a section */
+  --t-radius: 18px; /* cards and tiles */
+  --t-title: 22px; /* the big words of each section */
+}
+.tasks .tasks-seg + * {
+  margin-top: var(--t-gap);
+}
+.tl,
+.habits {
+  margin-top: 0;
+}
+.calv-page {
+  padding-top: 0;
+}
+.calv-list {
+  padding-top: 4px;
+}
+.agenda,
+.habits {
+  gap: var(--t-gap);
+}
+
+/* Every section's big words alike. */
+.mcal-pick,
+.tl-top h2,
+.agenda-head h2 {
+  font-size: var(--t-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.mcal-pick.is-year {
+  font-weight: 500;
+}
+.tl-top {
+  margin-bottom: 0;
+}
+.mcal-turn {
+  width: 36px;
+  height: 36px;
+}
+
+/* A card of the section: the same surface, edge and corners. */
+.tcard {
+  background: var(--tcard);
+  box-shadow: inset 0 0 0 1px var(--tcard-line);
+  border-radius: var(--t-radius);
+}
+.acard-box,
+.hcard-main,
+.hcard-timer,
+.hgrid,
+.aprog,
+.astat {
+  border-radius: var(--t-radius);
+}
+
+.mcal-shifts {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+
+/* ───────── the small window, its new pieces ───────── */
+.plate-place {
+  padding-bottom: calc(var(--safe-b) + 16px + var(--kb, 0px));
+}
+.plate-form {
+  padding-top: 14px;
+}
+.plate-form .seg,
+.plate-form .field,
+.plate-form .primary-btn {
+  width: 100%;
+}
+.plate .date-field {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+.plate-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.plate-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plate-add .plate-input {
+  flex: 1;
+  min-width: 0;
+}
+.plate-plus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--go);
+  color: #fff;
+  transition: opacity 0.2s;
+}
+.plate-plus:disabled {
+  opacity: 0.35;
+}
+.plate-hash {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+.plate-hash span {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  color: var(--accent);
+  font-weight: 700;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.plate-hash .plate-input {
+  padding-left: 26px;
+}
+.plate-tick {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--ring, var(--ink-3));
+  color: transparent;
+  transition: background 0.25s, box-shadow 0.25s, color 0.25s;
+}
+.is-done > .plate-tick,
+.plate-tick[aria-pressed='true'] {
+  background: var(--habit);
+  box-shadow: none;
+  color: #fff;
+}
+.plate-tasks {
+  margin-top: 0;
+}
+.plate-tasks li {
+  overflow: hidden;
+}
+.plate-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+.plate-sub > span {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plate-sub.is-done > span {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.plate-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-3);
+}
+.plate-x:hover {
+  background: var(--fill);
+}
+.plate-chip.is-pri svg {
+  color: var(--pri);
+}
+.plate-chip.is-pri.is-on {
+  background: color-mix(in srgb, var(--pri) 22%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--pri);
+  color: var(--ink);
+}
+.plate-chip.is-pri.p0.is-on {
+  background: var(--fill-2);
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+.plate-sub-menu {
+  overflow: hidden;
+}
+.plate-sub-in {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--fill);
+}
+.plate-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.plate-two label {
+  display: grid;
+  gap: 4px;
+}
+.plate-two span,
+.plate-hint {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.plate-sub-in .plate-input {
+  background: var(--fill-2);
+}
+.plate-sub-in .card-pick {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.plate-sub-in .plate-foot .plate-go,
+.plate-sub-in .plate-del {
+  margin-top: 2px;
+}
+
+/* ───────── the tiles that open into their list ───────── */
+.agenda-stats.is-open {
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: start;
+}
+.astat {
+  cursor: pointer;
+}
+.astat.is-on {
+  box-shadow: inset 0 0 0 1.5px var(--tone);
+}
+.astat-list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: var(--t-radius);
+  background: var(--tcard);
+  box-shadow: inset 0 0 0 1px var(--tcard-line);
+}
+.astat-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.astat-task {
+  flex: 1;
+  display: grid;
+  min-width: 0;
+  padding: 7px 0;
+  text-align: left;
+}
+.astat-task span {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.astat-task small {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.astat-list .is-done .astat-task span {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.astat-empty {
+  padding: 12px 0;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.agroup-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.agroup-toggle span {
+  color: var(--ink-3);
+}
+.agroup-toggle i {
+  display: grid;
+  color: var(--ink-3);
+}
+.agroup > .acards {
+  overflow: hidden;
+}
+
+/* ───────── by the hours: the time across all days, the edges to pull ───────── */
+.tl-body > .tl-now {
+  left: 44px;
+  right: 0;
+}
+.tl-body > .tl-now-pill {
+  left: 0;
+}
+.tl-block {
+  cursor: pointer;
+  user-select: none;
+}
+.tl-block.is-stretching {
+  z-index: 4;
+  box-shadow: inset 0 0 0 1.5px var(--pri);
+}
+.tl-edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.tl-edge.is-top {
+  top: -4px;
+}
+.tl-edge.is-bottom {
+  bottom: -4px;
+}
+.tl-edge::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  height: 3px;
+  margin-left: -11px;
+  border-radius: 2px;
+  background: var(--ink-3);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.tl-edge.is-top::after {
+  top: 6px;
+}
+.tl-edge.is-bottom::after {
+  bottom: 6px;
+}
+.tl-block:hover .tl-edge::after,
+.tl-block.is-stretching .tl-edge::after {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tl-edge::after {
+    opacity: 0.6;
+  }
+  .tl-edge {
+    height: 18px;
+  }
+}
+
+/* ───────── habits, swiped ───────── */
+.habits-hint {
+  margin: -4px 0 -6px;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-align: center;
+}
+.hlist {
+  gap: 0;
+}
+.hcard {
+  display: block;
+  padding-bottom: 10px;
+}
+.hcard-row {
+  display: flex;
+  gap: 8px;
+}
+.hcard-main {
+  padding-right: 16px;
+}
+.hcard-count {
+  display: flex;
+  align-items: baseline;
+  color: var(--ink-3);
+  font-size: 18px;
+  font-weight: 600;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* What a swipe does, on the side it is uncovered. */
+.swipe-under.is-start {
+  justify-content: flex-start;
+}
+.swipe-under.is-end {
+  justify-content: flex-end;
+}
+.swipe-under.is-buy {
+  background: linear-gradient(90deg, #1fa463, #36c47f);
+}
+.swipe-under.is-del {
+  background: linear-gradient(270deg, #d8324a, #ec5068);
+}
+.swipe-under.is-edit {
+  background: linear-gradient(270deg, hsl(calc(219 + var(--hue)) 92% 48%), hsl(calc(211 + var(--hue)) 100% 58%));
+}
+.mcal-shifts {
+  display: block;
+}
+.plate-input:focus,
+.plate-input:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--go);
+}
+.plate-input {
+  border: 0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}

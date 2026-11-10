@@ -176,7 +176,7 @@ it('a time alone goes to the day it was written on', () => {
 
 describe('pages of the hours', () => {
   it('settles on the nearest of the three views', () => {
-    expect(nearestSpan(1.4)).toBe(1);
+    expect(nearestSpan(1.4)).toBe(3);
     expect(nearestSpan(2.4)).toBe(3);
     expect(nearestSpan(4.9)).toBe(3);
     expect(nearestSpan(5.2)).toBe(7);

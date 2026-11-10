@@ -1,12 +1,12 @@
 import { animate, AnimatePresence, motion, useMotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal, flushSync } from 'react-dom';
-import { openSheet, useSheet, useSheetData } from '../../app/sheet';
+import { flushSync } from 'react-dom';
 import { EASE } from '../../app/ui/text';
-import { useStore } from '../../lib/appStore';
+import { openSheet } from '../../app/sheet';
+import { actions, useStore } from '../../lib/appStore';
 import { addDays, dayKey, daysBetween, monthName, parseDay } from '../../lib/dates';
 import { visible } from '../../lib/records';
-import type { Goal, Shift, Task } from '../../lib/types';
+import type { Shift, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { plural } from '../reminders';
@@ -14,26 +14,18 @@ import { Seg } from '../Seg';
 import { useNow } from '../Today';
 import { CalendarView } from './CalendarView';
 import { DayPlate } from './DayPlate';
-import { openFocus } from './focusTimer';
-import { GoalWindow, Goals, type OpenedGoal } from './Goals';
-import { activeGoals, leftWords } from './goalLogic';
 import { Habits } from './Habits';
 import { clearWanted, wantedView, type TasksView } from './entry';
-import { hoursText, layoutDay, nearestSpan, pageStart, shiftName, SPANS, timeRange, toMinutes, turnPages } from './logic';
+import { DEFAULT_MINUTES, hoursText, layoutDay, nearestSpan, pageStart, shiftName, SPANS, timeRange, toMinutes, turnPages } from './logic';
 import { ShiftGlyph } from './ShiftGlyph';
-import { TaskWindow } from './TaskWindow';
+import { TaskPlate, type TaskDraft } from './TaskPlate';
 import { WeekStrip } from './WeekStrip';
 import { blur } from '../../app/ui/device';
 
 type View = TasksView;
-interface Opened {
-  id: string;
-  morph: string;
-}
 const FIRST_HOUR = 7;
 /** The height of an hour: room for a title and its time. */
 const HOUR = 62;
-const BANDS = 2;
 const MIN_SPAN = SPANS[0];
 const MAX_SPAN = SPANS[SPANS.length - 1];
 /** A little past either end while the fingers are still on it. */
@@ -55,6 +47,7 @@ const GLIDE = { type: 'spring', stiffness: 300, damping: 34 } as const;
 const TURN = { type: 'tween', duration: 0.3, ease: [0.22, 1, 0.36, 1] } as const;
 const POP = { type: 'spring', stiffness: 420, damping: 30 } as const;
 
+const capital = (s: string) => s.replace(/^./, (c) => c.toUpperCase());
 const shortDate = (key: string) => parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 const daysFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => dayKey(addDays(parseDay(first), i)));
 
@@ -69,24 +62,23 @@ function savedSpan(): number {
 export function Tasks() {
   const tasks = visible(useStore((s) => s.personal.tasks));
   const shifts = visible(useStore((s) => s.personal.shifts));
-  const goals = visible(useStore((s) => s.personal.goals));
   const habits = visible(useStore((s) => s.personal.habits));
   const now = useNow(60_000);
   const [view, setView] = useState<View>(() => wantedView() ?? 'month');
   const [start, setStart] = useState(() => dayKey(now));
   const [span, setSpan] = useState(savedSpan);
   useEffect(clearWanted, []);
-  // A week always begins on Monday; one day or three begin wherever they were put.
+  // A week always begins on Monday; three days begin wherever they were put.
   const first = pageStart(start, span);
-  const [opened, setOpened] = useState<Opened | null>(null);
-  const [goalOpen, setGoalOpen] = useState<OpenedGoal | null>(null);
+  // The task whose window is open, or the one being made.
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<TaskDraft | null>(null);
   // The day whose small window is open, and the one last opened, which the month keeps lit.
   const [plateDay, setPlateDay] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [newHabit, setNewHabit] = useState(0);
-  const open = tasks.find((t) => t.id === opened?.id);
-  const goal = goals.find((g) => g.id === goalOpen?.id);
-  const openTask = (t: Task, morph: string) => setOpened({ id: t.id, morph });
+  const open = tasks.find((t) => t.id === taskId);
+  const openTask = (t: Task) => setTaskId(t.id);
   const showDay = (d: string) => {
     setPicked(d);
     setPlateDay(d);
@@ -98,17 +90,14 @@ export function Tasks() {
   };
   const changeSpan = (n: number) => {
     setSpan(n);
-    // Going closer, today stays in sight if it was.
-    const today = dayKey(now);
-    if (n < span && today >= first && today <= dayKey(addDays(parseDay(first), span - 1))) setStart(today);
     try {
       localStorage.setItem(SPAN_KEY, String(n));
     } catch {
       /* it will just start from three days next time */
     }
   };
-  const full = view === 'month' || view === 'hours';
-  const plus = view === 'month' ? () => openSheet('newTask', { date: dayKey(now) }) : view === 'goals' ? () => openSheet('newGoal') : view === 'habits' ? () => setNewHabit((n) => n + 1) : null;
+  const full = view !== 'habits';
+  const plus = view === 'habits' ? () => setNewHabit((n) => n + 1) : () => setDraft({ due: view === 'hours' && !daysFrom(first, span).includes(dayKey(now)) ? first : dayKey(now) });
 
   return (
     <>
@@ -122,7 +111,6 @@ export function Tasks() {
               options={[
                 { id: 'month', label: 'Календарь' },
                 { id: 'hours', label: 'По часам' },
-                { id: 'goals', label: 'Цели' },
                 { id: 'habits', label: 'Привычки' },
               ]}
             />
@@ -130,31 +118,28 @@ export function Tasks() {
           {/* No initial={false} here: it would silence every entrance inside on arrival at the screen. */}
           <AnimatePresence mode="wait">
             <motion.div key={view} className={full ? 'tasks-fill' : undefined} initial={{ opacity: 0, y: 14, ...blur(6) }} animate={{ opacity: 1, y: 0, ...blur(0) }} exit={{ opacity: 0, y: -10, ...blur(4) }} transition={{ duration: 0.3, ease: EASE }}>
-              {view === 'month' && <CalendarView tasks={tasks} goals={goals} shifts={shifts} now={now} picked={picked} openedMorph={opened?.morph} onDay={showDay} onOpen={openTask} />}
-              {view === 'hours' && <Timeline tasks={tasks} goals={goals} shifts={shifts} now={now} start={first} span={span} opened={opened} goalOpen={goalOpen} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onGoal={setGoalOpen} onDay={setPlateDay} onCalendar={() => setView('month')} />}
-              {view === 'goals' && <Goals goals={goals} tasks={tasks} now={now} opened={goalOpen} onOpen={setGoalOpen} />}
-              {view === 'habits' && <Habits habits={habits} now={now} onDay={setPlateDay} adding={newHabit} />}
+              {view === 'month' && <CalendarView tasks={tasks} shifts={shifts} now={now} picked={picked} onDay={showDay} onOpen={openTask} />}
+              {view === 'hours' && <Timeline tasks={tasks} shifts={shifts} now={now} start={first} span={span} draft={draft} onStart={setStart} onSpan={changeSpan} onOpen={openTask} onNew={(due, time) => setDraft({ due, time })} onCalendar={() => setView('month')} />}
+              {view === 'habits' && <Habits habits={habits} now={now} adding={newHabit} />}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
       <AnimatePresence>
-        {plus && (
-          <motion.button
-            key={view}
-            type="button"
-            className="fab-plus"
-            aria-label={view === 'goals' ? 'Новая цель' : view === 'habits' ? 'Новая привычка' : 'Новая задача'}
-            initial={{ scale: 0, rotate: -90 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 0, rotate: 90 }}
-            transition={POP}
-            whileTap={{ scale: 0.85 }}
-            onClick={plus}
-          >
-            <Icon name="plus" size={26} stroke={2} />
-          </motion.button>
-        )}
+        <motion.button
+          key="plus"
+          type="button"
+          className="fab-plus"
+          aria-label={view === 'habits' ? 'Новая привычка' : 'Новая задача'}
+          initial={{ scale: 0, rotate: -90 }}
+          animate={{ scale: 1, rotate: 0 }}
+          exit={{ scale: 0, rotate: 90 }}
+          transition={POP}
+          whileTap={{ scale: 0.85 }}
+          onClick={plus}
+        >
+          <Icon name="plus" size={26} stroke={2} />
+        </motion.button>
       </AnimatePresence>
       <DayPlate
         day={plateDay}
@@ -162,44 +147,10 @@ export function Tasks() {
         onHours={toHours}
         onOpenTask={(t) => {
           setPlateDay(null);
-          setOpened({ id: t.id, morph: `plate-${t.id}` });
+          setTaskId(t.id);
         }}
       />
-      {createPortal(
-        <>
-          <AnimatePresence>
-            {open && opened && (
-              <TaskWindow
-                key={open.id}
-                task={open}
-                morph={opened.morph}
-                onClose={() => setOpened(null)}
-                onFocus={() => {
-                  openFocus(open);
-                  setOpened(null);
-                }}
-              />
-            )}
-          </AnimatePresence>
-          <AnimatePresence>
-            {goal && goalOpen && (
-              <GoalWindow
-                key={goal.id}
-                goal={goal}
-                tasks={tasks}
-                now={now}
-                morph={goalOpen.morph}
-                onClose={() => setGoalOpen(null)}
-                onOpenTask={(t) => {
-                  setGoalOpen(null);
-                  setOpened({ id: t.id, morph: `step-${t.id}` });
-                }}
-              />
-            )}
-          </AnimatePresence>
-        </>,
-        document.body,
-      )}
+      <TaskPlate task={open} draft={draft} onClose={() => (setTaskId(null), setDraft(null))} />
     </>
   );
 }
@@ -208,29 +159,33 @@ export function Tasks() {
 
 interface TimelineProps {
   tasks: Task[];
-  goals: Goal[];
   shifts: Shift[];
   now: Date;
   start: string;
   span: number;
-  opened: Opened | null;
-  goalOpen: OpenedGoal | null;
+  /** A task being made for an hour: that hour stands marked while its window is open. */
+  draft: TaskDraft | null;
   onStart: (key: string) => void;
   onSpan: (n: number) => void;
-  onOpen: (t: Task, morph: string) => void;
-  onGoal: (o: OpenedGoal) => void;
-  /** The small window of a day. */
-  onDay: (day: string) => void;
+  onOpen: (t: Task) => void;
+  onNew: (due: string, time: string) => void;
   /** Pulled down from the days: the month. */
   onCalendar: () => void;
 }
 
-function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, onStart, onSpan, onOpen, onGoal, onDay, onCalendar }: TimelineProps) {
+/** A task being stretched by one of its edges: where it starts and how long it is, in minutes, as it goes. */
+interface Stretch {
+  id: string;
+  from: number;
+  length: number;
+}
+/** Times snap to a quarter of an hour. */
+const SNAP = 15;
+const MIN_LENGTH = 15;
+
+function Timeline({ tasks, shifts, now, start, span, draft, onStart, onSpan, onOpen, onNew, onCalendar }: TimelineProps) {
   const today = dayKey(now);
-  // The hour a new task is being written for stands marked while its sheet is open.
-  const sheet = useSheet();
-  const sheetData = useSheetData();
-  const draft = sheet === 'newTask' && sheetData.date && sheetData.time ? { due: sheetData.date, time: sheetData.time } : null;
+  const [stretch, setStretch] = useState<Stretch | null>(null);
   const days = useMemo(() => daysFrom(start, span), [start, span]);
   // One page of days on each side is drawn, so a swipe finds its neighbours ready. While the number of days itself changes, all of them are.
   const [wide, setWide] = useState(false);
@@ -372,7 +327,9 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
     let drag: { id: number; from: number; y: number; base: number; lastX: number; lastT: number; speed: number; on: boolean } | null = null;
     const onDown = (e: PointerEvent) => {
       if (drag || pinching.current || e.button !== 0) return;
-      if (!(e.target as Element).closest('.tl-heads, .tl-scroll')) return;
+      const at = e.target as Element;
+      // An edge of a task is for stretching it, not for turning the page.
+      if (!at.closest('.tl-heads, .tl-scroll') || at.closest('.tl-edge')) return;
       drag = { id: e.pointerId, from: e.clientX, y: e.clientY, base: 0, lastX: e.clientX, lastT: e.timeStamp, speed: 0, on: false };
     };
     const onMovePointer = (e: PointerEvent) => {
@@ -453,24 +410,56 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [x, zoom]);
 
-  const inDay = (key: string) => tasks.filter((t) => t.due === key);
+  const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  // A task being stretched is drawn where the finger has it, before it is saved.
+  const inDay = (key: string) => tasks.filter((t) => t.due === key).map((t) => (t.id === stretch?.id ? { ...t, time: hhmm(stretch.from), minutes: stretch.length } : t));
   const earliest = Math.min(FIRST_HOUR, ...ribbon.flatMap((d) => inDay(d).flatMap((t) => (t.time ? [Number(t.time.slice(0, 2))] : []))));
   const hours = Array.from({ length: 24 - earliest }, (_, i) => earliest + i);
   const minutesNow = now.getHours() * 60 + now.getMinutes();
   const top = (minutes: number) => ((minutes - earliest * 60) / 60) * HOUR;
-  const bands = activeGoals(goals)
-    .filter((g) => g.start <= days[span - 1] && g.end >= start)
-    .slice(0, BANDS);
   const unlessPanned = (then: () => void) => () => {
     if (!panned.current) then();
   };
   const lastDay = days[span - 1];
   const title = start.slice(0, 7) === lastDay.slice(0, 7) ? monthName(start.slice(0, 7)) : `${monthName(start.slice(0, 7))} – ${monthName(lastDay.slice(0, 7))}`;
 
-  // With today further down than the screen reaches, the hours start at the current one.
+  /** Pulling an edge of a task: the top moves its start, the bottom its end, a quarter of an hour at a time. */
+  const pull = (e: React.PointerEvent, task: Task, edge: 'top' | 'bottom') => {
+    if (!task.time) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const from0 = toMinutes(task.time);
+    const len0 = task.minutes ?? DEFAULT_MINUTES;
+    const y0 = e.clientY;
+    panned.current = true;
+    let cur: Stretch = { id: task.id, from: from0, length: len0 };
+    setStretch(cur);
+    const move = (m: PointerEvent) => {
+      const d = Math.round(((m.clientY - y0) / HOUR) * (60 / SNAP)) * SNAP;
+      if (edge === 'bottom') cur = { ...cur, length: Math.max(MIN_LENGTH, Math.min(24 * 60 - from0, len0 + d)) };
+      else {
+        const f = Math.max(0, Math.min(from0 + len0 - MIN_LENGTH, from0 + d));
+        cur = { ...cur, from: f, length: from0 + len0 - f };
+      }
+      setStretch(cur);
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      if (cur.from !== from0 || cur.length !== len0) actions.updateTask(task.id, { time: hhmm(cur.from), minutes: cur.length });
+      setStretch(null);
+      setTimeout(() => (panned.current = false), 80);
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+  };
+
+  // With the current hour further down than the screen reaches, the hours start at it.
   useEffect(() => {
     const box = hoursBox.current;
-    if (!box || !daysFrom(start, span).includes(today)) return;
+    if (!box) return;
     const y = top(minutesNow);
     if (y > box.clientHeight * 0.6) box.scrollTo({ top: y - box.clientHeight * 0.4, behavior: 'smooth' });
     // Only on arrival: later it is the owner who scrolls.
@@ -483,7 +472,7 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
         <button type="button" className="tl-title" aria-label="К сегодняшнему дню" onClick={() => onStart(pageStart(today, span))}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.h2 key={title} initial={{ opacity: 0, y: 12, ...blur(6) }} animate={{ opacity: 1, y: 0, ...blur(0) }} exit={{ opacity: 0, y: -12, ...blur(6) }} transition={{ duration: 0.32, ease: EASE }}>
-              {title}
+              {capital(title)}
             </motion.h2>
           </AnimatePresence>
         </button>
@@ -496,32 +485,15 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
         today={today}
         // A whole week lit would say nothing: there only today is.
         active={span === 7 ? days.filter((d) => d === today) : days}
-        onPick={(d) => (days.includes(d) ? onDay(d) : onStart(pageStart(d, span)))}
+        onPick={(d) => onStart(pageStart(d, span))}
         onWeek={(d) => onStart(pageStart(dayKey(addDays(parseDay(start), d * 7)), span))}
         onPull={onCalendar}
       />
-      {bands.length > 0 && (
-        <div className="tl-goals" style={{ gridTemplateColumns: `44px repeat(${span}, minmax(0, 1fr))` }}>
-          {bands.map((g, i) => {
-            const morph = `band-${g.id}`;
-            const from = Math.max(0, days.findIndex((k) => k >= g.start));
-            const across = days.filter((k) => k >= g.start && k <= g.end).length;
-            return (
-              <motion.button key={g.id} layoutId={morph} type="button" className="tl-goal" style={{ gridColumn: `${from + 2} / span ${across}`, borderRadius: 8, visibility: goalOpen?.morph === morph ? 'hidden' : undefined }} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 + i * 0.08, duration: 0.5, ease: EASE }} onClick={() => onGoal({ id: g.id, morph })}>
-                <Icon name="flag" size={11} stroke={2.2} />
-                <span>{g.title}</span>
-                {across * 2 > span && <small>{leftWords(daysBetween(now, parseDay(g.end)))}</small>}
-              </motion.button>
-            );
-          })}
-        </div>
-      )}
       <div className="tl-heads">
         <span />
         <div className="tl-view">
           <motion.div className="tl-track" style={{ x, opacity: fade, ...trackStyle }}>
             {ribbon.map((key) => {
-              const d = parseDay(key);
               const off = !days.includes(key);
               return (
                 <div key={key} className="tl-head" aria-hidden={off || undefined}>
@@ -535,28 +507,20 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
                         </button>
                       ))}
                   </div>
-                  <div className="tl-date" role="button" tabIndex={off ? -1 : 0} onClick={unlessPanned(() => onDay(key))}>
-                    <span>{d.toLocaleDateString('ru-RU', { weekday: 'short' }).replace('.', '').toUpperCase()}</span>
-                    <strong className={key === today ? 'is-today' : undefined}>{d.getDate()}</strong>
-                  </div>
                   {inDay(key)
                     .filter((t) => !t.time)
-                    .map((t) => {
-                      const morph = `chip-${t.id}`;
-                      const on = opened?.morph === morph;
-                      return (
-                        <motion.button key={t.id} layoutId={morph} layoutDependency={on} type="button" tabIndex={off ? -1 : undefined} className={`tl-chip p${t.priority ?? 0}${t.done ? ' is-done' : ''}`} style={{ borderRadius: 8, visibility: on ? 'hidden' : undefined }} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={POP} whileTap={{ scale: 0.94 }} onClick={unlessPanned(() => onOpen(t, morph))}>
-                          {t.title}
-                        </motion.button>
-                      );
-                    })}
+                    .map((t) => (
+                      <motion.button key={t.id} type="button" tabIndex={off ? -1 : undefined} className={`tl-chip p${t.priority ?? 0}${t.done ? ' is-done' : ''}`} style={{ borderRadius: 8 }} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={POP} whileTap={{ scale: 0.94 }} onClick={unlessPanned(() => onOpen(t))}>
+                        {t.title}
+                      </motion.button>
+                    ))}
                 </div>
               );
             })}
           </motion.div>
         </div>
       </div>
-      {/* Only the hours scroll: the month and the days above them stay where they are. */}
+      {/* Only the hours scroll: the days above them stay where they are. */}
       <div ref={hoursBox} className="tl-scroll">
         <div className="tl-body" style={{ height: hours.length * HOUR }}>
           <div className="tl-hours" aria-hidden="true">
@@ -565,11 +529,6 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
                 {String(h).padStart(2, '0')}:00
               </span>
             ))}
-            {days.includes(today) && minutesNow >= earliest * 60 && (
-              <motion.b className="tl-now-pill" style={{ top: top(minutesNow) }} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, ...POP }}>
-                {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}
-              </motion.b>
-            )}
           </div>
           <div ref={view} className="tl-view">
             <motion.div className="tl-track" style={{ x, opacity: fade, ...trackStyle }}>
@@ -579,7 +538,7 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
                   <div key={key} className="tl-col" style={{ backgroundSize: `100% ${HOUR}px` }} aria-hidden={off || undefined}>
                     {!off &&
                       hours.map((h) => (
-                        <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => openSheet('newTask', { date: key, time: `${String(h).padStart(2, '0')}:00` }))} />
+                        <button key={h} type="button" className="tl-slot" style={{ top: (h - earliest) * HOUR, height: HOUR }} aria-label={`Новая задача, ${shortDate(key)}, ${h}:00`} onClick={unlessPanned(() => onNew(key, `${String(h).padStart(2, '0')}:00`))} />
                       ))}
                     {draft?.due === key && draft.time && (
                       <motion.i className="tl-ghost" style={{ top: top(toMinutes(draft.time)), height: HOUR - 2 }} initial={{ opacity: 0, scale: 0.86 }} animate={{ opacity: 1, scale: 1 }} transition={POP}>
@@ -587,35 +546,46 @@ function Timeline({ tasks, goals, shifts, now, start, span, opened, goalOpen, on
                       </motion.i>
                     )}
                     {layoutDay(inDay(key)).map((p) => {
-                      const morph = `block-${p.task.id}`;
-                      const on = opened?.morph === morph;
+                      const height = Math.max(22, (p.length / 60) * HOUR - 2);
+                      const live = stretch?.id === p.task.id;
                       return (
-                        <motion.button
+                        <motion.div
                           key={p.task.id}
-                          layoutId={morph}
-                          // Only for growing into its window: the ribbon alone moves it the rest of the time.
-                          layoutDependency={on}
-                          type="button"
-                          tabIndex={off ? -1 : undefined}
-                          className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}`}
-                          style={{ top: top(p.from), height: Math.max(22, (p.length / 60) * HOUR - 2), left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 12, visibility: on ? 'hidden' : undefined }}
+                          role="button"
+                          tabIndex={off ? -1 : 0}
+                          className={`tl-block p${p.task.priority ?? 0}${p.task.done ? ' is-done' : ''}${live ? ' is-stretching' : ''}`}
+                          style={{ top: top(p.from), height, left: `${(p.col / p.cols) * 100}%`, width: `calc(${100 / p.cols}% - 2px)`, borderRadius: 12 }}
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={POP}
-                          whileTap={{ scale: 0.96 }}
-                          onClick={unlessPanned(() => onOpen(p.task, morph))}
+                          onClick={unlessPanned(() => onOpen(p.task))}
+                          onKeyDown={(e) => e.key === 'Enter' && onOpen(p.task)}
                         >
                           <span className="tl-block-title">{p.task.title}</span>
-                          {p.length >= 40 && <span className="tl-block-time">{timeRange(p.task)}</span>}
-                        </motion.button>
+                          {(p.length >= 40 || live) && <span className="tl-block-time">{timeRange(p.task)}</span>}
+                          {!off && (
+                            <>
+                              <span className="tl-edge is-top" aria-hidden="true" onPointerDown={(e) => pull(e, p.task, 'top')} />
+                              <span className="tl-edge is-bottom" aria-hidden="true" onPointerDown={(e) => pull(e, p.task, 'bottom')} />
+                            </>
+                          )}
+                        </motion.div>
                       );
                     })}
-                    {key === today && minutesNow >= earliest * 60 && <motion.i className="tl-now" style={{ top: top(minutesNow), originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} />}
                   </div>
                 );
               })}
             </motion.div>
           </div>
+          {/* The time now runs across every day on the screen. */}
+          {minutesNow >= earliest * 60 && (
+            <>
+              <motion.i className="tl-now" style={{ top: top(minutesNow), originX: 0 }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.35, duration: 0.6, ease: EASE }} />
+              <motion.b className="tl-now-pill" style={{ top: top(minutesNow) }} initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4, ...POP }}>
+                {String(now.getHours()).padStart(2, '0')}:{String(now.getMinutes()).padStart(2, '0')}
+              </motion.b>
+            </>
+          )}
         </div>
       </div>
     </section>

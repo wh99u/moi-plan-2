@@ -1,16 +1,15 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { openSheet } from '../../app/sheet';
 import { EASE } from '../../app/ui/text';
 import { addMonths, dayKey, monthIn, monthName, parseDay, ymKey } from '../../lib/dates';
 import { rub } from '../../lib/money';
-import type { Goal, Shift, Task } from '../../lib/types';
+import type { Shift, Task } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { Plate } from '../Plate';
-import { activeGoals } from './goalLogic';
 import { hoursText, monthCells, monthShifts, progressBetween, smartGroups, timeRange, todayStats } from './logic';
+import { collapse, revealInView, unfold } from './motion';
 import { ShiftGlyph } from './ShiftGlyph';
-import { completeTask } from './TaskWindow';
+import { completeTask } from './taskActions';
 
 const WEEK = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i);
@@ -18,17 +17,16 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => i);
 const SETTLE = 110;
 /** Task titles a day cell has room for. */
 const IN_CELL = 2;
+const capital = (s: string) => s.replace(/^./, (c) => c.toUpperCase());
 
 export interface CalendarProps {
   tasks: Task[];
-  goals: Goal[];
   shifts: Shift[];
   now: Date;
-  /** The day whose window is open. */
+  /** The day whose window was opened last. */
   picked: string | null;
-  openedMorph?: string;
   onDay: (day: string) => void;
-  onOpen: (t: Task, morph: string) => void;
+  onOpen: (t: Task) => void;
 }
 
 /**
@@ -104,7 +102,7 @@ export function CalendarView(props: CalendarProps) {
 
 /* ─────────── The month ─────────── */
 
-function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
+function Month({ tasks, shifts, now, picked, onDay }: CalendarProps) {
   const today = dayKey(now);
   const [ym, setYm] = useState(() => (picked ?? today).slice(0, 7));
   const [dir, setDir] = useState(0);
@@ -117,7 +115,6 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
     for (const list of m.values()) list.sort((a, b) => Number(a.done) - Number(b.done) || (a.time ?? '99').localeCompare(b.time ?? '99'));
     return m;
   }, [tasks]);
-  const goalEnds = useMemo(() => new Set(activeGoals(goals).map((g) => g.end)), [goals]);
   const worked = monthShifts(shifts, ym);
   const origin = Math.max(0, cells.indexOf(today)) || 17;
   const year = Number(ym.slice(0, 4));
@@ -139,7 +136,7 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
           <button type="button" className="mcal-pick" onClick={() => setPick('month')}>
             <AnimatePresence mode="popLayout" initial={false} custom={dir}>
               <motion.span key={ym.slice(5)} custom={dir} variants={{ enter: (d: number) => ({ opacity: 0, y: d * 16 }), show: { opacity: 1, y: 0 }, leave: (d: number) => ({ opacity: 0, y: d * -16 }) }} initial="enter" animate="show" exit="leave" transition={{ duration: 0.3, ease: EASE }}>
-                {monthName(ym).replace(/^./, (c) => c.toUpperCase())}
+                {capital(monthName(ym))}
               </motion.span>
             </AnimatePresence>
             <Icon name="chevron" size={14} stroke={2.2} />
@@ -150,10 +147,10 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
           </button>
         </div>
         <div className="mcal-turns">
-          <motion.button type="button" className="mcal-turn" aria-label="Предыдущий месяц" onClick={() => turn(-1)} whileTap={{ scale: 0.82, x: -3 }}>
+          <motion.button type="button" className="round-btn mcal-turn" aria-label="Предыдущий месяц" onClick={() => turn(-1)} whileTap={{ scale: 0.82, x: -3 }}>
             <Icon name="back" size={16} stroke={2.2} />
           </motion.button>
-          <motion.button type="button" className="mcal-turn is-next" aria-label="Следующий месяц" onClick={() => turn(1)} whileTap={{ scale: 0.82, x: 3 }}>
+          <motion.button type="button" className="round-btn mcal-turn is-next" aria-label="Следующий месяц" onClick={() => turn(1)} whileTap={{ scale: 0.82, x: 3 }}>
             <Icon name="back" size={16} stroke={2.2} />
           </motion.button>
         </div>
@@ -201,11 +198,6 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
                         ))}
                       </i>
                     )}
-                    {goalEnds.has(key) && (
-                      <i className="mcell-flag">
-                        <Icon name="flag" size={9} stroke={2.6} />
-                      </i>
-                    )}
                   </span>
                   <span className="mcell-tasks">
                     {list.slice(0, IN_CELL).map((t) => (
@@ -222,16 +214,10 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
         </AnimatePresence>
       </div>
 
-      <div className="mcal-shifts">
-        <span>
-          <strong>Смены в {monthIn(ym)}</strong>
-          {worked.list.length ? ` · ${worked.list.length} · ${hoursText(worked.hours)} ч · ${rub(worked.pay)}` : ' · пока нет'}
-        </span>
-        <motion.button type="button" whileTap={{ scale: 0.92 }} onClick={() => openSheet('shift', { date: ym === today.slice(0, 7) ? today : `${ym}-01` })}>
-          <Icon name="plus" size={14} stroke={2.2} />
-          Смена
-        </motion.button>
-      </div>
+      <p className="mcal-shifts">
+        <strong>Смены в {monthIn(ym)}</strong>
+        {worked.list.length ? ` · ${worked.list.length} · ${hoursText(worked.hours)} ч · ${rub(worked.pay)}` : ' · пока нет'}
+      </p>
 
       <Plate open={pick === 'month'} title="Месяц" note={String(year)} onClose={() => setPick(null)}>
         <div className="plate-grid">
@@ -239,7 +225,7 @@ function Month({ tasks, goals, shifts, now, picked, onDay }: CalendarProps) {
             const key = `${year}-${String(m + 1).padStart(2, '0')}`;
             return (
               <motion.button key={m} type="button" className={`plate-chip${key === ym ? ' is-on' : ''}${key === today.slice(0, 7) ? ' is-now' : ''}`} onClick={() => jump(key)} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 + m * 0.02, duration: 0.3, ease: EASE }}>
-                {monthName(key).replace(/^./, (c) => c.toUpperCase())}
+                {capital(monthName(key))}
               </motion.button>
             );
           })}
@@ -269,34 +255,45 @@ function Ring({ share, size = 54 }: { share: number; size?: number }) {
   return (
     <svg className="aring" viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true">
       <circle cx={size / 2} cy={size / 2} r={r} className="aring-track" />
-      <motion.circle cx={size / 2} cy={size / 2} r={r} className="aring-fill" strokeDasharray={c} initial={{ strokeDashoffset: c }} whileInView={{ strokeDashoffset: c * (1 - share) }} viewport={{ once: false }} transition={{ duration: 1.1, ease: EASE }} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <motion.circle cx={size / 2} cy={size / 2} r={r} className="aring-fill" strokeDasharray={c} initial={{ strokeDashoffset: c }} whileInView={{ strokeDashoffset: c * (1 - share) }} transition={{ duration: 1.1, ease: EASE }} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
     </svg>
   );
 }
 
 const STATS = [
-  { id: 'all', label: 'Всего', icon: 'list', tone: 'blue' },
-  { id: 'done', label: 'Готово', icon: 'check', tone: 'green' },
-  { id: 'left', label: 'Осталось', icon: 'clock', tone: 'orange' },
-  { id: 'urgent', label: 'Срочно', icon: 'bolt', tone: 'red' },
+  { id: 'all', label: 'Всего', icon: 'list', tone: 'blue', empty: 'На сегодня задач нет' },
+  { id: 'done', label: 'Готово', icon: 'check', tone: 'green', empty: 'Сегодня ещё ничего не готово' },
+  { id: 'left', label: 'Осталось', icon: 'clock', tone: 'orange', empty: 'Всё на сегодня сделано' },
+  { id: 'urgent', label: 'Срочно', icon: 'bolt', tone: 'red', empty: 'Срочного нет' },
 ] as const;
+type StatId = (typeof STATS)[number]['id'];
 
-function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
+function Agenda({ tasks, now, onOpen }: CalendarProps) {
   const today = dayKey(now);
   const ym = ymKey(now);
   const [tag, setTag] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [stat, setStat] = useState<StatId | null>(null);
   const stats = todayStats(tasks, today);
   const day = progressBetween(tasks, today, today);
   const month = progressBetween(tasks, `${ym}-01`, `${ym}-31`);
-  const plan = tasks.filter((t) => t.due === today).sort((a, b) => Number(a.done) - Number(b.done) || (a.time ?? '99').localeCompare(b.time ?? '99') || (b.priority ?? 0) - (a.priority ?? 0));
+  const byTime = (a: Task, b: Task) => Number(a.done) - Number(b.done) || (a.time ?? '99').localeCompare(b.time ?? '99') || (b.priority ?? 0) - (a.priority ?? 0);
+  const mine = tasks.filter((t) => t.due === today);
+  const plan = [...mine].sort(byTime);
+  // What each tile counts, so the list it opens holds exactly that.
+  const statList: Record<StatId, Task[]> = {
+    all: plan,
+    done: plan.filter((t) => t.done),
+    left: plan.filter((t) => !t.done),
+    urgent: tasks.filter((t) => !t.done && t.due && (t.due < today || (t.due === today && (t.priority ?? 0) >= 3))).sort(byTime),
+  };
   const tags = useMemo(() => [...new Set(tasks.filter((t) => !t.done).flatMap((t) => t.tags ?? []))], [tasks]);
   const groups = smartGroups(tag ? tasks.filter((t) => t.tags?.includes(tag)) : tasks, now).filter((g) => g.id !== 'today');
-  const reveal = (i: number) => ({ initial: { opacity: 0, y: 18 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, amount: 0.3 }, transition: { delay: i * 0.05, duration: 0.55, ease: EASE } });
+  const open = STATS.find((s) => s.id === stat);
 
   return (
     <div className="agenda">
-      <motion.header className="agenda-head" {...reveal(0)}>
+      <motion.header className="agenda-head" {...revealInView(0)}>
         <h2>План на сегодня</h2>
         <p>{now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
       </motion.header>
@@ -304,9 +301,9 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
       <div className="agenda-progress">
         {[
           { label: 'Сегодня', p: day },
-          { label: monthName(ym).replace(/^./, (c) => c.toUpperCase()), p: month },
+          { label: capital(monthName(ym)), p: month },
         ].map((x, i) => (
-          <motion.div key={x.label} className="glass aprog" {...reveal(i + 1)}>
+          <motion.div key={x.label} className="tcard aprog" {...revealInView(i + 1)}>
             <span className="aprog-ring">
               <Ring share={x.p.all ? x.p.done / x.p.all : 0} />
               <strong>{x.p.all ? Math.round((x.p.done / x.p.all) * 100) : 0}%</strong>
@@ -319,21 +316,56 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
         ))}
       </div>
 
-      <div className="agenda-stats">
-        {STATS.map((s, i) => (
-          <motion.div key={s.id} className={`glass astat is-${s.tone}`} {...reveal(i + 2)}>
-            <Icon name={s.icon} size={18} stroke={2.2} />
-            <strong>{stats[s.id]}</strong>
-            <span>{s.label}</span>
-          </motion.div>
-        ))}
-      </div>
+      {/* A tile opens into its list: the tile goes to the left, what it counts comes in on the right. */}
+      <LayoutGroup>
+        <motion.div layout className={`agenda-stats${open ? ' is-open' : ''}`} transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
+          {STATS.filter((s) => !open || s.id === open.id).map((s, i) => (
+            <motion.button
+              key={s.id}
+              layout
+              type="button"
+              className={`tcard astat is-${s.tone}${stat === s.id ? ' is-on' : ''}`}
+              aria-expanded={stat === s.id}
+              onClick={() => setStat(stat === s.id ? null : s.id)}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32, opacity: { delay: open ? 0 : i * 0.04 } }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Icon name={s.icon} size={18} stroke={2.2} />
+              <strong>{stats[s.id]}</strong>
+              <span>{s.label}</span>
+            </motion.button>
+          ))}
+          <AnimatePresence>
+            {open && (
+              <motion.ul key={open.id} className="astat-list" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 24, transition: { duration: 0.15 } }} transition={{ delay: 0.08, duration: 0.4, ease: EASE }}>
+                {statList[open.id].length ? (
+                  statList[open.id].map((t, i) => (
+                    <motion.li key={t.id} className={`p${t.priority ?? 0}${t.done ? ' is-done' : ''}`} initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 + i * 0.04, duration: 0.35, ease: EASE }}>
+                      <button type="button" className="plate-tick" aria-pressed={t.done} aria-label={t.done ? `Вернуть «${t.title}»` : `Готово: «${t.title}»`} onClick={() => completeTask(t)}>
+                        <Icon name="check" size={11} stroke={3} />
+                      </button>
+                      <button type="button" className="astat-task" onClick={() => onOpen(t)}>
+                        <span>{t.title}</span>
+                        {(t.time || t.due !== today) && <small>{[t.due !== today && t.due ? parseDay(t.due).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') : '', timeRange(t)].filter(Boolean).join(', ')}</small>}
+                      </button>
+                    </motion.li>
+                  ))
+                ) : (
+                  <li className="astat-empty">{open.empty}</li>
+                )}
+              </motion.ul>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </LayoutGroup>
 
       {plan.length ? (
         <ul className="acards">
           <AnimatePresence initial={false}>
             {plan.map((t, i) => (
-              <TaskCard key={t.id} task={t} index={i} openedMorph={openedMorph} onOpen={onOpen} />
+              <TaskCard key={t.id} task={t} index={i} onOpen={onOpen} />
             ))}
           </AnimatePresence>
         </ul>
@@ -342,9 +374,9 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
       )}
 
       {tags.length > 0 && (
-        <div className="tags agenda-tags" role="group" aria-label="Метки">
+        <div className="plate-chips agenda-tags" role="group" aria-label="Хэштеги">
           {tags.map((t) => (
-            <button key={t} type="button" className={`tag${tag === t ? ' is-on' : ''}`} aria-pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>
+            <button key={t} type="button" className={`plate-chip${tag === t ? ' is-on' : ''}`} aria-pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>
               #{t}
             </button>
           ))}
@@ -352,14 +384,18 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
       )}
 
       {groups.map((g) => {
-        const hidden = g.id === 'done' && !showDone;
+        const folds = g.id === 'done';
+        const shown = !folds || showDone;
         return (
           <section key={g.id} className={`agroup agroup--${g.id}`}>
             <h3>
-              {g.id === 'done' ? (
-                <button type="button" className="tgroup-toggle" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+              {folds ? (
+                <button type="button" className="agroup-toggle" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
                   {g.label}
                   <span>{g.tasks.length}</span>
+                  <motion.i animate={{ rotate: showDone ? 90 : 0 }} transition={{ duration: 0.3, ease: EASE }}>
+                    <Icon name="chevron" size={14} stroke={2.2} />
+                  </motion.i>
                 </button>
               ) : (
                 <>
@@ -368,15 +404,17 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
                 </>
               )}
             </h3>
-            {!hidden && (
-              <ul className="acards">
-                <AnimatePresence initial={false}>
-                  {g.tasks.map((t, i) => (
-                    <TaskCard key={t.id} task={t} index={i} compact openedMorph={openedMorph} onOpen={onOpen} />
-                  ))}
-                </AnimatePresence>
-              </ul>
-            )}
+            <AnimatePresence initial={false}>
+              {shown && (
+                <motion.ul key="list" className="acards" {...(folds ? unfold : {})}>
+                  <AnimatePresence initial={false}>
+                    {g.tasks.map((t, i) => (
+                      <TaskCard key={t.id} task={t} index={i} compact onOpen={onOpen} />
+                    ))}
+                  </AnimatePresence>
+                </motion.ul>
+              )}
+            </AnimatePresence>
           </section>
         );
       })}
@@ -385,32 +423,22 @@ function Agenda({ tasks, now, openedMorph, onOpen }: CalendarProps) {
 }
 
 /** A task as a card: a coloured edge for how important it is, a ring to tick, its time and steps. */
-function TaskCard({ task, index, compact = false, openedMorph, onOpen }: { task: Task; index: number; compact?: boolean; openedMorph?: string; onOpen: (t: Task, morph: string) => void }) {
-  const morph = `card-${task.id}`;
+function TaskCard({ task, index, compact = false, onOpen }: { task: Task; index: number; compact?: boolean; onOpen: (t: Task) => void }) {
   const subs = task.subtasks ?? [];
   const subsDone = subs.filter((s) => s.done).length;
   const when = [compact && task.due ? parseDay(task.due).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '') : '', timeRange(task)].filter(Boolean).join(', ');
 
   return (
-    <motion.li
-      layout="position"
-      className={`acard p${task.priority ?? 0}${task.done ? ' is-done' : ''}`}
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      exit={{ opacity: 0, height: 0, paddingBottom: 0, transition: { duration: 0.28, ease: EASE } }}
-      transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.5, ease: EASE }}
-    >
-      <div className="acard-box">
+    <motion.li layout="position" className={`acard p${task.priority ?? 0}${task.done ? ' is-done' : ''}`} {...revealInView(index)} exit={collapse}>
+      <div className="tcard acard-box">
         <motion.button type="button" className="acard-check" aria-pressed={task.done} aria-label={task.done ? `Вернуть «${task.title}»` : `Готово: «${task.title}»`} onClick={() => completeTask(task)} whileTap={{ scale: 0.8 }}>
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
             <motion.path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" initial={false} animate={{ pathLength: task.done ? 1 : 0, opacity: task.done ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} />
           </svg>
         </motion.button>
-        <motion.button layoutId={morph} type="button" className="acard-main" style={{ borderRadius: 14, visibility: openedMorph === morph ? 'hidden' : undefined }} onClick={() => onOpen(task, morph)}>
+        <button type="button" className="acard-main" onClick={() => onOpen(task)}>
           <span className="acard-title">{task.title}</span>
-          {!compact && task.desc && <span className="acard-desc">{task.desc}</span>}
-          {(when || task.tags?.length || subs.length > 0 || task.repeat) && (
+          {(when || task.tags?.length || subs.length > 0) && (
             <span className="acard-meta">
               {task.tags?.slice(0, 2).map((t) => (
                 <em key={t} className="acard-tag">
@@ -423,7 +451,6 @@ function TaskCard({ task, index, compact = false, openedMorph, onOpen }: { task:
                   {when}
                 </span>
               )}
-              {task.repeat && <Icon name="repeat" size={12} stroke={2} />}
               {subs.length > 0 && (
                 <span className="acard-subs">
                   {subsDone}/{subs.length}
@@ -436,7 +463,7 @@ function TaskCard({ task, index, compact = false, openedMorph, onOpen }: { task:
               <i style={{ transform: `scaleX(${subsDone / subs.length})` }} />
             </span>
           )}
-        </motion.button>
+        </button>
       </div>
     </motion.li>
   );

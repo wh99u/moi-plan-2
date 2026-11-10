@@ -27,6 +27,9 @@
         try { a = localStorage.getItem('app_accent'); } catch (e) {}
         // The same numbers as ACCENTS in src/app/accent.ts.
         document.documentElement.style.setProperty('--hue', { red: 145, violet: 50, green: -70, orange: 175 }[a] || 0);
+        var l;
+        try { l = localStorage.getItem('app_look'); } catch (e) {}
+        document.documentElement.dataset.look = l === 'flat' ? 'flat' : 'glass';
       })();
     </script>
     <style>

@@ -1,6 +1,6 @@
 import { navigate } from '../route';
 
-export type TasksView = 'month' | 'hours' | 'goals' | 'habits';
+export type TasksView = 'month' | 'hours' | 'habits';
 
 let wanted: TasksView | null = null;
 

@@ -16,7 +16,7 @@ import { Dream, DreamBackdrop, useImage } from './Dream';
 import { autoPicture, takeShopLink, useImporting, wantsPicture } from './importer';
 import { activeBuys, flickReachesDream, isBlankBuy, MAIN_COUNT, splitBuys } from './logic';
 import { buyNow, buysAtOnce, deleteBuyUndoable } from './buyActions';
-import { Swipe } from './Swipe';
+import { Swipe, type SwipeSide } from '../Swipe';
 
 /** Which purchase is open, and the thing on screen its window grows out of and returns to. */
 interface Opened {
@@ -26,6 +26,10 @@ interface Opened {
 }
 
 const PLUS = 'buy-plus';
+
+/** Right is bought: with a price and a card it flies off, otherwise it stays and the form asks the rest. */
+const buySide = (buy: Buy): SwipeSide => ({ label: 'Купил', icon: 'check', tone: 'buy', away: buysAtOnce(buy), run: () => buyNow(buy) });
+const deleteSide = (buy: Buy): SwipeSide => ({ label: 'Удалить', icon: 'trash', tone: 'del', away: true, run: () => deleteBuyUndoable(buy) });
 
 export function Shop() {
   const buys = visible(useStore((s) => s.shared.buys));
@@ -204,7 +208,7 @@ function BuyCard({ buy, index, inView = false, morph, openMorph, onOpen }: CardP
       transition={{ delay: inView ? 0.04 : 0.2 + index * 0.06, duration: 0.7, ease: EASE }}
       className="buy-cell"
     >
-      <Swipe compact radius={24} buysAtOnce={buysAtOnce(buy)} onBuy={() => buyNow(buy)} onDelete={() => deleteBuyUndoable(buy)}>
+      <Swipe compact radius={24} right={buySide(buy)} left={deleteSide(buy)}>
       <motion.button layoutId={morph} type="button" className={`buy-card${importing ? ' is-loading' : ''}`} style={{ borderRadius: 24, visibility: openMorph === morph ? 'hidden' : undefined }} onClick={() => onOpen({ id: buy.id, morph })} whileTap={{ scale: 0.97 }}>
         {url ? <img className={`buy-photo${buy.cut ? ' is-cut' : ''}`} src={url} alt="" loading="lazy" /> : <span className="buy-card-empty"><Icon name={icon === 'flag' ? 'bag' : icon} size={36} stroke={1.2} /></span>}
         <span className="buy-card-fog" />
@@ -236,7 +240,7 @@ function BuyRow({ buy, morph, openMorph, onOpen }: Omit<CardProps, 'index' | 'in
       exit={{ height: 0, paddingBottom: 0, opacity: 0, transition: { duration: 0.26, ease: EASE } }}
       transition={{ duration: 0.5, ease: EASE }}
     >
-      <Swipe radius={20} buysAtOnce={buysAtOnce(buy)} onBuy={() => buyNow(buy)} onDelete={() => deleteBuyUndoable(buy)}>
+      <Swipe radius={20} right={buySide(buy)} left={deleteSide(buy)}>
       <motion.button layoutId={morph} type="button" className={`glass buy-row${importing ? ' is-loading' : ''}`} style={{ borderRadius: 20, visibility: openMorph === morph ? 'hidden' : undefined }} onClick={() => onOpen({ id: buy.id, morph })} whileTap={{ scale: 0.98 }}>
         <span className="buy-row-pic">{url ? <img className={`buy-photo${buy.cut ? ' is-cut' : ''}`} src={url} alt="" loading="lazy" /> : <Icon name={icon === 'flag' ? 'bag' : icon} size={22} stroke={1.5} />}</span>
         <span className="buy-row-words">

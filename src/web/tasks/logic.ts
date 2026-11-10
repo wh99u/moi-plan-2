@@ -218,8 +218,8 @@ export function monthCells(ym: string): string[] {
   return cells[35].startsWith(ym) ? cells : cells.slice(0, 35);
 }
 
-/** The three views of the hours: one day, three, a week. */
-export const SPANS = [1, 3, 7] as const;
+/** The two views of the hours: three days and a week. */
+export const SPANS = [3, 7] as const;
 
 export const nearestSpan = (z: number): number => SPANS.reduce<number>((best, n) => (Math.abs(n - z) < Math.abs(best - z) ? n : best), SPANS[0]);
 

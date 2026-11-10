@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { ACCENTS, setAccent, useAccent } from '../app/accent';
+import { setLook, useLook, type Look } from '../app/look';
 import { GOOGLE_CLIENT_ID, renderGoogleButton } from '../app/google';
 import { setProfile, useProfile } from '../app/profile';
 import { closeSheet, useSheet } from '../app/sheet';
@@ -12,7 +13,6 @@ import { MoneySheets } from './money/sheets';
 import { EXTRAS, navigate } from './route';
 import { Seg } from './Seg';
 import { ShopSheets } from './shop/sheets';
-import { AddSheets } from './tasks/AddSheets';
 import { useSyncStatus } from './sync/engine';
 import { sync } from './sync/site';
 import { ShiftSheet } from './tasks/ShiftSheet';
@@ -30,7 +30,6 @@ export function Sheets() {
       <MoneySheets />
       <ShopSheets />
       <ShiftSheet />
-      <AddSheets />
     </>
   );
 }
@@ -110,11 +109,29 @@ function ProfileForm() {
       />
       <span className="form-label">Цвет сайта</span>
       <AccentPick />
+      <span className="form-label">Стиль</span>
+      <LookPick />
       <motion.button type="submit" className="primary-btn" whileTap={{ scale: 0.96 }}>
         Сохранить
       </motion.button>
       <SyncBlock />
     </form>
+  );
+}
+
+/** Glass, or the same site solid and matte. */
+function LookPick() {
+  const look = useLook();
+  return (
+    <Seg
+      value={look}
+      onChange={(l: Look) => setLook(l)}
+      options={[
+        { id: 'glass', label: 'Стекло' },
+        { id: 'flat', label: 'Без стекла' },
+      ]}
+      label="Стиль"
+    />
   );
 }
 
