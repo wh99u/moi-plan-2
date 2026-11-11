@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Shift, Task } from '../../lib/types';
-import { hoursText, lastShift, layoutDay, monthCells, monthShifts, nearestSpan, nextRepeat, pageStart, parseQuick, quadrantOf, smartGroups, progressBetween, timeRange, todayStats, turnPages, weekStart } from './logic';
+import { restZones, hoursText, lastShift, layoutDay, monthCells, monthShifts, nearestSpan, nextRepeat, pageStart, parseQuick, quadrantOf, smartGroups, progressBetween, timeRange, todayStats, turnPages, weekStart } from './logic';
 
 // Thursday, 5 November 2026, 12:30.
 const NOW = new Date(2026, 10, 5, 12, 30);
@@ -176,7 +176,8 @@ it('a time alone goes to the day it was written on', () => {
 
 describe('pages of the hours', () => {
   it('settles on the nearest of the three views', () => {
-    expect(nearestSpan(1.4)).toBe(3);
+    expect(nearestSpan(1.4)).toBe(1);
+    expect(nearestSpan(2.1)).toBe(3);
     expect(nearestSpan(2.4)).toBe(3);
     expect(nearestSpan(4.9)).toBe(3);
     expect(nearestSpan(5.2)).toBe(7);
@@ -219,5 +220,14 @@ describe('progress of the day', () => {
 
   it('counts the urgent: the top priority today and everything late', () => {
     expect(todayStats([t('2026-11-09', true), t('2026-11-09', false, 3), t('2026-11-08'), t('2026-11-10', false, 3)], '2026-11-09')).toEqual({ all: 2, done: 1, left: 1, urgent: 2 });
+  });
+});
+
+describe('pauses between tasks', () => {
+  it('finds the gaps between one end and the next start, overlaps merged', () => {
+    expect(restZones([{ from: 600, length: 60 }, { from: 690, length: 30 }, { from: 700, length: 60 }])).toEqual([{ from: 660, to: 690 }]);
+  });
+  it('leaves long free stretches and back-to-back tasks alone', () => {
+    expect(restZones([{ from: 0, length: 60 }, { from: 60, length: 60 }, { from: 600, length: 30 }])).toEqual([]);
   });
 });

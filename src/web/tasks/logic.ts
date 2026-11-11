@@ -210,6 +210,21 @@ export function layoutDay(tasks: Task[]): Placed[] {
   return out;
 }
 
+/** Longer than this between two tasks is no longer a pause: the hours are simply free. */
+export const REST_MAX = 180;
+
+/** The pauses between one task's end and the next one's start in a day, in minutes from midnight. */
+export function restZones(placed: Pick<Placed, 'from' | 'length'>[]): { from: number; to: number }[] {
+  const spans = placed.map((p) => [p.from, p.from + p.length] as const).sort((a, b) => a[0] - b[0]);
+  const out: { from: number; to: number }[] = [];
+  let end = -1;
+  for (const [from, to] of spans) {
+    if (end >= 0 && from > end && from - end <= REST_MAX) out.push({ from: end, to: from });
+    end = Math.max(end, to);
+  }
+  return out;
+}
+
 /** The month's page: whole weeks from Monday, with the neighbours' days filling the first and last. */
 export function monthCells(ym: string): string[] {
   const first = parseDay(`${ym}-01`);
@@ -218,8 +233,8 @@ export function monthCells(ym: string): string[] {
   return cells[35].startsWith(ym) ? cells : cells.slice(0, 35);
 }
 
-/** The two views of the hours: three days and a week. */
-export const SPANS = [3, 7] as const;
+/** The views of the hours: one day, three days and a week. */
+export const SPANS = [1, 3, 7] as const;
 
 export const nearestSpan = (z: number): number => SPANS.reduce<number>((best, n) => (Math.abs(n - z) < Math.abs(best - z) ? n : best), SPANS[0]);
 
