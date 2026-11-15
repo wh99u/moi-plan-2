@@ -11,6 +11,7 @@ import { Icon } from '../../ui/Icon';
 import type { TasksView } from './entry';
 import { DEFAULT_MINUTES, hoursText, layoutDay, nearestSpan, pageStart, restZones, shiftName, SPANS, timeRange, toMinutes, turnPages } from './logic';
 import { ShiftGlyph } from './ShiftGlyph';
+import { dayLine, ringParts, TYPE_COLORS, TYPE_NAMES, type LineTask } from './dayLine';
 import { completeTask } from './taskActions';
 import type { TaskDraft } from './TaskPlate';
 import { WeekStrip } from './WeekStrip';
@@ -20,7 +21,7 @@ const HOUR = 64;
 /** The whole day, from midnight to midnight. */
 const DAY = 24 * 60;
 /** The column of the hours on the left, px. */
-const GUTTER = 48;
+const GUTTER = 54;
 const MIN_SPAN = SPANS[0];
 const MAX_SPAN = SPANS[SPANS.length - 1];
 /** A little past either end while the fingers are still on it. */
@@ -49,22 +50,6 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const hhmm = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 const shortDate = (key: string) => parseDay(key).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '');
 const daysFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => dayKey(addDays(parseDay(first), i)));
-
-/** The line of the day down the hours: a slow wave, the same every day, so it reads as a road and not as data. */
-function dayLinePath(hourPx: number): string {
-  const pts = Array.from({ length: 25 }, (_, h) => [7 + 5 * Math.sin(h * 0.75 + 0.6) + 2 * Math.sin(h * 1.9), h * hourPx] as const);
-  let d = `M${pts[0][0].toFixed(1)} ${pts[0][1]}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[Math.min(pts.length - 1, i + 2)];
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-    d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1]}`;
-  }
-  return d;
-}
 
 interface Props {
   tasks: Task[];
@@ -349,7 +334,6 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
   const unlessPanned = (then: () => void) => () => {
     if (!panned.current) then();
   };
-  const linePath = useMemo(() => dayLinePath(HOUR), []);
 
   // With one day on the screen its tasks put their own start times on the left, and the hours nearby step aside.
   const single = span === 1;
@@ -361,6 +345,19 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
   // The ring: how much of the days on the screen is done.
   const onScreen = tasks.filter((t) => t.due && days.includes(t.due));
   const share = onScreen.length ? onScreen.filter((t) => t.done).length / onScreen.length : 0;
+  const palette = TYPE_COLORS[theme === 'light' ? 'light' : 'dark'];
+  // Each done task fills its own share of the ring, in the colour of its kind.
+  const parts = ringParts(onScreen);
+  const ringLabel = onScreen.length
+    ? `Сделано ${Math.round(share * 100)}%` + parts.map((p) => `, ${TYPE_NAMES[p.priority]} важности ${Math.round(p.length * onScreen.length)}`).join('')
+    : 'Задач нет';
+
+  // The line bends towards the tasks of every day on the screen, the more the more important they are.
+  const lineTasks: LineTask[] = days.flatMap((d) => layoutDay(inDay(d)).map((p) => ({ from: p.from, to: p.from + p.length, priority: p.task.priority ?? 0 })));
+  const lineKey = lineTasks.map((t) => `${t.from}-${t.to}-${t.priority}`).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const line = useMemo(() => dayLine(lineTasks, HOUR, theme === 'light' ? 'light' : 'dark'), [lineKey, theme]);
+  const heightPx = (DAY / 60) * HOUR;
   // The line of the day is bright up to now: wholly for a day gone, not at all for one to come.
   const lit = days.includes(today) ? top(minutesNow) : days[days.length - 1] < today ? top(DAY) : 0;
   const hasHeads = ribbon.some((d) => shifts.some((s) => s.date === d) || inDay(d).some((t) => !t.time));
@@ -417,7 +414,9 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
     <section ref={root} className="tl hx" style={{ '--gut': `${GUTTER}px` } as React.CSSProperties}>
       <div ref={topBox} className="hx-top">
         <div className="hx-bar">
-          <motion.button type="button" className={`hx-menu${menu ? ' is-open' : ''}`} aria-label="Меню" aria-expanded={menu} onClick={() => setMenu((m) => !m)} whileTap={{ scale: 0.88 }}>
+          <motion.button type="button" className={`hx-menu${menu ? ' is-open' : ''}`} aria-label="Меню" aria-expanded={menu} onClick={() => setMenu((m) => !m)} whileTap={{ scale: 0.88 }} style={{ '--hx-lead': line.colorAt(minutesNow) } as React.CSSProperties}>
+            {/* The line of the day starts here, wrapped round the button. */}
+            <b className="hx-menu-arc" aria-hidden="true" />
             <i />
             <i />
           </motion.button>
@@ -430,10 +429,27 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
             onWeek={(d) => onStart(pageStart(dayKey(addDays(parseDay(start), d * 7)), span))}
             onPull={onCalendar}
           />
-          <div className="hx-ring" role="img" aria-label={onScreen.length ? `Сделано ${Math.round(share * 100)}%` : 'Задач нет'}>
+          <div className="hx-ring" role="img" aria-label={ringLabel}>
             <svg viewBox="0 0 40 40" aria-hidden="true">
               <circle cx="20" cy="20" r="16.5" className="hx-ring-track" />
-              <motion.circle cx="20" cy="20" r="16.5" className="hx-ring-fill" style={{ opacity: share ? 1 : 0 }} pathLength={1} initial={{ pathLength: 0 }} animate={{ pathLength: share }} transition={{ duration: 0.9, ease: EASE }} />
+              {parts.map((p, i) => {
+                // A small gap between kinds, unless one kind fills the ring by itself.
+                const gap = parts.length > 1 || p.length < 1 ? Math.min(0.045, p.length / 2) : 0;
+                return (
+                  <motion.circle
+                    key={p.priority}
+                    cx="20"
+                    cy="20"
+                    r="16.5"
+                    className="hx-ring-fill"
+                    stroke={palette[p.priority]}
+                    style={{ filter: `drop-shadow(0 0 3px ${palette[p.priority]}66)` }}
+                    initial={{ pathLength: 0, pathOffset: p.from + gap / 2 }}
+                    animate={{ pathLength: Math.max(0.001, p.length - gap), pathOffset: p.from + gap / 2 }}
+                    transition={{ duration: 0.9, delay: 0.1 + i * 0.12, ease: EASE }}
+                  />
+                );
+              })}
             </svg>
             <span>{onScreen.length ? Math.round(share * 100) : '–'}</span>
           </div>
@@ -514,14 +530,26 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
       <div ref={hoursBox} className="tl-scroll">
         <div className="tl-body" style={{ height: DAY / 60 * HOUR }}>
           <div className="tl-hours" aria-hidden="true">
-            <svg className="hx-line" width={GUTTER} height={DAY / 60 * HOUR} viewBox={`0 0 ${GUTTER} ${DAY / 60 * HOUR}`}>
+            <svg className="hx-line" width={GUTTER} height={heightPx} viewBox={`0 0 ${GUTTER} ${heightPx}`}>
               <defs>
+                <linearGradient id="hx-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={heightPx}>
+                  {line.stops.map((s) => (
+                    <stop key={s.offset} offset={s.offset} stopColor={s.color} />
+                  ))}
+                </linearGradient>
                 <clipPath id="hx-lit">
-                  <rect x="0" y="0" width={GUTTER} height={lit} />
+                  <rect x="-20" y="0" width={GUTTER + 40} height={lit} />
                 </clipPath>
               </defs>
-              <path d={linePath} className="hx-line-dim" />
-              <path d={linePath} className="hx-line-lit" clipPath="url(#hx-lit)" />
+              <path d={line.path} className="hx-line-dim" stroke="url(#hx-grad)" />
+              <g clipPath="url(#hx-lit)">
+                <path d={line.path} className="hx-line-glow" stroke="url(#hx-grad)" />
+                <path d={line.path} className="hx-line-lit" stroke="url(#hx-grad)" />
+              </g>
+              {/* Where the day has got to: a bright bead on the line. */}
+              {days.includes(today) && (
+                <motion.circle className="hx-line-bead" cx={line.xAt(minutesNow)} cy={top(minutesNow)} r={4} fill={line.colorAt(minutesNow)} style={{ color: line.colorAt(minutesNow) }} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, ...POP }} />
+              )}
             </svg>
             {hours.map((h) => (
               <span key={h} className={`hx-hour${(single && nearStart(h)) || nearNow(h) ? ' is-hidden' : ''}`} style={{ top: h * HOUR, animationDelay: `${0.1 + Math.min(h, 12) * 0.02}s` }}>
@@ -532,6 +560,10 @@ export function Hours({ tasks, shifts, now, start, span, draft, onStart, onSpan,
               layoutDay(inDay(days[0])).map((p) => (
                 <motion.em key={p.task.id} className={`hx-start${p.task.done ? ' is-done' : ''}`} style={{ top: top(p.from) }} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={POP}>
                   {hhmm(p.from)}
+                  {/* Which way the line turns here: towards the card for a task that matters, away for a light one. */}
+                  <svg className={`hx-start-turn${line.xAt(p.from + 10) - line.xAt(p.from - 30) > 1.5 ? ' is-in' : ''}`} viewBox="0 0 10 10" aria-hidden="true" style={{ color: palette[p.task.priority ?? 0] }}>
+                    <path d="M2 2 8 8M8 3.5V8H3.5" />
+                  </svg>
                 </motion.em>
               ))}
           </div>

@@ -6258,6 +6258,20 @@ svg.glyph-moon {
   background: var(--hx-day-on);
   box-shadow: inset 0 0 0 1px var(--hx-bar-line);
 }
+.hx-menu {
+  position: relative;
+}
+/* A piece of the line of the day, curling round the button and leaving downwards. */
+.hx-menu-arc {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(from 150deg, transparent 0deg, var(--hx-lead, #34c77b) 70deg, var(--hx-lead, #34c77b) 95deg, transparent 170deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 2px));
+  opacity: 0.9;
+  pointer-events: none;
+}
 .hx-menu i {
   display: block;
   width: 15px;
@@ -6378,7 +6392,6 @@ svg.glyph-moon {
   stroke: var(--hx-day-on);
 }
 .hx-ring-fill {
-  stroke: #34c77b;
   stroke-linecap: round;
 }
 .hx-ring span {
@@ -6588,6 +6601,23 @@ svg.glyph-moon {
 .hx-start.is-done {
   color: var(--hx-sub);
 }
+/* Over the frame's corner, as in the reference: the way the line turns there. */
+.hx-start-turn {
+  position: absolute;
+  top: -9px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: scaleX(-1);
+}
+.hx-start-turn.is-in {
+  transform: none;
+}
 /* The line of the day: bright up to now. */
 .hx-line {
   position: absolute;
@@ -6601,16 +6631,29 @@ svg.glyph-moon {
   stroke-linecap: round;
 }
 .hx-line-dim {
-  stroke: var(--hx-day-on);
   stroke-width: 2;
+  opacity: 0.3;
+}
+/* A soft halo under the bright part: a wide faint stroke costs nothing, unlike a blur. */
+.hx-line-glow {
+  stroke-width: 9;
+  opacity: 0.14;
 }
 .hx-line-lit {
-  stroke: #34c77b;
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 4px rgba(52, 199, 123, 0.55));
+  stroke-width: 2.6;
 }
-:root:not([data-glow='on']) .hx-line-lit {
-  filter: none;
+[data-theme='light'] .hx-line-dim {
+  opacity: 0.4;
+}
+[data-theme='light'] .hx-line-glow {
+  opacity: 0.12;
+}
+.hx-line-bead {
+  stroke: var(--bg);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px currentColor);
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 /* Pauses between tasks: thin stripes and a quiet word. */
