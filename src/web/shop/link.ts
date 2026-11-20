@@ -71,6 +71,14 @@ export function shortTitle(title: string, max = 48): string {
   return `${title.slice(0, max).replace(/\s+\S*$/, '')}…`;
 }
 
+/** Keep the product and model. Long listings often append uses, delivery terms and specifications. */
+export function productName(raw: string): string {
+  const name = cleanTitle(raw);
+  const phrase = name.split(/[,;|•]|\s+[–—]\s+|\s+[-–—]\s*купить/i)[0].trim() || name;
+  const core = phrase.replace(/^(.+?\s+\S+)\s+(?:универсальн\S*|от\s+скрипа|со\s+скидкой|с\s+доставкой|для\s+(?:автомобиля|использования)|в\s+комплекте)(?:\s|$).*/iu, '$1');
+  return shortTitle(core, 54);
+}
+
 /** «12 990 ₽», «12990 руб.» → 12990. Other currencies are not guessed. */
 export function rublesIn(text: string): number | undefined {
   const m = text.match(/(\d{1,3}(?:[\s  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:₽|руб(?:\.|лей|ля|ль|(?![а-яё]))|р\.)/i);

@@ -11,6 +11,7 @@ import { fullDate, parseAmount, typedAmount } from '../money/data';
 import { CatPick, DateField } from '../money/sheets';
 import { Badge3D } from './Badge3D';
 import { BuyArt } from './BuyArt';
+import { generatePicture, needsPicture, usePictureStatus } from './productPictures';
 import { linkInto, setBuyPicture, useImporting } from './importer';
 import { firstUrl } from './link';
 import { isBlankBuy } from './logic';
@@ -41,6 +42,7 @@ export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textar
 
 export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; morph: string; isNew?: boolean; onClose: () => void }) {
   const importing = useImporting(buy.id);
+  const pictureStatus = usePictureStatus(buy.id);
   const [editing, setEditing] = useState(isNew);
   const { cur, rate } = useCurrency();
   const [price, setPrice] = useState(buy.price ? typedAmount(String(buy.price)) : '');
@@ -72,6 +74,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
   const blank = isBlankBuy(buy);
   const add = () => {
     if (blank) return;
+    void generatePicture(buy.id);
     pulseWave();
     onClose();
   };
@@ -144,6 +147,15 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 </motion.div>
               )}
               {importStatus && <p className="buy-import-status" role="status">{importStatus}</p>}
+              {showImportHelp && <button type="button" className="scan-link" onClick={() => { onClose(); openSheet('shopShare'); }}>Как импортировать через «Поделиться»</button>}
+              {needsPicture(buy) && (
+                <div className="buy-import-status">
+                  {pictureStatus === 'pending' ? <span role="status">AI Horde готовит изображение по названию товара</span> :
+                    <button type="button" className="scan-link" onClick={() => void generatePicture(buy.id)}>
+                      {pictureStatus === 'error' ? 'Повторить генерацию в AI Horde' : 'Создать изображение в AI Horde'}
+                    </button>}
+                </div>
+              )}
 
               {editing && <>
                 <motion.form
@@ -181,6 +193,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                     )
                   )}
                 </motion.form>
+                {isNew && !productLink && !buy.title.trim() && <p className="buy-import-status">Для товаров без готового изображения AI Horde получает название и создаёт иллюстрацию.</p>}
                 {invalidLink && <p className="buy-import-status" role="alert">Вставь ссылку на товар целиком</p>}
 
               <motion.label className="buy-price-row" {...part(1)}>
@@ -242,7 +255,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               })}>
                 Удалить
               </button>
-              {!isNew && <button type="button" className="primary-btn" onClick={() => setEditing(false)}>Готово</button>}
+              {!isNew && <button type="button" className="primary-btn" onClick={() => { void generatePicture(buy.id); setEditing(false); }}>Готово</button>}
               </>}
             </motion.div>
           </motion.div>

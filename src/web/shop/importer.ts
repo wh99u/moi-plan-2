@@ -4,7 +4,8 @@ import { putImage } from '../../lib/images';
 import { visible } from '../../lib/records';
 import { findPhotos, type Photo } from './dreamSearch';
 import { parseShared, type Shared } from './shareScript';
-import { fetchImage, firstUrl, fullScreen, lookup, pageImage, shopOf } from './link';
+import { generatePicture } from './productPictures';
+import { fetchImage, firstUrl, fullScreen, lookup, pageImage, productName, shopOf } from './link';
 
 /** Purchases whose card is still being filled from their link. */
 let busy = new Set<string>();
@@ -32,7 +33,7 @@ function fillEmpty(id: string, found: { title?: string; price?: number; category
   const b = current(id);
   if (!b) return;
   const patch = {
-    ...(found.title && (!b.title || b.title === b.shop) ? { title: found.title } : {}),
+    ...(found.title && (!b.title || b.title === b.shop) ? { title: productName(found.title) } : {}),
     ...(found.price && !b.price ? { price: found.price } : {}),
     ...(found.category && !b.category ? { category: found.category } : {}),
     ...(found.note && !b.note?.trim() ? { note: found.note } : {}),
@@ -126,7 +127,10 @@ async function fill(id: string, url: string) {
   setBusy(id, true);
   try {
     const found = await lookup(url, request.signal);
-    if (!request.signal.aborted && current(id)?.url === url) fillEmpty(id, found);
+    if (!request.signal.aborted && current(id)?.url === url) {
+      fillEmpty(id, found);
+      void generatePicture(id);
+    }
   } catch {
     // The link and any fields the owner entered remain available when the lookup fails.
   } finally {
@@ -171,8 +175,9 @@ export function addBuyFrom(text: string): string | null {
 function addShared(s: Shared): string {
   const known = visible(appStore.get().shared.buys).find((b) => b.url === s.url && !b.boughtAt);
   const shop = shopOf(s.url);
-  const id = known?.id ?? actions.addBuy({ title: s.title ?? shop, url: s.url, price: s.price ?? 0, shop, note: s.note, category: s.category }).id;
+  const id = known?.id ?? actions.addBuy({ title: s.title ? productName(s.title) : shop, url: s.url, price: s.price ?? 0, shop, note: s.note, category: s.category }).id;
   if (known) fillEmpty(id, s);
+  void generatePicture(id);
   return id;
 }
 

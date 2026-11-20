@@ -1,0 +1,23 @@
+.dock {
+  position: fixed;
+  z-index: 50;
+  bottom: calc(var(--safe-b) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 32px));
+  padding: 6px;
+  border: 1px solid var(--glass-line);
+  border-radius: 40px;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 5px 22px #0002;
+}
+.dock-track { display: grid; position: relative; grid-template-columns: repeat(5, 1fr); }
+.dock-selection {
+  position: absolute; inset: 0 auto 0 0; width: 20%;
+  transition: transform 320ms cubic-bezier(.25,.78,.23,1);
+}
+.dock-selection::after { content: ''; display: block; height: 100%; margin-inline: 2px; border-radius: 30px; background: var(--ink); }
+.dock a, .dock button { position: relative; display: grid; place-items: center; min-height: 44px; border-radius: 30px; color: var(--ink-2); }
+.dock [aria-current='page'], .dock [data-active='true'] { color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .dock-selection { transition: none; } }

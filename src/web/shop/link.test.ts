@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanTitle, firstUrl, lookup, nameFromUrl, rublesIn, shopOf, wbArticle } from './link';
+import { cleanTitle, firstUrl, lookup, nameFromUrl, productName, rublesIn, shopOf, wbArticle } from './link';
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('purchase import', () => {
+  it('keeps the object and model while removing marketplace copy', () => {
+    expect(productName('Смазка силиконовая универсальная от скрипа для автомобиля')).toBe('Смазка силиконовая');
+    expect(productName('Нож канцелярский, с запасными лезвиями, 18 мм')).toBe('Нож канцелярский');
+    expect(productName('Apple AirPods Pro 2')).toBe('Apple AirPods Pro 2');
+  });
   it('reads price and description from public marketplace metadata', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
       status: 'success',

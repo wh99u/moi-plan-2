@@ -20,7 +20,6 @@ export const TABS: Section[] = [
 ];
 
 export const EXTRAS: Section[] = [
-  { id: 'dream', label: 'Мечта', icon: 'flag', hint: 'Цель и накопления' },
   { id: 'jarvis', label: 'Джарвис', icon: 'sparkle', hint: 'Личный ассистент' },
   { id: 'stocks', label: 'Акции', icon: 'trend', hint: 'Портфель и котировки' },
   { id: 'sleep', label: 'Сон', icon: 'moon', hint: 'Режим и качество сна' },
@@ -28,7 +27,7 @@ export const EXTRAS: Section[] = [
   { id: 'github', label: 'GitHub', icon: 'github', hint: 'Полезные приложения и файлы' },
 ];
 
-const ALL = [...TABS, ...EXTRAS];
+const ALL = [...TABS, ...EXTRAS, { id: 'dream', label: 'Мечта', icon: 'flag', hint: 'Цель и накопления' } as const];
 export const section = (r: Route) => ALL.find((s) => s.id === r)!;
 export const tabIndex = (r: Route) => {
   const i = TABS.findIndex((t) => t.id === r);

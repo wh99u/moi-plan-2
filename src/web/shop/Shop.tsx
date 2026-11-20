@@ -1,39 +1,61 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatMoney, useCurrency } from '../../app/money/currency';
-import { openSheet } from '../../app/sheet';
 import { actions, appStore, useStore } from '../../lib/appStore';
 import { visible } from '../../lib/records';
 import type { Buy } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { BuyArt } from './BuyArt';
 import { BuyWindow } from './BuyWindow';
-import { takeShopLink, useImporting } from './importer';
+import { takeShopLink } from './importer';
 import { activeBuys, isBlankBuy, splitBuys } from './logic';
+import { generatePicture } from './productPictures';
 import './catalog.css';
 
-interface Opened {
-  id: string;
-  morph: string;
-  isNew?: boolean;
+interface Opened { id: string; morph: string; isNew?: boolean }
+type Open = (value: Opened) => void;
+
+function Header({ subtitle, onAdd, query, onQuery }: {
+  subtitle: string; onAdd: () => void; query: string; onQuery: (text: string) => void;
+}) {
+  const [searching, setSearching] = useState(false);
+  const toggle = () => {
+    onQuery('');
+    setSearching(!searching);
+  };
+  return (
+    <header className="shop-heading">
+      <div><h2>Покупки</h2><p>{subtitle}</p></div>
+      <div className="shop-tools">
+        <button type="button" aria-label={searching ? 'Закрыть поиск' : 'Найти покупку'} aria-expanded={searching} onClick={toggle}><Icon name={searching ? 'close' : 'search'} size={19} /></button>
+        <button type="button" aria-label="Добавить покупку" onClick={onAdd}><Icon name="plus" size={22} /></button>
+      </div>
+      {searching && <input autoFocus type="search" className="shop-search" aria-label={`Поиск — ${subtitle}`} placeholder="Найти покупку" value={query} onChange={e => onQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') toggle(); }} />}
+    </header>
+  );
 }
 
-const PLUS = 'buy-plus';
-
 export function Shop() {
-  const buys = activeBuys(visible(useStore((s) => s.shared.buys)));
+  const buys = activeBuys(visible(useStore(s => s.shared.buys)));
   const [opened, setOpened] = useState<Opened | null>(null);
+  const [mainQuery, setMainQuery] = useState('');
+  const [restQuery, setRestQuery] = useState('');
   const [category, setCategory] = useState('');
-  const open = buys.find((b) => b.id === opened?.id);
-  const shown = buys.filter((b) => !isBlankBuy(b));
-  const { main } = splitBuys(shown);
-  const categories = Array.from(new Set(shown.flatMap((b) => b.category ? [b.category] : [])));
-  const picked = categories.includes(category) ? category : '';
-  const matches = picked ? shown.filter((b) => b.category === picked) : shown;
+  const open = buys.find(b => b.id === opened?.id);
+  const { main, rest } = splitBuys(buys.filter(b => !isBlankBuy(b)));
+  const categories = Array.from(new Set(rest.flatMap(b => b.category ? [b.category] : [])));
+  const selected = categories.includes(category) ? category : '';
+  const matches = (buy: Buy, query: string) => [buy.title, buy.shop, buy.category].join(' ').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
+  const featured = main.filter(b => matches(b, mainQuery));
+  const remaining = rest.filter(b => (!selected || b.category === selected) && matches(b, restQuery));
+  const catalog = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    activeBuys(visible(appStore.get().shared.buys)).filter(isBlankBuy).forEach((buy) => actions.deleteBuy(buy.id));
+    for (const buy of activeBuys(visible(appStore.get().shared.buys))) {
+      if (isBlankBuy(buy)) actions.deleteBuy(buy.id);
+      else void generatePicture(buy.id, true);
+    }
     const take = () => {
       const id = takeShopLink();
       if (id) setOpened({ id, morph: `link-${id}` });
@@ -43,7 +65,7 @@ export function Shop() {
     return () => removeEventListener('hashchange', take);
   }, []);
 
-  const add = () => setOpened({ id: actions.addBuy({ title: '', url: '', price: 0 }).id, morph: PLUS, isNew: true });
+  const add = () => setOpened({ id: actions.addBuy({ title: '', url: '', price: 0 }).id, morph: 'purchase-add', isNew: true });
   const close = () => {
     setOpened(null);
     if (open && isBlankBuy(open)) actions.deleteBuy(open.id);
@@ -51,120 +73,110 @@ export function Shop() {
 
   return (
     <motion.div className="budget purchase-page" layoutScroll>
-      <section className="purchase-feature" aria-label="Важные покупки">
-        {main.length > 0 ? (
-          <Featured buys={main} opened={opened} onOpen={setOpened} />
-        ) : (
-          <button type="button" className="purchase-empty" onClick={add}>
-            <span className="purchase-empty-icon"><Icon name="bag" size={42} stroke={1.25} /></span>
-            <strong>Первая покупка</strong>
-            <span>Добавь товар по названию или ссылке</span>
-            <span className="purchase-round"><Icon name="plus" size={22} /></span>
-          </button>
-        )}
+      <section className="shop-screen shop-feature" aria-label="Главные покупки">
+        <Header subtitle="Главные" onAdd={add} query={mainQuery} onQuery={setMainQuery} />
+        {featured.length ? <Reel key={featured.map(b => b.id).join('/')} buys={featured} onOpen={setOpened} /> :
+          <p className="shop-empty">{mainQuery ? 'Покупки не найдены' : 'Здесь появятся твои покупки'}</p>}
+        <button type="button" className="shop-to-rest" onClick={() => catalog.current?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })}>Все покупки</button>
       </section>
-
-      <section className="purchase-catalog" aria-labelledby="purchase-catalog-title">
-        <header className="purchase-heading">
-          <h2 id="purchase-catalog-title">Все покупки</h2>
-          <div className="purchase-tools">
-            <button type="button" className="purchase-round purchase-round--quiet" aria-label="Импорт через «Поделиться»" onClick={() => openSheet('shopShare')}><Icon name="link" size={20} /></button>
-            <motion.button layoutId={PLUS} type="button" className="purchase-round" aria-label="Добавить покупку" onClick={add}><Icon name="plus" size={23} /></motion.button>
-          </div>
-        </header>
-        {categories.length > 0 && (
-          <div className="purchase-filters" role="group" aria-label="Категории покупок">
-            <button type="button" aria-pressed={!picked} onClick={() => setCategory('')}>Все</button>
-            {categories.map((c) => <button key={c} type="button" aria-pressed={picked === c} onClick={() => setCategory(c)}>{c}</button>)}
-          </div>
-        )}
-        {matches.length ? (
-          <ul className="purchase-grid">
-            {matches.map((buy) => <li key={buy.id}><ProductCard buy={buy} morph={`catalog-${buy.id}`} onOpen={setOpened} /></li>)}
-          </ul>
-        ) : <p className="purchase-none">Здесь появятся твои покупки</p>}
+      <section className="shop-screen shop-catalog" ref={catalog} aria-label="Остальные покупки">
+        <Header subtitle="Остальное" onAdd={add} query={restQuery} onQuery={setRestQuery} />
+        {categories.length > 0 && <div className="shop-categories" role="group" aria-label="Категории">
+          {['', ...categories].map(c => <button key={c} type="button" aria-pressed={c === selected} onClick={() => setCategory(c)}>{c || 'Все'}</button>)}
+        </div>}
+        {remaining.length ? <ul className="purchase-grid">{remaining.map(b => <li key={b.id}><Card buy={b} morph={`catalog-${b.id}`} onOpen={setOpened} /></li>)}</ul> :
+          <p className="shop-empty">{restQuery ? 'Покупки не найдены' : 'Здесь появятся твои покупки'}</p>}
       </section>
-      {createPortal(
-        <AnimatePresence>
-          {open && opened && <BuyWindow key={open.id} buy={open} morph={opened.morph} isNew={opened.isNew} onClose={close} />}
-        </AnimatePresence>,
-        document.body,
-      )}
+      {createPortal(<AnimatePresence>{open && opened && <BuyWindow key={open.id} buy={open} morph={opened.morph} isNew={opened.isNew} onClose={close} />}</AnimatePresence>, document.body)}
     </motion.div>
   );
 }
 
-function Featured({ buys, opened, onOpen }: { buys: Buy[]; opened: Opened | null; onOpen: (o: Opened) => void }) {
+function Reel({ buys, onOpen }: { buys: Buy[]; onOpen: Open }) {
   const list = useRef<HTMLUListElement>(null);
-  const [position, setPosition] = useState(0);
-  const reduceMotion = useReducedMotion();
-  const index = Math.min(position, buys.length - 1);
-
-  const go = (i: number) => {
-    const el = list.current;
-    const card = el?.children.item(i);
-    if (!el || !card) return;
-    const delta = card.getBoundingClientRect().left + card.clientWidth / 2 - el.getBoundingClientRect().left - el.clientWidth / 2;
-    el.scrollTo({ left: el.scrollLeft + delta, behavior: reduceMotion ? 'instant' : 'smooth' });
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const count = buys.length;
+  const loop = count > 1;
+  const cards = loop ? [...buys, ...buys, ...buys] : buys;
+  const step = () => {
+    const children = list.current?.children;
+    if (!children || children.length < 2) return 0;
+    return children[1].getBoundingClientRect().left - children[0].getBoundingClientRect().left;
   };
-
+  useLayoutEffect(() => {
+    const el = list.current!;
+    if (!loop) return;
+    const center = () => { el.scrollLeft = count * step(); };
+    center();
+    const observer = new ResizeObserver(center);
+    observer.observe(el);
+    let timer = 0;
+    const normalize = () => {
+      if (drag.current?.moved) return;
+      const width = step();
+      if (!width) return;
+      const index = Math.round(el.scrollLeft / width);
+      if (index < count || index >= count * 2) el.scrollLeft = (count + index % count) * width;
+    };
+    const moved = () => { clearTimeout(timer); timer = window.setTimeout(normalize, 150); };
+    el.addEventListener('scroll', moved, { passive: true });
+    return () => { clearTimeout(timer); observer.disconnect(); el.removeEventListener('scroll', moved); };
+  }, [count, loop]);
   return (
-    <>
-      <motion.ul
-        ref={list}
-        className="purchase-reel"
-        layoutScroll
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const first = el.children.item(0);
-          const second = el.children.item(1);
-          if (!first || !second) return;
-          const step = second.getBoundingClientRect().left - first.getBoundingClientRect().left;
-          if (step > 0) setPosition(Math.round(Math.max(0, el.scrollLeft) / step));
-        }}
-      >
-        {buys.map((buy, i) => (
-          <li key={buy.id} data-current={i === index}>
-            <ProductCard buy={buy} morph={`featured-${buy.id}`} featured onOpen={onOpen} covered={opened?.morph === `featured-${buy.id}`} />
-          </li>
-        ))}
-      </motion.ul>
-      {buys.length > 1 && (
-        <div className="purchase-pager">
-          <button type="button" aria-label="Предыдущая покупка" disabled={index === 0} onClick={() => go(index - 1)}><Icon name="arrowRight" size={17} /></button>
-          {buys.map((buy, i) => <button key={buy.id} type="button" className="purchase-dot" aria-label={buy.title || `Покупка ${i + 1}`} aria-current={index === i ? 'true' : undefined} onClick={() => go(i)} />)}
-          <button type="button" aria-label="Следующая покупка" disabled={index === buys.length - 1} onClick={() => go(index + 1)}><Icon name="arrowRight" size={17} /></button>
-        </div>
-      )}
-    </>
+    <ul ref={list} className="shop-reel" aria-label="Карусель главных покупок" tabIndex={loop ? 0 : undefined}
+      onPointerDown={e => {
+        suppressClick.current = false;
+        if (loop && e.pointerType === 'mouse' && e.button === 0) drag.current = { x: e.clientX, left: e.currentTarget.scrollLeft, moved: false };
+      }}
+      onPointerMove={e => {
+        const start = drag.current;
+        if (!start || !e.buttons) return;
+        const distance = start.x - e.clientX;
+        if (!start.moved && Math.abs(distance) < 5) return;
+        start.moved = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.style.scrollSnapType = 'none';
+        e.currentTarget.scrollLeft = start.left + distance;
+      }}
+      onPointerUp={e => {
+        if (drag.current?.moved) {
+          suppressClick.current = true;
+          const width = step();
+          const target = Math.round(e.currentTarget.scrollLeft / width) * width;
+          e.currentTarget.style.scrollSnapType = '';
+          e.currentTarget.scrollTo({ left: target });
+        }
+        drag.current = null;
+      }}
+      onPointerCancel={e => { drag.current = null; e.currentTarget.style.scrollSnapType = ''; }}
+      onClickCapture={e => {
+        if (suppressClick.current) { e.stopPropagation(); suppressClick.current = false; }
+      }}
+      onKeyDown={e => {
+        if (!loop || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        e.preventDefault();
+        list.current?.scrollBy({ left: (e.key === 'ArrowRight' ? 1 : -1) * step() });
+      }}
+      onWheel={e => { if (e.shiftKey && !e.deltaX) list.current?.scrollBy({ left: e.deltaY }); }}>
+      {cards.map((buy, index) => {
+        const clone = loop && (index < count || index >= count * 2);
+        return <li key={`${index}-${buy.id}`} aria-hidden={clone || undefined}><Card buy={buy} morph={`featured-${index}-${buy.id}`} hero clone={clone} onOpen={onOpen} /></li>;
+      })}
+    </ul>
   );
 }
 
-function ProductCard({ buy, featured = false, covered = false, morph, onOpen }: {
-  buy: Buy;
-  featured?: boolean;
-  covered?: boolean;
-  morph: string;
-  onOpen: (o: Opened) => void;
-}) {
+function Card({ buy, morph, hero, clone, onOpen }: { buy: Buy; morph: string; hero?: boolean; clone?: boolean; onOpen: Open }) {
   const { cur, rate } = useCurrency();
-  const busy = useImporting(buy.id);
-  const name = buy.title.trim() || 'Без названия';
   return (
-    <motion.button
-      layoutId={morph}
-      type="button"
-      className={`purchase-card ${featured ? 'purchase-card--hero' : 'purchase-card--tile'}`}
-      style={covered ? { visibility: 'hidden' } : undefined}
-      onClick={() => onOpen({ id: buy.id, morph })}
-    >
-      <span className="purchase-card-copy">
-        {(buy.category || buy.shop) && <span className="purchase-card-category">{buy.category || buy.shop}</span>}
-        <strong>{name}</strong>
-        <span className="purchase-card-price">{buy.price > 0 ? formatMoney(buy.price, cur, rate) : busy ? 'Импорт…' : 'Цена не указана'}</span>
-      </span>
+    <motion.button type="button" layoutId={morph} tabIndex={clone ? -1 : undefined} className={`shop-product ${hero ? 'is-hero' : 'is-tile'}`} style={{ borderRadius: 32 }} onClick={() => onOpen({ id: buy.id, morph })}>
       <BuyArt buy={buy} />
-      <span className="purchase-card-open" aria-hidden="true"><Icon name="arrowRight" size={18} /></span>
+      <span className="shop-product-copy">
+        {(buy.category || buy.shop) && <small>{buy.category || buy.shop}</small>}
+        <strong>{buy.title || 'Без названия'}</strong>
+        <span>{buy.price ? formatMoney(buy.price, cur, rate) : 'Цена не указана'}</span>
+      </span>
     </motion.button>
   );
 }
