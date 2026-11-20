@@ -1,15 +1,17 @@
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
 import { EASE } from '../../app/ui/text';
+import { formatMoney, useCurrency } from '../../app/money/currency';
+import { openSheet } from '../../app/sheet';
 import { actions } from '../../lib/appStore';
 import type { Buy } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
 import { AmountInput } from '../AmountInput';
-import { parseAmount, typedAmount } from '../money/data';
+import { fullDate, parseAmount, typedAmount } from '../money/data';
 import { CatPick, DateField } from '../money/sheets';
 import { Badge3D } from './Badge3D';
-import { useImage } from './Dream';
-import { autoPicture, linkInto, setBuyPicture, useImporting, wantsPicture } from './importer';
+import { BuyArt } from './BuyArt';
+import { linkInto, setBuyPicture, useImporting } from './importer';
 import { firstUrl } from './link';
 import { isBlankBuy } from './logic';
 import { pulseWave } from '../Wave';
@@ -25,9 +27,6 @@ const part = (i: number) => ({
   transition: { delay: 0.14 + i * 0.04, duration: 0.5, ease: EASE },
 });
 
-/** How long after the last letter the picture is looked for: «пылесос» and not «пыл». */
-const TYPING = 800;
-
 /** One line, the height of the other fields, until more is written into it. */
 export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textarea> & { value: string }) {
   const el = useRef<HTMLTextAreaElement>(null);
@@ -40,10 +39,10 @@ export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textar
   return <motion.textarea ref={el} className="field buy-text" rows={1} value={value} {...rest} />;
 }
 
-/** The card grows into this window: all of it can be edited, and is saved as it is typed. */
 export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; morph: string; isNew?: boolean; onClose: () => void }) {
-  const url = useImage(buy.imgId);
   const importing = useImporting(buy.id);
+  const [editing, setEditing] = useState(isNew);
+  const { cur, rate } = useCurrency();
   const [price, setPrice] = useState(buy.price ? typedAmount(String(buy.price)) : '');
   const gone = useGone(morph);
   const [cutting, setCutting] = useState(false);
@@ -51,8 +50,15 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
   const nameField = useRef<HTMLInputElement>(null);
   const [link, setLink] = useState('');
   const canPaste = typeof navigator.clipboard?.readText === 'function';
+  const [invalidLink, setInvalidLink] = useState(false);
   const useLink = (text: string) => {
-    if (firstUrl(text)) linkInto(buy.id, text);
+    const url = firstUrl(text);
+    if (!url) {
+      setInvalidLink(true);
+      return;
+    }
+    linkInto(buy.id, url);
+    setInvalidLink(false);
     setLink('');
   };
   const pasteLink = async () => {
@@ -69,13 +75,6 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
     pulseWave();
     onClose();
   };
-
-  // The picture comes by itself once the name is written.
-  useEffect(() => {
-    if (!wantsPicture(buy)) return;
-    const t = setTimeout(() => void autoPicture(buy.id), TYPING);
-    return () => clearTimeout(t);
-  }, [buy]);
 
   useEffect(() => {
     if (!isNew) return;
@@ -104,6 +103,10 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
     }
   };
 
+  const productLink = firstUrl(buy.url);
+  const showImportHelp = !!productLink && !importing && (!buy.price || !buy.note || !buy.title || buy.title === buy.shop);
+  const importStatus = importing ? 'Загружаю данные товара…' : showImportHelp ? 'Магазин передал не все данные. Их можно дописать вручную или импортировать из открытой карточки через «Поделиться».' : '';
+
   return (
     <>
       <motion.div className="sheet-scrim p-scrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} onClick={onClose} />
@@ -117,19 +120,32 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 <Icon name="close" size={18} />
               </button>
 
-              <motion.button type="button" className={`buy-stage${importing || cutting ? ' is-loading' : ''}`} onClick={() => file.current?.click()} aria-label="Загрузить своё фото" {...part(0)}>
-                {url ? (
-                  <img className={`buy-photo${buy.cut ? ' is-cut' : ''}`} src={url} alt="" />
-                ) : (
-                  <span className="buy-stage-empty">
-                    <Icon name="photo" size={24} />
-                    {importing || cutting ? 'Подбираю картинку' : 'Картинка появится сама'}
-                  </span>
-                )}
+              <motion.button type="button" className={`buy-stage${cutting ? ' is-loading' : ''}`} onClick={() => file.current?.click()} aria-label="Загрузить своё фото" {...part(0)}>
+                <BuyArt buy={buy} />
               </motion.button>
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void pickPhoto(e.target.files?.[0])} />
 
-              {!buy.url && (
+              {!editing && (
+                <motion.div className="buy-details" {...part(1)}>
+                  <h2>{buy.title || 'Без названия'}</h2>
+                  <p className="buy-detail-price">{buy.price > 0 ? formatMoney(buy.price, cur, rate) : 'Цена не указана'}</p>
+                  {(buy.category || buy.due || buy.pinned) && (
+                    <div className="buy-detail-meta">
+                      {buy.category && <span>{buy.category}</span>}
+                      {buy.due && <span>До {fullDate(buy.due)}</span>}
+                      {buy.pinned && <span>Важная</span>}
+                    </div>
+                  )}
+                  {buy.note && <p className="buy-description">{buy.note}</p>}
+                  {buy.why && <p className="buy-description"><strong>Для чего</strong><br />{buy.why}</p>}
+                  {productLink && <a className="scan-link" href={productLink} target="_blank" rel="noreferrer"><Icon name="link" size={18} />{buy.shop ? `Открыть на ${buy.shop}` : 'Открыть в магазине'}</a>}
+                  <button type="button" className="primary-btn" onClick={() => { onClose(); openSheet('bought', { id: buy.id }); }}>Отметить купленной</button>
+                  <button type="button" className="scan-link" onClick={() => setEditing(true)}>Редактировать</button>
+                </motion.div>
+              )}
+              {importStatus && <p className="buy-import-status" role="status">{importStatus}</p>}
+
+              {editing && <>
                 <motion.form
                   className="buy-link"
                   {...part(1)}
@@ -140,7 +156,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 >
                   <input
                     value={link}
-                    onChange={(e) => setLink(e.target.value)}
+                    onChange={(e) => { setLink(e.target.value); setInvalidLink(false); }}
                     onPaste={(e) => {
                       const v = e.clipboardData.getData('text');
                       if (firstUrl(v)) {
@@ -148,7 +164,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                         useLink(v);
                       }
                     }}
-                    placeholder="Вставь ссылку с Ozon"
+                    placeholder={productLink ? 'Заменить ссылку' : 'Ссылка с Ozon, WB, Авито…'}
                     aria-label="Ссылка на товар"
                     inputMode="url"
                     enterKeyHint="go"
@@ -165,7 +181,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                     )
                   )}
                 </motion.form>
-              )}
+                {invalidLink && <p className="buy-import-status" role="alert">Вставь ссылку на товар целиком</p>}
 
               <motion.label className="buy-price-row" {...part(1)}>
                 <AmountInput
@@ -205,8 +221,8 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 <DateField value={buy.due ?? ''} placeholder="Купить до" onChange={(due) => set({ due })} />
               </motion.div>
 
-              {buy.url && (
-                <motion.a className="scan-link" href={buy.url} target="_blank" rel="noreferrer" {...part(7)}>
+              {productLink && (
+                <motion.a className="scan-link" href={productLink} target="_blank" rel="noreferrer" {...part(7)}>
                   <Icon name="link" size={18} />
                   Открыть {buy.shop ? `на ${buy.shop}` : 'ссылку'}
                 </motion.a>
@@ -226,6 +242,8 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               })}>
                 Удалить
               </button>
+              {!isNew && <button type="button" className="primary-btn" onClick={() => setEditing(false)}>Готово</button>}
+              </>}
             </motion.div>
           </motion.div>
         </div>

@@ -35,8 +35,9 @@ describe('readProduct', () => {
   });
 
   it('shortens a long description at a word', () => {
-    const note = readProduct(page(`<script type="application/ld+json">${JSON.stringify({ '@type': 'Product', name: 'A', description: 'слово '.repeat(100) })}</script>`), 'https://x.ru').note!;
-    expect(note.length).toBeLessThanOrEqual(281);
+    const note = readProduct(page(`<script type="application/ld+json">${JSON.stringify({ '@type': 'Product', name: 'A', description: 'слово '.repeat(400) })}</script>`), 'https://x.ru').note!;
+    expect(note.length).toBeGreaterThan(280);
+    expect(note.length).toBeLessThanOrEqual(1601);
     expect(note.endsWith('слово…')).toBe(true);
   });
 

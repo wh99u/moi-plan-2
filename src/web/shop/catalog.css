@@ -1,0 +1,444 @@
+.purchase-page {
+  padding: calc(var(--safe-t) + 78px) 0 var(--nav-space);
+}
+
+.purchase-feature,
+.purchase-catalog {
+  width: min(100%, 688px);
+  margin-inline: auto;
+}
+
+.purchase-feature {
+  --slide: min(76%, 370px);
+}
+
+.purchase-reel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 6px calc((100% - var(--slide)) / 2) 10px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  list-style: none;
+}
+
+.purchase-reel::after {
+  /* Preserve the last card's scroll gutter on engines that drop trailing flex padding. */
+  content: '';
+  flex: 0 0 0;
+  margin-inline-start: -12px;
+}
+
+.purchase-reel > li {
+  flex: 0 0 auto;
+  width: min(76vw, 370px);
+  min-width: 0;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.purchase-card {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--glass-line);
+  border-radius: 32px;
+  background: var(--fill);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color .2s, background-color .2s, opacity .2s, transform .2s;
+}
+
+.purchase-card:focus-visible,
+.purchase-round:focus-visible,
+.purchase-pager button:focus-visible,
+.purchase-filters button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.purchase-card:hover {
+  border-color: var(--ink-3);
+}
+
+.purchase-card--hero {
+  height: clamp(320px, 57svh, 495px);
+  background: #101522;
+  color: #fff;
+  text-align: left;
+}
+
+.purchase-reel > li[data-current='false'] .purchase-card--hero {
+  opacity: .58;
+  transform: scale(.91);
+}
+
+.purchase-art {
+  display: block;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 43%, hsl(var(--art-hue) 46% 45% / .38), transparent 74%);
+}
+
+.purchase-art img,
+.purchase-art canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.purchase-art img.is-cut {
+  padding: 10% 8% 6%;
+}
+
+.purchase-card--hero .purchase-art,
+.buy-stage .purchase-art {
+  position: absolute;
+  inset: 0;
+}
+
+.purchase-card--hero .purchase-art canvas,
+.purchase-card--hero .purchase-art img.is-cut,
+.buy-stage .purchase-art canvas,
+.buy-stage .purchase-art img.is-cut {
+  margin: 0 auto;
+  max-width: 95%;
+  height: 83%;
+}
+
+.purchase-card--hero .purchase-art img:not(.is-cut) {
+  object-fit: cover;
+}
+
+.purchase-card--hero::after {
+  position: absolute;
+  z-index: 1;
+  inset: 35% 0 0;
+  content: '';
+  background: linear-gradient(transparent, rgb(7 10 18 / .74) 67%, #080a12);
+  pointer-events: none;
+}
+
+.purchase-card-copy {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.purchase-card-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.1;
+  letter-spacing: -.035em;
+}
+
+.purchase-card--hero .purchase-card-copy {
+  position: absolute;
+  inset: auto 68px 24px 22px;
+}
+
+.purchase-card--hero strong {
+  font-size: clamp(23px, 6vw, 34px);
+}
+
+.purchase-card-category,
+.purchase-card-price {
+  font-size: 13px;
+}
+
+.purchase-card-category {
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.purchase-card--hero .purchase-card-category {
+  color: #d3dbea;
+}
+
+.purchase-card-price {
+  color: var(--accent-hi);
+  font-weight: 700;
+}
+
+.purchase-card--hero .purchase-card-price {
+  color: #c9ddff;
+  font-size: 17px;
+}
+
+.purchase-card-open,
+.purchase-round {
+  display: grid;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.purchase-card-open {
+  position: absolute;
+  z-index: 3;
+  right: 14px;
+  bottom: 14px;
+}
+
+.purchase-card--hero .purchase-card-open {
+  right: 18px;
+  bottom: 22px;
+  border: 1px solid #ffffff57;
+  background: #ffffff25;
+  color: #fff;
+}
+
+.purchase-pager,
+.purchase-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.purchase-pager {
+  justify-content: center;
+  gap: 0;
+}
+
+.purchase-pager button {
+  display: grid;
+  width: 38px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink);
+}
+
+.purchase-pager button:first-child svg {
+  transform: rotate(180deg);
+}
+
+.purchase-pager button:disabled {
+  opacity: .25;
+}
+
+.purchase-pager .purchase-dot {
+  width: 26px;
+}
+
+.purchase-dot::after {
+  width: 6px;
+  height: 6px;
+  border-radius: 50px;
+  background: var(--ink-3);
+  content: '';
+}
+
+.purchase-dot[aria-current='true']::after {
+  width: 17px;
+  background: var(--ink);
+}
+
+.purchase-empty {
+  display: grid;
+  width: min(83%, 370px);
+  min-height: clamp(290px, 49svh, 410px);
+  margin: 0 auto;
+  padding: 32px 20px;
+  justify-items: center;
+  align-content: center;
+  gap: 14px;
+  border: 1px solid var(--glass-line);
+  border-radius: 34px;
+  background: var(--fill);
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.purchase-empty strong {
+  color: var(--ink);
+  font-size: 27px;
+  letter-spacing: -.045em;
+}
+
+.purchase-empty-icon {
+  display: grid;
+  width: 80px;
+  height: 80px;
+  place-items: center;
+  border-radius: 27px;
+  background: var(--fill-2);
+  color: var(--accent-hi);
+}
+
+.purchase-catalog {
+  padding: clamp(32px, 7vh, 65px) var(--edge) 0;
+}
+
+.purchase-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.purchase-heading h2 {
+  margin: 0;
+  font-size: clamp(25px, 7vw, 38px);
+  font-weight: 750;
+  letter-spacing: -.06em;
+}
+
+.purchase-round--quiet {
+  background: var(--fill);
+  color: var(--ink);
+}
+
+.purchase-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 14px;
+  padding: 3px;
+}
+
+.purchase-filters button {
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 50px;
+  background: var(--fill);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.purchase-filters button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.purchase-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.purchase-card--tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: clamp(206px, 52vw, 282px);
+  border-radius: clamp(22px, 7vw, 37px);
+  padding: 16px 10px 0;
+  text-align: center;
+}
+
+.purchase-card--tile strong {
+  font-size: clamp(15px, 4vw, 23px);
+}
+
+.purchase-card--tile .purchase-art {
+  position: absolute;
+  width: 100%;
+  inset: 36% 0 -4%;
+  z-index: -1;
+}
+
+.purchase-card--tile .purchase-art img:not(.is-cut) {
+  mask-image: linear-gradient(transparent, #000 26%);
+  object-fit: cover;
+}
+
+.purchase-card--tile .purchase-card-open {
+  width: 38px;
+  height: 38px;
+}
+
+.purchase-none {
+  color: var(--ink-2);
+}
+
+.buy-stage .purchase-art img:not(.is-cut) {
+  object-fit: cover;
+}
+
+.buy-stage .purchase-art canvas,
+.buy-stage .purchase-art img.is-cut {
+  height: 100%;
+}
+
+.buy-details {
+  display: grid;
+  gap: 14px;
+}
+
+.buy-details h2,
+.buy-details p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.buy-details h2 {
+  font-size: clamp(25px, 7vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -.05em;
+}
+
+.buy-details .buy-description {
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.buy-detail-price {
+  color: var(--accent-hi);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.buy-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.buy-detail-meta span {
+  padding: 6px 11px;
+  border-radius: 50px;
+  background: var(--fill);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.buy-details .primary-btn {
+  width: 100%;
+}
+
+.buy-import-status {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .purchase-card {
+    transition: none;
+  }
+}

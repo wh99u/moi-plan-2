@@ -1,5 +1,30 @@
-import { describe, expect, it } from 'vitest';
-import { cleanTitle, firstUrl, nameFromUrl, rublesIn, shopOf, wbArticle } from './link';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanTitle, firstUrl, lookup, nameFromUrl, rublesIn, shopOf, wbArticle } from './link';
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('purchase import', () => {
+  it('reads price and description from public marketplace metadata', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+      status: 'success',
+      data: { title: 'Кофемолка – купить на Ozon', description: 'Керамические жернова. 2 490 рублей' },
+    })));
+    await expect(lookup('https://www.ozon.ru/product/kofemolka-1234567/')).resolves.toMatchObject({
+      title: 'Кофемолка', note: 'Керамические жернова. 2 490 рублей', price: 2490,
+    });
+  });
+
+  it('falls back to the address when a marketplace returns a challenge page', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+      status: 'success',
+      data: { title: 'Доступ ограничен', description: 'Проверяем браузер' },
+    })));
+    const product = await lookup('https://www.avito.ru/moskva/mebel/divan_uglovoy_3456789012');
+    expect(product.title).toBe('Диван угловой');
+    expect(product.price).toBeUndefined();
+    expect(product.note).toBeUndefined();
+  });
+});
 
 describe('firstUrl', () => {
   it('finds the link in a shared text', () => {
@@ -39,6 +64,8 @@ describe('nameFromUrl', () => {
 
   it('gives up on addresses with no words', () => {
     expect(nameFromUrl('https://www.ozon.ru/product/1234567/')).toBeUndefined();
+    expect(nameFromUrl('https://www.ozon.ru/t/Yk7vFeV')).toBeUndefined();
+    expect(nameFromUrl('https://www.wildberries.ru/catalog/177311561/detail.aspx')).toBeUndefined();
     expect(nameFromUrl('не ссылка')).toBeUndefined();
   });
 });

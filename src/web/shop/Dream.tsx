@@ -1,4 +1,4 @@
-import { animate, motion, useInView, type MotionValue } from 'motion/react';
+import { animate, motion, useInView, useMotionValue, type MotionValue } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMoney, useCurrency } from '../../app/money/currency';
 import { openSheet } from '../../app/sheet';
@@ -129,6 +129,18 @@ export function DreamBackdrop({ opacity, scale }: { opacity: MotionValue<number>
       )}
       <div className="dreamx-shade" />
     </motion.div>
+  );
+}
+
+export function DreamPage() {
+  const shown = useMotionValue(1);
+  return (
+    <div className="budget">
+      <DreamBackdrop opacity={shown} scale={shown} />
+      <div className="dreamx-place">
+        <Dream contentOpacity={shown} />
+      </div>
+    </div>
   );
 }
 

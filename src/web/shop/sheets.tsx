@@ -255,7 +255,7 @@ function ShareHelp() {
         {copied ? 'Скопировано' : 'Скопировать скрипт'}
       </motion.button>
       {refused && <textarea className="field share-script" readOnly rows={4} value={script} aria-label="Скрипт" onFocus={(e) => e.target.select()} />}
-      <p className="form-hint">Дальше открываешь товар в Safari, нажимаешь «Поделиться» и выбираешь «В Мой план». Карточка появится здесь с фото, ценой и описанием</p>
+      <p className="form-hint">Открой товар в Safari, нажми «Поделиться» и выбери «В Мой план». В карточку попадут название, цена и описание, которые показывает магазин.</p>
     </div>
   );
 }

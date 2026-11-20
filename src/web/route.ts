@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 export type Tab = 'home' | 'money' | 'shop' | 'tasks';
-export type Extra = 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis';
+export type Extra = 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis' | 'dream';
 export type Route = Tab | Extra;
 
 export interface Section {
@@ -20,6 +20,7 @@ export const TABS: Section[] = [
 ];
 
 export const EXTRAS: Section[] = [
+  { id: 'dream', label: 'Мечта', icon: 'flag', hint: 'Цель и накопления' },
   { id: 'jarvis', label: 'Джарвис', icon: 'sparkle', hint: 'Личный ассистент' },
   { id: 'stocks', label: 'Акции', icon: 'trend', hint: 'Портфель и котировки' },
   { id: 'sleep', label: 'Сон', icon: 'moon', hint: 'Режим и качество сна' },

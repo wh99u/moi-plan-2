@@ -1,20 +1,10 @@
-/*
- * A product link → name, category, price and photo. Shops guard their pages, so each source
- * is used for what it actually gives a browser:
- * - Wildberries keeps a public card (name, category, photos) on its CDN; prices are not public.
- * - Any other page goes through microlink.io, which reads its title and preview image.
- * - Ozon blocks every outside reader: the user fills the card by hand.
- * Pictures from other sites go through the wsrv.nl image proxy, which allows canvas reads,
- * so the background can be cut out.
- */
-
 export interface Product {
   url: string;
   shop: string;
   title?: string;
   category?: string;
   price?: number;
-  image?: string;
+  note?: string;
 }
 
 /** The first link in a pasted share text («Смотри, что нашёл https://…»). */
@@ -27,7 +17,7 @@ export function firstUrl(text: string): string | null {
 
 const SHOPS: [RegExp, string][] = [
   [/(^|\.)(wildberries\.(ru|by|kz|am|kg|uz)|wb\.ru)$/, 'Wildberries'],
-  [/(^|\.)ozon\.(ru|by|kz)$/, 'Ozon'],
+  [/(^|\.)ozon\.(ru|by|kz|link)$/, 'Ozon'],
   [/(^|\.)market\.yandex\.ru$/, 'Яндекс Маркет'],
   [/(^|\.)amazon\.[a-z.]+$/, 'Amazon'],
   [/(^|\.)aliexpress\.(ru|com|us)$/, 'AliExpress'],
@@ -83,7 +73,7 @@ export function shortTitle(title: string, max = 48): string {
 
 /** «12 990 ₽», «12990 руб.» → 12990. Other currencies are not guessed. */
 export function rublesIn(text: string): number | undefined {
-  const m = text.match(/(\d{1,3}(?:[\s  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:₽|руб\b|руб\.|р\.)/i);
+  const m = text.match(/(\d{1,3}(?:[\s  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:₽|руб(?:\.|лей|ля|ль|(?![а-яё]))|р\.)/i);
   if (!m) return undefined;
   const n = Number(m[1].replace(/\D/g, '')) + (m[2] ? Number(`0.${m[2]}`) : 0);
   return n > 0 ? n : undefined;
@@ -120,6 +110,7 @@ export function wbShard(nm: number): number {
 interface WbCard {
   imt_name?: string;
   subj_name?: string;
+  description?: string;
 }
 
 async function wbCard(nm: number, shard: number, signal: AbortSignal) {
@@ -154,7 +145,7 @@ async function wbProduct(nm: number, url: string, signal?: AbortSignal): Promise
       title: card.imt_name?.trim() || undefined,
       category: card.subj_name,
       price: price ? Math.round(price / 100) : undefined,
-      image: `${b}/images/big/1.webp`,
+      note: card.description?.trim().slice(0, 6000) || undefined,
     };
   } finally {
     signal?.removeEventListener('abort', abort);
@@ -163,7 +154,7 @@ async function wbProduct(nm: number, url: string, signal?: AbortSignal): Promise
 
 interface Microlink {
   status: string;
-  data?: { title?: string | null; description?: string | null; image?: { url?: string } | null };
+  data?: { title?: string | null; description?: string | null };
 }
 
 async function pageProduct(url: string, signal?: AbortSignal): Promise<Product> {
@@ -171,10 +162,11 @@ async function pageProduct(url: string, signal?: AbortSignal): Promise<Product> 
   const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal });
   const json = (await res.json()) as Microlink;
   const d = json.status === 'success' ? json.data : undefined;
-  const title = d?.title && !WALL.test(d.title) && d.title !== '...' ? shortTitle(cleanTitle(d.title)) : undefined;
-  const image = d?.image?.url && !/challenge|incident|captcha|favicon|logo/i.test(d.image.url) ? d.image.url : undefined;
-  if (!title && !image) return { url, shop };
-  return { url, shop, title, image: image && proxied(image), price: rublesIn(`${d?.title ?? ''} ${d?.description ?? ''}`) };
+  const rawTitle = d?.title?.trim();
+  if (!rawTitle || WALL.test(rawTitle) || rawTitle === '...' || rawTitle.toLowerCase() === shop.toLowerCase()) return { url, shop };
+  const description = d?.description?.trim();
+  const note = description && !WALL.test(description) && description !== rawTitle ? description.slice(0, 6000) : undefined;
+  return { url, shop, title: cleanTitle(rawTitle).slice(0, 400), note, price: rublesIn(`${rawTitle} ${note ?? ''}`) };
 }
 
 /** Latin words that are names, and must not be read back as Russian. */
@@ -194,13 +186,15 @@ const backToRussian = (word: string) => BACK.reduce((w, [re, to]) => w.replace(r
  * the owner's own and reads `…/smartfon-apple-iphone-15-1234567/`. It is a first draft to correct.
  */
 export function nameFromUrl(url: string): string | undefined {
-  let path = '';
+  let page: URL;
   try {
-    path = new URL(url).pathname;
+    page = new URL(url);
   } catch {
     return undefined;
   }
-  const last = path.split('/').filter(Boolean).at(-1);
+  const { pathname, hostname } = page;
+  if (wbArticle(url) || (shopOf(url) === 'Ozon' && (pathname.startsWith('/t/') || hostname === 'ozon.link'))) return undefined;
+  const last = pathname.split('/').filter(Boolean).at(-1);
   if (!last || !/[a-z]{3}/i.test(last)) return undefined;
   const words = last
     .replace(/[-_]\d{5,}$/, '')
@@ -218,15 +212,13 @@ const PAGE_WAIT = 9000;
 export async function lookup(url: string, signal?: AbortSignal): Promise<Product> {
   const nm = wbArticle(url);
   const fromAddress = { url, shop: shopOf(url), title: nameFromUrl(url) };
+  const wait = AbortSignal.timeout(PAGE_WAIT);
+  const deadline = signal ? AbortSignal.any([signal, wait]) : wait;
   try {
-    if (nm) return await wbProduct(nm, url, signal);
-    // Ozon's bot check is not something to get around: only the address is read.
-    if (shopOf(url) === 'Ozon') return fromAddress;
-    const wait = AbortSignal.timeout(PAGE_WAIT);
-    const page = await pageProduct(url, signal ? AbortSignal.any([signal, wait]) : wait);
+    if (nm) return await wbProduct(nm, url, deadline);
+    const page = await pageProduct(url, deadline);
     // A closed page often answers with its own address as the title.
-    const real = page.title && !/^[\w.-]+$/.test(page.title) ? page.title : undefined;
-    return { ...page, title: real ?? fromAddress.title };
+    return page.title && !/^(?:https?:\/\/|www\.)|\.(?:ru|com|net)$/i.test(page.title) ? page : fromAddress;
   } catch (e) {
     if (signal?.aborted) throw e;
     return fromAddress;
