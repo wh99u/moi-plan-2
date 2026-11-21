@@ -25,7 +25,7 @@ export function Shop() {
   const photoScale = useTransform(scrollYProgress, [0, 1], [1.05, 1]);
   const sheet = useSheet();
   const open = buys.find((buy) => buy.id === opened?.id);
-  const { main, rest } = splitBuys(buys.filter((buy) => !isBlankBuy(buy)));
+  const { main, rest } = splitBuys(buys.filter((buy) => !isBlankBuy(buy) && !(opened?.isNew && buy.id === opened.id)));
   const add = () => setOpened({ id: actions.addBuy({ title: '', url: '', price: 0 }).id, isNew: true });
 
   useEffect(() => {
@@ -45,8 +45,8 @@ export function Shop() {
   useEffect(() => {
     if (sheet !== 'shopAdd') return;
     closeSheet();
-    add();
-  }, [sheet]);
+    if (!opened) add();
+  }, [sheet, opened]);
 
   const close = () => {
     setOpened(undefined);

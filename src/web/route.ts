@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
-export type Tab = 'home' | 'money' | 'tasks';
-export type Extra = 'shop' | 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis';
+export type Tab = 'home' | 'shop' | 'tasks';
+export type Extra = 'money' | 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis';
 export type Route = Tab | Extra;
 
 export interface Section {
@@ -14,12 +14,12 @@ export interface Section {
 /** Bottom bar, left to right. «Ещё» sits after them and opens a sheet, not a page. */
 export const TABS: Section[] = [
   { id: 'home', label: 'Главная', icon: 'home', hint: '' },
-  { id: 'money', label: 'Бюджет', icon: 'wallet', hint: 'Деньги, операции и план на месяц' },
+  { id: 'shop', label: 'Покупки', icon: 'bag', hint: 'Что купить и сколько это стоит' },
   { id: 'tasks', label: 'Задачи', icon: 'calendar', hint: 'Календарь задач и смен' },
 ];
 
 export const EXTRAS: Section[] = [
-  { id: 'shop', label: 'Покупки', icon: 'bag', hint: 'Что купить и сколько это стоит' },
+  { id: 'money', label: 'Бюджет', icon: 'wallet', hint: 'Деньги, операции и план на месяц' },
   { id: 'jarvis', label: 'Джарвис', icon: 'sparkle', hint: 'Личный ассистент' },
   { id: 'stocks', label: 'Акции', icon: 'trend', hint: 'Портфель и котировки' },
   { id: 'sleep', label: 'Сон', icon: 'moon', hint: 'Режим и качество сна' },

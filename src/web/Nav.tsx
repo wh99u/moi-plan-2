@@ -8,7 +8,7 @@ import { Recede } from './Recede';
 import { TABS, href, type Route } from './route';
 import './navigation.css';
 
-const GLYPH = { home: 0, money: 1, tasks: 3 } as const;
+const GLYPH = { home: 0, shop: 2, tasks: 3 } as const;
 const PLUS = { shop: 'shopAdd', tasks: 'newTask' } as const;
 
 export function Nav({ route }: { route: Route }) {
@@ -28,13 +28,12 @@ export function Nav({ route }: { route: Route }) {
   }, []);
 
   const outline = width ? barPath(width, navFrame(1, null, width / 2)) : '';
-  const add = route === 'shop' || route === 'tasks' ? PLUS[route] : 'tx';
+  const add = route === 'shop' || route === 'tasks' ? PLUS[route] : 'txAdd';
   const tab = (id: keyof typeof GLYPH, label: string) => {
     const active = !moreOpen && id === route;
     return (
-      <a href={href(id)} className="dock-tab" onClick={closeSheet} aria-current={active ? 'page' : undefined}>
-        <NavGlyph index={GLYPH[id]} run={active && !calm} size={21} />
-        <span>{label}</span>
+      <a href={href(id)} className="dock-tab" onClick={closeSheet} aria-label={label} aria-current={active ? 'page' : undefined}>
+        <NavGlyph index={GLYPH[id]} run={active && !calm} size={25} />
       </a>
     );
   };
@@ -46,13 +45,12 @@ export function Nav({ route }: { route: Route }) {
         {outline && <svg className="dock-edge" viewBox={`0 0 ${width} ${FULL_H}`} aria-hidden="true"><path d={outline} fill="none" stroke="var(--nav-rim)" /></svg>}
         <div className="dock-tabs">
           {tab('home', 'Главная')}
-          {tab('money', 'Бюджет')}
+          {tab('shop', 'Покупки')}
           <motion.button className="dock-plus" type="button" aria-label={route === 'shop' ? 'Добавить покупку' : route === 'tasks' ? 'Добавить запись' : 'Добавить операцию'}
             whileTap={{ scale: 0.9, rotate: 12 }} onClick={() => openSheet(add)}><Icon name="plus" size={25} /></motion.button>
           {tab('tasks', 'Задачи')}
-          <button type="button" className="dock-tab" aria-expanded={moreOpen} aria-pressed={moreActive} onClick={() => toggleSheet('more')}>
-            <NavGlyph index={4} run={moreActive && !calm} size={21} />
-            <span>Прочее</span>
+          <button type="button" className="dock-tab" aria-label="Прочее" aria-expanded={moreOpen} aria-pressed={moreActive} onClick={() => toggleSheet('more')}>
+            <NavGlyph index={4} run={moreActive && !calm} size={25} />
           </button>
         </div>
       </nav>

@@ -12,6 +12,8 @@ export interface Product {
   category?: string;
   price?: number;
   image?: string;
+  imageAlternates?: string[];
+  note?: string;
 }
 
 /** The first link in a pasted share text («Смотри, что нашёл https://…»). */
@@ -103,59 +105,74 @@ export async function pageImage(url: string, signal?: AbortSignal): Promise<stri
 }
 
 const wbPath = (nm: number) => `vol${Math.floor(nm / 1e5)}/part${Math.floor(nm / 1e3)}/${nm}`;
-const WB_HOSTS = 48;
 
 /** Last volume on each CDN shard, as Wildberries' own site maps them; newer shards are guessed. */
 const WB_VOLS = [143, 287, 431, 719, 1007, 1061, 1115, 1169, 1313, 1601, 1655, 1919, 2045, 2189, 2405, 2621, 2837, 3053, 3269, 3485, 3701, 3917, 4133, 4349, 4565, 4877];
 
-export function wbShard(nm: number): number {
+function legacyWbHost(nm: number): string | undefined {
   const vol = Math.floor(nm / 1e5);
   const i = WB_VOLS.findIndex((v) => vol <= v);
-  return i >= 0 ? i + 1 : Math.min(WB_HOSTS, WB_VOLS.length + 1 + Math.floor((vol - WB_VOLS.at(-1)! - 1) / 216));
+  if (i >= 0) return `basket-${String(i + 1).padStart(2, '0')}.wbbasket.ru`;
 }
 
 interface WbCard {
   imt_name?: string;
   subj_name?: string;
+  description?: string;
 }
 
-async function wbCard(nm: number, shard: number, signal: AbortSignal) {
-  const b = `https://basket-${String(shard).padStart(2, '0')}.wbbasket.ru/${wbPath(nm)}`;
-  const res = await fetch(`${b}/info/ru/card.json`, { signal });
-  if (!res.ok) throw new Error(String(res.status));
-  return { b, card: (await res.json()) as WbCard };
+interface WbHost {
+  host: string;
+  vol_range_from: number;
+  vol_range_to: number;
 }
 
-/** The shard is guessed from the article first; when the guess misses, all of them are asked at once. */
-async function wbProduct(nm: number, url: string, signal?: AbortSignal): Promise<Product> {
-  const stop = new AbortController();
-  const abort = () => stop.abort();
-  signal?.addEventListener('abort', abort);
-  try {
-    const guess = wbShard(nm);
-    const { b, card } = await wbCard(nm, guess, stop.signal).catch(() =>
-      Promise.any(
-        Array.from({ length: WB_HOSTS }, (_, i) => i + 1)
-          .filter((s) => s !== guess)
-          .map((s) => wbCard(nm, s, stop.signal)),
-      ),
-    );
-    stop.abort();
-    const price = await fetch(`${b}/info/price-history.json`, { signal })
-      .then((r) => (r.ok ? (r.json() as Promise<{ price?: { RUB?: number } }[]>) : []))
-      .then((h) => h.at(-1)?.price?.RUB)
-      .catch(() => undefined);
-    return {
-      url,
-      shop: 'Wildberries',
-      title: card.imt_name?.trim() || undefined,
-      category: card.subj_name,
-      price: price ? Math.round(price / 100) : undefined,
-      image: `${b}/images/big/1.webp`,
-    };
-  } finally {
-    signal?.removeEventListener('abort', abort);
+let wbHosts: Promise<WbHost[]> | undefined;
+
+async function mappedWbHost(nm: number) {
+  wbHosts ??= fetch('https://cdn.wbbasket.ru/api/v3/upstreams', { signal: AbortSignal.timeout(3500) })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json() as { origin?: { mediabasket_route_map?: { method: string; hosts: WbHost[] }[] } };
+      return data.origin?.mediabasket_route_map?.find((map) => map.method === 'range')?.hosts ?? [];
+    })
+    .catch(() => { wbHosts = undefined; return []; });
+  const volume = Math.floor(nm / 1e5);
+  const hosts = await wbHosts;
+  return hosts.find((entry) => volume >= entry.vol_range_from && volume <= entry.vol_range_to
+    && /^basket-\d+\.wbbasket\.ru$/.test(entry.host))?.host;
+}
+
+async function wbProduct(nm: number, url: string, signal: AbortSignal): Promise<Product> {
+  const host = legacyWbHost(nm) ?? await mappedWbHost(nm);
+  if (!host) throw new Error('Unknown Wildberries CDN host');
+  const base = `https://${host}/${wbPath(nm)}`;
+  const load = async <T>(path: string) => {
+    const res = await fetch(base + path, { signal: AbortSignal.any([signal, AbortSignal.timeout(4500)]) });
+    if (!res.ok) throw new Error(String(res.status));
+    return await res.json() as T;
+  };
+  const [card, history] = await Promise.all([
+    load<WbCard>('/info/ru/card.json'),
+    load<{ dt: number; price?: { RUB?: number } }[]>('/info/price-history.json').catch(() => []),
+  ]);
+  let latest = 0;
+  let price: number | undefined;
+  for (const entry of Array.isArray(history) ? history : []) {
+    const rubles = entry.price?.RUB;
+    if (rubles && entry.dt >= latest) {
+      latest = entry.dt;
+      price = rubles / 100;
+    }
   }
+  return {
+    url, shop: 'Wildberries', price,
+    title: card.imt_name?.trim() || undefined,
+    category: card.subj_name,
+    note: card.description?.trim().slice(0, 6000) || undefined,
+    image: base + '/images/big/1.webp',
+    imageAlternates: [base + '/images/c516x688/1.webp', base + '/images/big/1.jpg'],
+  };
 }
 
 interface Microlink {
@@ -221,7 +238,10 @@ export async function lookup(url: string, signal?: AbortSignal): Promise<Product
   const wait = AbortSignal.timeout(PAGE_WAIT);
   const deadline = signal ? AbortSignal.any([signal, wait]) : wait;
   try {
-    if (nm) return await wbProduct(nm, url, deadline);
+    if (nm) {
+      const wb = await wbProduct(nm, url, deadline).catch(() => undefined);
+      if (wb) return wb;
+    }
     const page = await pageProduct(url, deadline);
     // A closed page often answers with its own address as the title.
     const real = page.title && !/^[\w.-]+$/.test(page.title) ? page.title : undefined;

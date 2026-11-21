@@ -47,11 +47,15 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
   const [cutting, setCutting] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
-  const [link, setLink] = useState('');
+  const [link, setLink] = useState(buy.url);
+  const [invalidLink, setInvalidLink] = useState(false);
   const canPaste = typeof navigator.clipboard?.readText === 'function';
   const useLink = (text: string) => {
-    if (firstUrl(text)) linkInto(buy.id, text);
-    setLink('');
+    const address = firstUrl(text);
+    setInvalidLink(!address);
+    if (!address) return;
+    setLink(address);
+    linkInto(buy.id, address);
   };
   const pasteLink = async () => {
     try {
@@ -102,7 +106,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
       <div className={`p-win-place buy-place${isNew ? ' is-new' : ''}`} onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="buy-holder">
           <Badge3D shop={buy.shop} />
-          <motion.div layoutId={gone.layoutId} exit={gone.exit} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={buy.title || 'Покупка'} transition={MORPH}>
+          <motion.div layoutId={isNew ? undefined : gone.layoutId} exit={gone.exit} className="buy-win" style={{ borderRadius: 36 }} role="dialog" aria-modal="true" aria-label={buy.title || 'Покупка'} transition={MORPH}>
             <motion.div className="buy-in" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ delay: 0.1, duration: 0.3 }}>
               <button type="button" className="round-btn buy-close" aria-label="Закрыть" onClick={onClose}>
                 <Icon name="close" size={18} />
@@ -120,7 +124,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               </motion.button>
               <input ref={file} type="file" accept="image/*" hidden onChange={(e) => void pickPhoto(e.target.files?.[0])} />
 
-              {!buy.url && (
+              {(isNew || !buy.url) && (
                 <motion.form
                   className="buy-link"
                   {...part(1)}
@@ -131,7 +135,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 >
                   <input
                     value={link}
-                    onChange={(e) => setLink(e.target.value)}
+                    onChange={(e) => { setLink(e.target.value); setInvalidLink(false); }}
                     onPaste={(e) => {
                       const v = e.clipboardData.getData('text');
                       if (firstUrl(v)) {
@@ -139,13 +143,13 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                         useLink(v);
                       }
                     }}
-                    placeholder="Вставь ссылку с Ozon"
+                    placeholder="Вставь ссылку на товар"
                     aria-label="Ссылка на товар"
                     inputMode="url"
                     enterKeyHint="go"
                   />
                   {link.trim() ? (
-                    <button type="submit" aria-label="Добавить по ссылке">
+                    <button type="submit" aria-label={buy.url === link ? 'Повторить импорт' : 'Импортировать товар'}>
                       <Icon name="arrowRight" size={18} stroke={2.2} />
                     </button>
                   ) : (
@@ -156,6 +160,14 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                     )
                   )}
                 </motion.form>
+              )}
+              {invalidLink && <p className="buy-link-status" role="alert">Нужна ссылка на карточку товара</p>}
+              {importing && <p className="buy-link-status" role="status">Загружаю данные товара…</p>}
+              {buy.url && !importing && (!url || !buy.price || !buy.title || buy.title === buy.shop) && (
+                <>
+                  <p className="buy-link-status" role="status">Часть данных недоступна по ссылке. Можно заполнить их вручную.</p>
+                  {!isNew && <button type="button" className="scan-link" onClick={() => useLink(buy.url)}>Повторить импорт</button>}
+                </>
               )}
 
               <motion.label className="buy-price-row" {...part(1)}>

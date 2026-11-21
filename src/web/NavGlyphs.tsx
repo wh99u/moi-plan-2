@@ -12,7 +12,7 @@ interface GlyphProps {
   size: number;
 }
 
-const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 function Home({ run, size }: GlyphProps) {
   return (
@@ -136,7 +136,7 @@ function Calendar({ run, size }: GlyphProps) {
 function More({ run, size }: GlyphProps) {
   return (
     <motion.span className="glyph" initial={false} animate={{ rotate: run ? 360 : 0 }} transition={run ? { duration: 0.85, ease: [0.45, 0, 0.15, 1] } : { duration: 0 }}>
-      <Icon name="grid" size={size} stroke={1.9} />
+      <Icon name="grid" size={size} stroke={2.2} />
     </motion.span>
   );
 }

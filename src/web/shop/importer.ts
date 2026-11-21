@@ -32,12 +32,13 @@ const current = (id: string) => visible(appStore.get().shared.buys).find((b) => 
 function fillEmpty(id: string, found: { title?: string; price?: number; category?: string; note?: string }) {
   const b = current(id);
   if (!b) return;
-  actions.updateBuy(id, {
+  const patch = {
     ...(found.title && (!b.title || b.title === b.shop) ? { title: found.title } : {}),
     ...(found.price && !b.price ? { price: found.price } : {}),
     ...(found.category && !b.category ? { category: found.category } : {}),
     ...(found.note && !b.note ? { note: found.note } : {}),
-  });
+  };
+  if (Object.keys(patch).length) actions.updateBuy(id, patch);
 }
 
 /** The photo of a purchase as the shop or the owner gave it, kept whole on this device: it fills the card. */
@@ -133,7 +134,7 @@ async function fill(id: string, url: string, shared?: Shared) {
   imports.set(id, { url, request });
   setBusy(id, true);
   try {
-    const found = shared ?? await lookup(url, signal);
+    const found = shared ? { ...shared, imageAlternates: undefined } : await lookup(url, signal);
     const buy = current(id);
     if (!buy || buy.url !== url || signal.aborted) return;
     fillEmpty(id, found);
@@ -141,8 +142,13 @@ async function fill(id: string, url: string, shared?: Shared) {
 
     const source = new URL(found.image, url);
     if (source.protocol !== 'https:' && source.protocol !== 'http:') return;
-    const load = (href: string) => fetchImage(href, AbortSignal.any([signal, AbortSignal.timeout(9000)]));
-    const blob = await load(source.href) ?? (signal.aborted ? null : await load(proxied(source.href, 1200)));
+    const load = (href: string) => fetchImage(href, AbortSignal.any([signal, AbortSignal.timeout(5000)]));
+    let blob: Blob | null = null;
+    for (const href of [source.href, ...(found.imageAlternates ?? []), proxied(source.href, 1200)]) {
+      if (signal.aborted) return;
+      blob = await load(href);
+      if (blob) break;
+    }
     if (!blob || signal.aborted) return;
     const best = current(id);
     if (!best || best.url !== url || buyPhotoId(best)) return;

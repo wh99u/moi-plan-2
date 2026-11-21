@@ -54,7 +54,7 @@ function MoreGrid() {
           whileTap={{ scale: 0.95 }}
         >
           <span className="more-icon">
-            {x.id === 'shop' ? <NavGlyph index={2} size={22} run={!calm} /> : <Icon name={x.icon} size={22} />}
+            {x.id === 'money' ? <NavGlyph index={1} size={22} run={!calm} /> : <Icon name={x.icon} size={22} />}
           </span>
           <span className="more-text">
             <strong>{x.label}</strong>

@@ -53,7 +53,6 @@ export function Budget() {
       <motion.div className="budget" layoutScroll>
         <div className="b-col">
           <TopPanel />
-          <Tiles />
           <Links />
           <Purchases spends={spends} openedId={opened} onOpen={setOpened} />
         </div>
@@ -238,27 +237,6 @@ function CardsWindow({ total, cards, onClose }: { total: number; cards: CardView
         </motion.div>
       </div>
     </>
-  );
-}
-
-function Tiles() {
-  const tiles = [
-    { label: 'Покупка', icon: 'plus', tx: 'out', wide: true },
-    { label: 'Доход', icon: 'trend', tx: 'in', wide: false },
-  ] as const;
-  return (
-    <div className="b-tiles">
-      {tiles.map((t, i) => (
-        <Recede key={t.label} from={2.6} delay={0.04 + i * 0.04} panel className={`b-tile-wrap${t.wide ? ' is-wide' : ''}`}>
-          <motion.button type="button" className="b-tile glass" onClick={() => openSheet('tx', { tx: t.tx })} whileHover={{ y: -3 }} whileTap={{ scale: 0.93 }}>
-            <span className="b-tile-icon">
-              <Icon name={t.icon} size={21} stroke={2} />
-            </span>
-            {t.label}
-          </motion.button>
-        </Recede>
-      ))}
-    </div>
   );
 }
 

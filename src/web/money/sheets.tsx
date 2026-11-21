@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { pickReceipt, scanReceipt, type ScanStage } from '../../app/money/scan';
-import { closeSheet, useSheet, useSheetData } from '../../app/sheet';
+import { closeSheet, openSheet, useSheet, useSheetData } from '../../app/sheet';
 import { Sheet } from '../../app/ui/Sheet';
 import { EASE } from '../../app/ui/text';
 import { actions, useStore } from '../../lib/appStore';
@@ -22,6 +22,12 @@ export function MoneySheets() {
   const data = useSheetData();
   return (
     <>
+      <Sheet open={open === 'txAdd'} onClose={closeSheet} title="Добавить операцию">
+        <div className="form-two">
+          <button type="button" className="scan-link" onClick={() => openSheet('tx', { tx: 'out' })}><Icon name="receipt" size={19} />Расход</button>
+          <button type="button" className="scan-link" onClick={() => openSheet('tx', { tx: 'in' })}><Icon name="trend" size={19} />Доход</button>
+        </div>
+      </Sheet>
       <Sheet open={open === 'tx' && data.tx === 'out'} onClose={closeSheet} title="Новая покупка">
         <PurchaseForm />
       </Sheet>

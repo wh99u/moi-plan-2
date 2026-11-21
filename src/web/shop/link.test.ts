@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { cleanTitle, firstUrl, nameFromUrl, rublesIn, shopOf, wbArticle } from './link';
+import { describe, expect, it, vi } from 'vitest';
+import { cleanTitle, firstUrl, lookup, nameFromUrl, rublesIn, shopOf, wbArticle } from './link';
 
 describe('firstUrl', () => {
   it('finds the link in a shared text', () => {
@@ -24,6 +24,30 @@ describe('wbArticle', () => {
   it('reads the article from a link', () => {
     expect(wbArticle('https://www.wildberries.ru/catalog/177311561/detail.aspx?targetUrl=GP')).toBe(177311561);
     expect(wbArticle('https://www.ozon.ru/product/177311561/')).toBeNull();
+  });
+});
+
+describe('Wildberries import', () => {
+  it('uses the published CDN ranges and imports the newest public price in rubles', async () => {
+    const base = 'https://basket-50.wbbasket.ru/vol16701/part1670101/1670101000';
+    const responses = new Map<string, object>([
+      ['https://cdn.wbbasket.ru/api/v3/upstreams', { origin: { mediabasket_route_map: [
+        { method: 'range', hosts: [{ vol_range_from: 16518, vol_range_to: 17285, host: 'basket-50.wbbasket.ru' }] },
+      ] } }],
+      [base + '/info/ru/card.json', { imt_name: 'Чайник', description: 'Объём 1 л' }],
+      [base + '/info/price-history.json', [{ dt: 20, price: { RUB: 99950 } }, { dt: 10, price: { RUB: 120000 } }]],
+    ]);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const data = responses.get(url);
+      return data ? Response.json(data) : new Response(null, { status: 404 });
+    }));
+    try {
+      await expect(lookup('https://www.wildberries.ru/catalog/1670101000/detail.aspx')).resolves.toMatchObject({
+        title: 'Чайник', note: 'Объём 1 л', price: 999.5, image: base + '/images/big/1.webp',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

@@ -187,6 +187,7 @@
 .is-tile .purchase-placeholder { inset: 43% 0 0; }
 .is-tile .purchase-pin { width: 36px; height: 36px; right: 9px; bottom: 9px; }
 .purchases-empty { margin-top: 16px; color: var(--ink-2); }
+.buy-link-status { color: var(--ink-2); font-size: 13px; margin: 0; }
 .purchases-round:focus-visible, .purchase-open:focus-visible, .purchase-pin:focus-visible { outline-offset: -3px; }
 @media (prefers-reduced-motion: reduce) {
   .is-hero .purchase-tile { transform: none; }
