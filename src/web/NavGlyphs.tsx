@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
 import { useId } from 'react';
 import { Icon } from '../ui/Icon';
-import { Mark } from './Mark';
 
 /**
  * What each tab does inside the raised circle once it has landed. Before `run` turns on, every
@@ -17,9 +16,12 @@ const stroke = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeL
 
 function Home({ run, size }: GlyphProps) {
   return (
-    <motion.span className="glyph" initial={false} animate={run ? { rotate: [0, -14, 9, -4, 0], y: [0, -3, 0, -1, 0] } : { rotate: 0, y: 0 }} transition={{ duration: 0.8, ease: 'easeInOut' }}>
-      <Mark size={size + 4} />
-    </motion.span>
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" overflow="visible" {...stroke}>
+      <motion.g initial={false} animate={run ? { y: [0, -2, 0] } : { y: 0 }} transition={{ duration: 0.48 }}>
+        <path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M3 11l9-8 9 8" />
+        <motion.path d="M10 20v-5h4v5" initial={false} animate={{ pathLength: run ? [0, 1] : 1 }} transition={{ duration: 0.36, delay: 0.18 }} />
+      </motion.g>
+    </svg>
   );
 }
 

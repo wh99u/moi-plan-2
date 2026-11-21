@@ -7,6 +7,7 @@ const P: Record<string, string> = {
   bag: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  pin: '<path d="m15 4 5 5-3 1-3 5-2 1-4-4 1-2 5-3 1-3ZM5 19l5-5"/>',
   play: '<path class="f" d="M8 5.2v13.6L19 12z"/>',
   pause: '<path class="f" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>',
   wifi: '<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 15.9a5 5 0 0 1 6.8 0"/><circle class="f" cx="12" cy="19.2" r="1.3"/>',

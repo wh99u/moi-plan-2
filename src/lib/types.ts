@@ -74,8 +74,10 @@ export interface Buy extends Rec {
   note?: string;
   /** What it is needed for. */
   why?: string;
-  /** Brought up to the main screen at this moment; the newest three stay there. */
+  /** Pinned to the featured carousel at this moment. */
   pinned?: number;
+  /** The product link from which the current marketplace photo was imported. */
+  photoFrom?: string;
   /** The name the picture was found by, when it was found by name: a new name finds a new one. */
   autoPic?: string;
   /** Where it is sold: «Wildberries», «Amazon». */

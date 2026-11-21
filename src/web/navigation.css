@@ -1,0 +1,58 @@
+.site-dock {
+  position: relative;
+  height: 106px;
+  color: var(--ink-2);
+  filter: drop-shadow(0 8px 16px #0003);
+}
+.dock-fill, .dock-edge {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  pointer-events: none;
+}
+.dock-fill {
+  background: color-mix(in srgb, var(--bg) 91%, var(--ink));
+  backdrop-filter: blur(24px) saturate(160%);
+}
+[data-theme='light'] .dock-fill {
+  background: rgb(255 255 255 / 92%);
+}
+.dock-tabs {
+  position: absolute;
+  inset: 42px 4px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) min(23%, 84px) repeat(2, minmax(0, 1fr));
+  align-items: center;
+  justify-items: center;
+}
+.dock-tab {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 2px;
+  border-radius: 16px;
+  pointer-events: auto;
+  color: inherit;
+  font-size: 10px;
+  line-height: 1.1;
+  transition: color .2s;
+}
+.dock-tab[aria-current='page'], .dock-tab[aria-pressed='true'] { color: var(--ink); font-weight: 700; }
+.dock-plus {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-top: -78px;
+  border-radius: 50%;
+  pointer-events: auto;
+  background: linear-gradient(155deg,#8c73ff,#633de4);
+  color: #fff;
+  box-shadow: 0 5px 20px #7752ef55;
+}
+@media (max-width: 355px) { .dock-tab { font-size: 9px; } }

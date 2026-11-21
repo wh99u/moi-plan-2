@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
 import { EASE } from '../../app/ui/text';
+import { openSheet } from '../../app/sheet';
 import { actions } from '../../lib/appStore';
 import type { Buy } from '../../lib/types';
 import { Icon } from '../../ui/Icon';
@@ -9,7 +10,7 @@ import { parseAmount, typedAmount } from '../money/data';
 import { CatPick, DateField } from '../money/sheets';
 import { Badge3D } from './Badge3D';
 import { useImage } from './Dream';
-import { autoPicture, linkInto, setBuyPicture, useImporting, wantsPicture } from './importer';
+import { buyPhotoId, linkInto, setBuyPicture, useImporting } from './importer';
 import { firstUrl } from './link';
 import { isBlankBuy } from './logic';
 import { pulseWave } from '../Wave';
@@ -25,9 +26,6 @@ const part = (i: number) => ({
   transition: { delay: 0.14 + i * 0.04, duration: 0.5, ease: EASE },
 });
 
-/** How long after the last letter the picture is looked for: «пылесос» and not «пыл». */
-const TYPING = 800;
-
 /** One line, the height of the other fields, until more is written into it. */
 export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textarea> & { value: string }) {
   const el = useRef<HTMLTextAreaElement>(null);
@@ -42,7 +40,7 @@ export function GrowText({ value, ...rest }: ComponentProps<typeof motion.textar
 
 /** The card grows into this window: all of it can be edited, and is saved as it is typed. */
 export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; morph: string; isNew?: boolean; onClose: () => void }) {
-  const url = useImage(buy.imgId);
+  const url = useImage(buyPhotoId(buy));
   const importing = useImporting(buy.id);
   const [price, setPrice] = useState(buy.price ? typedAmount(String(buy.price)) : '');
   const gone = useGone(morph);
@@ -69,13 +67,6 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
     pulseWave();
     onClose();
   };
-
-  // The picture comes by itself once the name is written.
-  useEffect(() => {
-    if (!wantsPicture(buy)) return;
-    const t = setTimeout(() => void autoPicture(buy.id), TYPING);
-    return () => clearTimeout(t);
-  }, [buy]);
 
   useEffect(() => {
     if (!isNew) return;
@@ -123,7 +114,7 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
                 ) : (
                   <span className="buy-stage-empty">
                     <Icon name="photo" size={24} />
-                    {importing || cutting ? 'Подбираю картинку' : 'Картинка появится сама'}
+                    {importing || cutting ? 'Загружаю фото' : 'Добавить фото'}
                   </span>
                 )}
               </motion.button>
@@ -213,11 +204,14 @@ export function BuyWindow({ buy, morph, isNew = false, onClose }: { buy: Buy; mo
               )}
 
               <motion.div className="buy-actions" {...part(8)}>
-                <button type="button" className={`scan-link${buy.pinned ? ' is-on' : ''}`} onClick={() => set({ pinned: buy.pinned ? undefined : Date.now() })}>
+                <button type="button" className={`scan-link${buy.pinned ? ' is-on' : ''}`} aria-pressed={!!buy.pinned} onClick={() => set({ pinned: buy.pinned ? undefined : Date.now() })}>
                   <Icon name="flag" size={18} />
-                  {buy.pinned ? 'Убрать из важных' : 'В важные'}
+                  {buy.pinned ? 'Открепить' : 'Закрепить'}
                 </button>
               </motion.div>
+              {!isNew && <button type="button" className="scan-link" onClick={() => { onClose(); openSheet('bought', { id: buy.id }); }}>
+                <Icon name="check" size={18} /> Куплено
+              </button>}
 
               {/* One tap: «Отменить» comes up over the tab bar instead of asking twice. */}
               <button type="button" className="p-delete" onClick={() => gone.leave(() => {

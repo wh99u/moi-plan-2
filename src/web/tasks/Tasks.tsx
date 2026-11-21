@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { EASE } from '../../app/ui/text';
+import { closeSheet, useSheet } from '../../app/sheet';
 import { useStore } from '../../lib/appStore';
 import { addDays, dayKey, parseDay } from '../../lib/dates';
 import { visible } from '../../lib/records';
 import type { Task } from '../../lib/types';
-import { Icon } from '../../ui/Icon';
 import { Recede } from '../Recede';
 import { Seg } from '../Seg';
 import { useNow } from '../Today';
@@ -21,7 +21,6 @@ import { blur } from '../../app/ui/device';
 type View = TasksView;
 /** A new key: since the hours became one day by default, everyone starts from one day again. */
 const SPAN_KEY = 'tasks_span_v2';
-const POP = { type: 'spring', stiffness: 420, damping: 30 } as const;
 
 const daysFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => dayKey(addDays(parseDay(first), i)));
 
@@ -76,7 +75,13 @@ export function Tasks() {
     }
   };
   const full = view !== 'habits';
-  const plus = view === 'habits' ? () => setNewHabit((n) => n + 1) : () => setDraft({ due: view === 'hours' && !daysFrom(first, span).includes(dayKey(now)) ? first : dayKey(now) });
+  const sheet = useSheet();
+  useEffect(() => {
+    if (sheet !== 'newTask') return;
+    closeSheet();
+    if (view === 'habits') setNewHabit((n) => n + 1);
+    else setDraft({ due: view === 'hours' && !daysFrom(first, span).includes(dayKey(now)) ? first : dayKey(now) });
+  }, [sheet, view, first, span, now]);
 
   return (
     <>
@@ -107,22 +112,6 @@ export function Tasks() {
           </AnimatePresence>
         </div>
       </div>
-      <AnimatePresence>
-        <motion.button
-          key="plus"
-          type="button"
-          className="fab-plus"
-          aria-label={view === 'habits' ? 'Новая привычка' : 'Новая задача'}
-          initial={{ scale: 0, rotate: -90 }}
-          animate={{ scale: 1, rotate: 0 }}
-          exit={{ scale: 0, rotate: 90 }}
-          transition={POP}
-          whileTap={{ scale: 0.85 }}
-          onClick={plus}
-        >
-          <Icon name="plus" size={26} stroke={2} />
-        </motion.button>
-      </AnimatePresence>
       <DayPlate
         day={plateDay}
         onClose={() => setPlateDay(null)}

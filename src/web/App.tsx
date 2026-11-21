@@ -81,9 +81,9 @@ export function App() {
     <MotionConfig reducedMotion="user">
       <Wave route={route} />
       <AnimatePresence mode="wait">
-        <main key={route} className="page">
+        <motion.main key={route} className="page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.22 }}>
           {route === 'home' ? <Home /> : route === 'money' ? <Budget /> : route === 'shop' ? <Shop /> : route === 'tasks' ? <Tasks /> : <Soon route={route} />}
-        </main>
+        </motion.main>
       </AnimatePresence>
       <TopBar route={route} />
       <Nav route={route} />

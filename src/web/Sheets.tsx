@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { ACCENTS, setAccent, useAccent } from '../app/accent';
 import { setLook, useLook, type Look } from '../app/look';
@@ -10,6 +10,7 @@ import { Sheet } from '../app/ui/Sheet';
 import { isDemo } from '../lib/appStore';
 import { Icon } from '../ui/Icon';
 import { MoneySheets } from './money/sheets';
+import { NavGlyph } from './NavGlyphs';
 import { EXTRAS, navigate } from './route';
 import { Seg } from './Seg';
 import { ShopSheets } from './shop/sheets';
@@ -21,7 +22,7 @@ export function Sheets() {
   const open = useSheet();
   return (
     <>
-      <Sheet open={open === 'more'} onClose={closeSheet} title="Ещё">
+      <Sheet open={open === 'more'} onClose={closeSheet} title="Прочее">
         <MoreGrid />
       </Sheet>
       <Sheet open={open === 'profile'} onClose={closeSheet} title="Профиль">
@@ -35,6 +36,7 @@ export function Sheets() {
 }
 
 function MoreGrid() {
+  const calm = useReducedMotion();
   return (
     <div className="more-grid">
       {EXTRAS.map((x, i) => (
@@ -52,7 +54,7 @@ function MoreGrid() {
           whileTap={{ scale: 0.95 }}
         >
           <span className="more-icon">
-            <Icon name={x.icon} size={22} />
+            {x.id === 'shop' ? <NavGlyph index={2} size={22} run={!calm} /> : <Icon name={x.icon} size={22} />}
           </span>
           <span className="more-text">
             <strong>{x.label}</strong>

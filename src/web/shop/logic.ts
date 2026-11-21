@@ -1,8 +1,6 @@
 import { addDays, dayKey, daysBetween, parseDay } from '../../lib/dates';
 import type { Buy, Car, Income, Spend } from '../../lib/types';
 
-/** How many purchases fit on the main screen of the section. */
-export const MAIN_COUNT = 3;
 const PACE_DAYS = 90;
 const DAYS_IN_MONTH = 30.44;
 
@@ -61,20 +59,13 @@ export const usablePhoto = (car: Car) => !!car.imgId && !car.cut;
 /** Opened with the plus and left as it was: nothing to keep. */
 export const isBlankBuy = (b: Buy) => !b.title.trim() && !b.url && !b.imgId && !b.price && !b.note && !b.why && !b.due;
 
-/**
- * The main screen and the rest: what was brought up by hand, newest first; any free places go to
- * the nearest deadlines, then the oldest wishes.
- */
+/** Featured items are pinned explicitly. The rest are ordered by deadline. */
 export function splitBuys(buys: Buy[]): { main: Buy[]; rest: Buy[] } {
   const list = activeBuys(buys);
-  const pinned = list.filter((b) => b.pinned).sort((a, b) => b.pinned! - a.pinned!).slice(0, MAIN_COUNT);
-  const others = list
-    .filter((b) => !pinned.includes(b))
-    .map((b, i) => ({ b, i }))
-    .sort((x, y) => (x.b.due ?? '9999').localeCompare(y.b.due ?? '9999') || x.i - y.i)
-    .map((x) => x.b);
-  const free = MAIN_COUNT - pinned.length;
-  return { main: [...pinned, ...others.slice(0, free)], rest: others.slice(free) };
+  return {
+    main: list.filter((b) => b.pinned).sort((a, b) => b.pinned! - a.pinned!),
+    rest: list.filter((b) => !b.pinned).sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999')),
+  };
 }
 
 /** Shortest and slowest a swipe up can be and still count as a flick on to the dream. */

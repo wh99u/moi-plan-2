@@ -3,7 +3,7 @@ import { actions, appStore } from '../../lib/appStore';
 import { putImage } from '../../lib/images';
 import { visible } from '../../lib/records';
 import type { Buy } from '../../lib/types';
-import { findPhotos, findPictures, type Photo } from './dreamSearch';
+import { findPhotos, type Photo } from './dreamSearch';
 import { parseShared, type Shared } from './shareScript';
 import { fetchImage, firstUrl, fullScreen, lookup, pageImage, proxied, shopOf } from './link';
 
@@ -29,79 +29,21 @@ export const useImporting = (id: string) =>
 const current = (id: string) => visible(appStore.get().shared.buys).find((b) => b.id === id);
 
 /** Sets a field only if it is still empty: what the owner has typed meanwhile stays. */
-function fillEmpty(id: string, found: { title?: string; price?: number; category?: string }) {
+function fillEmpty(id: string, found: { title?: string; price?: number; category?: string; note?: string }) {
   const b = current(id);
   if (!b) return;
   actions.updateBuy(id, {
     ...(found.title && (!b.title || b.title === b.shop) ? { title: found.title } : {}),
     ...(found.price && !b.price ? { price: found.price } : {}),
     ...(found.category && !b.category ? { category: found.category } : {}),
+    ...(found.note && !b.note ? { note: found.note } : {}),
   });
 }
 
 /** The photo of a purchase as the shop or the owner gave it, kept whole on this device: it fills the card. */
 export async function setBuyPicture(id: string, blob: Blob) {
   const imgId = await putImage(blob);
-  if (current(id)) actions.updateBuy(id, { imgId, cut: false, tint: undefined, autoPic: undefined });
-}
-
-/** How far down the results to look when a picture does not load. */
-const TRIES = 4;
-const MIN_NAME = 3;
-
-/**
- * The first found picture that loads, whole. Cutting the thing out of it with a neural network took
- * about 800 MB, enough for a phone to shut the tab, so nothing heavier than a download runs here.
- */
-async function pictureByName(name: string, signal: AbortSignal): Promise<Blob | null> {
-  for (const f of (await findPictures(name, signal)).slice(0, TRIES)) {
-    const blob = await fetchImage(f.full, signal);
-    if (signal.aborted) return null;
-    if (blob) return blob;
-  }
-  return null;
-}
-
-/** A purchase with no picture, or with one found by a name since changed. A shop's or the owner's own stays. */
-export const wantsPicture = (b: Buy) => {
-  const name = b.title.trim();
-  if (name.length < MIN_NAME || name === b.shop) return false;
-  return !b.imgId || (b.autoPic !== undefined && b.autoPic !== name);
-};
-
-/** Purchases being filled from a link right now: the search by name waits for what the shop gives. */
-const linking = new Set<string>();
-const picking = new Map<string, { name: string; stop: AbortController }>();
-/** Names that found nothing, so they are not searched again until the next visit. */
-const nothing = new Set<string>();
-
-/** Finds and sets the picture by the purchase's name. Safe to call again and again. */
-export async function autoPicture(id: string): Promise<void> {
-  const b = current(id);
-  if (!b || !wantsPicture(b) || linking.has(id)) return;
-  const name = b.title.trim();
-  if (picking.get(id)?.name === name || nothing.has(name)) return;
-  picking.get(id)?.stop.abort();
-  const stop = new AbortController();
-  picking.set(id, { name, stop });
-  setBusy(id, true);
-  try {
-    const blob = await pictureByName(name, stop.signal);
-    if (stop.signal.aborted) return;
-    if (!blob) {
-      nothing.add(name);
-      return;
-    }
-    const imgId = await putImage(blob);
-    if (current(id)?.title.trim() === name) actions.updateBuy(id, { imgId, cut: false, tint: undefined, autoPic: name });
-  } catch {
-    /* offline: the card stays without a picture until it is opened again */
-  } finally {
-    if (picking.get(id)?.stop === stop) {
-      picking.delete(id);
-      setBusy(id, false);
-    }
-  }
+  if (current(id)) actions.updateBuy(id, { imgId, cut: false, tint: undefined, autoPic: undefined, photoFrom: undefined, icon: undefined });
 }
 
 /** The key the dream's search shows under in `useImporting`. */
@@ -175,23 +117,52 @@ export async function setDreamLink(text: string): Promise<boolean> {
   }
 }
 
-async function fill(id: string, url: string) {
+export function buyPhotoId(buy: Buy) {
+  if (buy.icon || buy.autoPic !== undefined || (buy.photoFrom && buy.photoFrom !== buy.url)) return undefined;
+  return buy.imgId;
+}
+
+const imports = new Map<string, { url: string; request: AbortController }>();
+
+async function fill(id: string, url: string, shared?: Shared) {
+  const pending = imports.get(id);
+  if (!shared && pending?.url === url) return;
+  pending?.request.abort();
+  const request = new AbortController();
+  const { signal } = request;
+  imports.set(id, { url, request });
   setBusy(id, true);
-  linking.add(id);
   try {
-    const found = await lookup(url);
+    const found = shared ?? await lookup(url, signal);
+    const buy = current(id);
+    if (!buy || buy.url !== url || signal.aborted) return;
     fillEmpty(id, found);
-    if (found.image) {
-      // Some shops let a browser read their pictures, others only through the image proxy.
-      const blob = (await fetchImage(found.image)) ?? (await fetchImage(proxied(found.image)));
-      if (blob && !current(id)?.imgId) await setBuyPicture(id, blob);
+    if (!found.image || buyPhotoId(buy)) return;
+
+    const source = new URL(found.image, url);
+    if (source.protocol !== 'https:' && source.protocol !== 'http:') return;
+    const load = (href: string) => fetchImage(href, AbortSignal.any([signal, AbortSignal.timeout(9000)]));
+    const blob = await load(source.href) ?? (signal.aborted ? null : await load(proxied(source.href, 1200)));
+    if (!blob || signal.aborted) return;
+    const best = current(id);
+    if (!best || best.url !== url || buyPhotoId(best)) return;
+    const imgId = await putImage(blob);
+    const still = current(id);
+    if (still?.url === url && !signal.aborted && !buyPhotoId(still)) {
+      actions.updateBuy(id, { imgId, photoFrom: url, autoPic: undefined, cut: false, tint: undefined, icon: undefined });
     }
+  } catch {
+    // A shop may withhold the picture or the image store can be unavailable.
   } finally {
-    linking.delete(id);
-    setBusy(id, false);
+    if (imports.get(id)?.request === request) {
+      imports.delete(id);
+      setBusy(id, false);
+    }
   }
-  // A closed shop gives a name at most: the picture is then found by that name.
-  void autoPicture(id);
+}
+
+export function refreshBuyPhoto(buy: Buy) {
+  if (buy.url && !buyPhotoId(buy)) return fill(buy.id, buy.url);
 }
 
 /** A link pasted into a purchase already open. */
@@ -215,7 +186,10 @@ export function addBuyFrom(text: string): string | null {
   if (!url) return actions.addBuy({ title: clean, url: '', price: 0 }).id;
 
   const known = visible(appStore.get().shared.buys).find((b) => b.url === url && !b.boughtAt);
-  if (known) return known.id;
+  if (known) {
+    void refreshBuyPhoto(known);
+    return known.id;
+  }
   const shop = shopOf(url);
   const id = actions.addBuy({ title: shop, url, price: 0, shop }).id;
   void fill(id, url);
@@ -227,19 +201,7 @@ function addShared(s: Shared): string {
   const known = visible(appStore.get().shared.buys).find((b) => b.url === s.url && !b.boughtAt);
   const shop = shopOf(s.url);
   const id = known?.id ?? actions.addBuy({ title: s.title ?? shop, url: s.url, price: s.price ?? 0, shop, note: s.note, category: s.category }).id;
-  if (known) fillEmpty(id, s);
-  if (s.image && !known?.imgId) {
-    const image = s.image;
-    setBusy(id, true);
-    void (async () => {
-      try {
-        const blob = (await fetchImage(image)) ?? (await fetchImage(proxied(image, 1200)));
-        if (blob) await setBuyPicture(id, blob);
-      } finally {
-        setBusy(id, false);
-      }
-    })();
-  }
+  void fill(id, s.url, s);
   return id;
 }
 
@@ -252,5 +214,6 @@ export function takeShopLink(): string | null {
   if (text === null) return null;
   history.replaceState(null, '', '#/shop');
   const shared = parseShared(q);
-  return shared ? addShared(shared) : addBuyFrom(text);
+  const url = shared && firstUrl(shared.url);
+  return shared && url ? addShared({ ...shared, url }) : addBuyFrom(text);
 }

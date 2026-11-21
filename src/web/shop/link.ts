@@ -1,11 +1,8 @@
 /*
  * A product link → name, category, price and photo. Shops guard their pages, so each source
  * is used for what it actually gives a browser:
- * - Wildberries keeps a public card (name, category, photos) on its CDN; prices are not public.
- * - Any other page goes through microlink.io, which reads its title and preview image.
- * - Ozon blocks every outside reader: the user fills the card by hand.
- * Pictures from other sites go through the wsrv.nl image proxy, which allows canvas reads,
- * so the background can be cut out.
+ * - Wildberries exposes product photos on its CDN.
+ * - For other sites, Microlink reads public product metadata when available.
  */
 
 export interface Product {
@@ -19,7 +16,7 @@ export interface Product {
 
 /** The first link in a pasted share text («Смотри, что нашёл https://…»). */
 export function firstUrl(text: string): string | null {
-  const m = text.match(/https?:\/\/[^\s<>"«»]+/i) ?? text.match(/\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:ru|com|net|org|shop|store|io)\/[^\s<>"«»]*/i);
+  const m = text.match(/https?:\/\/[^\s<>"«»]+/i) ?? text.match(/\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:ru|com|net|org|shop|store|io|link)\/[^\s<>"«»]*/i);
   if (!m) return null;
   const url = m[0].replace(/[),.!?;:]+$/, '');
   return /^https?:/i.test(url) ? url : `https://${url}`;
@@ -27,7 +24,7 @@ export function firstUrl(text: string): string | null {
 
 const SHOPS: [RegExp, string][] = [
   [/(^|\.)(wildberries\.(ru|by|kz|am|kg|uz)|wb\.ru)$/, 'Wildberries'],
-  [/(^|\.)ozon\.(ru|by|kz)$/, 'Ozon'],
+  [/(^|\.)ozon\.(ru|by|kz|link)$/, 'Ozon'],
   [/(^|\.)market\.yandex\.ru$/, 'Яндекс Маркет'],
   [/(^|\.)amazon\.[a-z.]+$/, 'Amazon'],
   [/(^|\.)aliexpress\.(ru|com|us)$/, 'AliExpress'],
@@ -171,10 +168,11 @@ async function pageProduct(url: string, signal?: AbortSignal): Promise<Product> 
   const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`, { signal });
   const json = (await res.json()) as Microlink;
   const d = json.status === 'success' ? json.data : undefined;
+  if (d?.title && WALL.test(d.title)) return { url, shop };
   const title = d?.title && !WALL.test(d.title) && d.title !== '...' ? shortTitle(cleanTitle(d.title)) : undefined;
   const image = d?.image?.url && !/challenge|incident|captcha|favicon|logo/i.test(d.image.url) ? d.image.url : undefined;
   if (!title && !image) return { url, shop };
-  return { url, shop, title, image: image && proxied(image), price: rublesIn(`${d?.title ?? ''} ${d?.description ?? ''}`) };
+  return { url, shop, title, image, price: rublesIn(`${d?.title ?? ''} ${d?.description ?? ''}`) };
 }
 
 /** Latin words that are names, and must not be read back as Russian. */
@@ -196,7 +194,9 @@ const backToRussian = (word: string) => BACK.reduce((w, [re, to]) => w.replace(r
 export function nameFromUrl(url: string): string | undefined {
   let path = '';
   try {
-    path = new URL(url).pathname;
+    const address = new URL(url);
+    path = address.pathname;
+    if (wbArticle(url) || (shopOf(url) === 'Ozon' && (path.startsWith('/t/') || address.hostname === 'ozon.link'))) return undefined;
   } catch {
     return undefined;
   }
@@ -218,12 +218,11 @@ const PAGE_WAIT = 9000;
 export async function lookup(url: string, signal?: AbortSignal): Promise<Product> {
   const nm = wbArticle(url);
   const fromAddress = { url, shop: shopOf(url), title: nameFromUrl(url) };
+  const wait = AbortSignal.timeout(PAGE_WAIT);
+  const deadline = signal ? AbortSignal.any([signal, wait]) : wait;
   try {
-    if (nm) return await wbProduct(nm, url, signal);
-    // Ozon's bot check is not something to get around: only the address is read.
-    if (shopOf(url) === 'Ozon') return fromAddress;
-    const wait = AbortSignal.timeout(PAGE_WAIT);
-    const page = await pageProduct(url, signal ? AbortSignal.any([signal, wait]) : wait);
+    if (nm) return await wbProduct(nm, url, deadline);
+    const page = await pageProduct(url, deadline);
     // A closed page often answers with its own address as the title.
     const real = page.title && !/^[\w.-]+$/.test(page.title) ? page.title : undefined;
     return { ...page, title: real ?? fromAddress.title };

@@ -69,11 +69,11 @@ describe('hasDream', () => {
 describe('splitBuys', () => {
   it('leaves bought ones out', () => {
     const { main, rest } = splitBuys([buy('a', { boughtAt: 1 }), buy('b')]);
-    expect(main.map((b) => b.id)).toEqual(['b']);
-    expect(rest).toEqual([]);
+    expect(main).toEqual([]);
+    expect(rest.map((b) => b.id)).toEqual(['b']);
   });
 
-  it('puts the brought-up ones first, newest first, then the nearest deadlines', () => {
+  it('puts only pinned buys in the carousel and sorts the rest by deadline', () => {
     const { main, rest } = splitBuys([
       buy('late', { due: '2027-01-01' }),
       buy('soon', { due: '2026-12-01' }),
@@ -81,15 +81,15 @@ describe('splitBuys', () => {
       buy('new', { pinned: 2 }),
       buy('free'),
     ]);
-    expect(main.map((b) => b.id)).toEqual(['new', 'old', 'soon']);
-    expect(rest.map((b) => b.id)).toEqual(['late', 'free']);
+    expect(main.map((b) => b.id)).toEqual(['new', 'old']);
+    expect(rest.map((b) => b.id)).toEqual(['soon', 'late', 'free']);
   });
 
-  it('keeps only the newest three up, the others go below', () => {
+  it('keeps all pinned buys in the carousel', () => {
     const list = [1, 2, 3, 4].map((n) => buy(`p${n}`, { pinned: n }));
     const { main, rest } = splitBuys(list);
-    expect(main.map((b) => b.id)).toEqual(['p4', 'p3', 'p2']);
-    expect(rest.map((b) => b.id)).toEqual(['p1']);
+    expect(main.map((b) => b.id)).toEqual(['p4', 'p3', 'p2', 'p1']);
+    expect(rest).toEqual([]);
   });
 });
 
