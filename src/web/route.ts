@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 export type Tab = 'home' | 'money' | 'shop' | 'tasks';
-export type Extra = 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis' | 'dream';
+export type Extra = 'stocks' | 'sleep' | 'mood' | 'github' | 'jarvis';
 export type Route = Tab | Extra;
 
 export interface Section {
@@ -27,7 +27,7 @@ export const EXTRAS: Section[] = [
   { id: 'github', label: 'GitHub', icon: 'github', hint: 'Полезные приложения и файлы' },
 ];
 
-const ALL = [...TABS, ...EXTRAS, { id: 'dream', label: 'Мечта', icon: 'flag', hint: 'Цель и накопления' } as const];
+const ALL = [...TABS, ...EXTRAS];
 export const section = (r: Route) => ALL.find((s) => s.id === r)!;
 export const tabIndex = (r: Route) => {
   const i = TABS.findIndex((t) => t.id === r);

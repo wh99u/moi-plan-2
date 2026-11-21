@@ -20,7 +20,7 @@ export interface Shared {
  */
 export function readProduct(doc: Document, pageUrl: string): Shared {
   type Node = Record<string, unknown>;
-  const NOTE_LENGTH = 1600;
+  const NOTE_LENGTH = 280;
   const TITLE_LENGTH = 120;
   const clean = (v: unknown, max: number) => {
     if (typeof v !== 'string') return undefined;

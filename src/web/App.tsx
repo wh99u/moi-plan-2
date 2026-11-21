@@ -17,7 +17,6 @@ import { Notice } from './Notice';
 import { Recede, startEntry } from './Recede';
 import { useRoute, type Route } from './route';
 import { Shop } from './shop/Shop';
-import { DreamPage } from './shop/Dream';
 import { FocusPill } from './tasks/FocusPill';
 import { Tasks } from './tasks/Tasks';
 import { Sheets } from './Sheets';
@@ -80,13 +79,13 @@ export function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      {route === 'home' && <Wave route={route} />}
+      <Wave route={route} />
       <AnimatePresence mode="wait">
-        <motion.main key={route} className="page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
-          {route === 'home' ? <Home /> : route === 'money' ? <Budget /> : route === 'shop' ? <Shop /> : route === 'tasks' ? <Tasks /> : route === 'dream' ? <DreamPage /> : <Soon route={route} />}
-        </motion.main>
+        <main key={route} className="page">
+          {route === 'home' ? <Home /> : route === 'money' ? <Budget /> : route === 'shop' ? <Shop /> : route === 'tasks' ? <Tasks /> : <Soon route={route} />}
+        </main>
       </AnimatePresence>
-      {route !== 'shop' && <TopBar route={route} />}
+      <TopBar route={route} />
       <Nav route={route} />
       <Notice />
       <Sheets />
